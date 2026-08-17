@@ -2,6 +2,7 @@ import {
     createSer,
     DuplicateToJsonError,
     FieldCasing,
+    InvalidPathError,
     PathCollisionError,
     Ser,
     UnknownTransparentFieldError,
@@ -566,6 +567,23 @@ Deno.test("toJSON()", async (ctx) => {
             }
 
             assertEquals(JSON.stringify(new Foo()), `1`);
+        });
+
+        await ctx.step("empty path segment", () => {
+            for (const path of ["", "a//b", "/a", "a/", "/"]) {
+                assertThrows(
+                    () => {
+                        @Ser()
+                        // deno-lint-ignore no-unused-vars
+                        class Foo {
+                            @Ser({ path })
+                            x = 1;
+                        }
+                    },
+                    InvalidPathError,
+                    `Path '${path}' contains an empty segment`,
+                );
+            }
         });
 
         await ctx.step("path key vs field key", async (ctx) => {

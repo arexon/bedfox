@@ -48,6 +48,16 @@ export class PathCollisionError extends TypeError {
     }
 }
 
+/**
+ * An error that occurs when {@link FieldOptions.path} contains an empty segment
+ * (e.g. `""`, `"a//b"`, `"/a"`, `"a/"`).
+ */
+export class InvalidPathError extends TypeError {
+    constructor(path: string) {
+        super(`Path '${path}' contains an empty segment`);
+    }
+}
+
 /** Which casing to use for serialized fields. */
 export const enum FieldCasing {
     Camel,
@@ -266,13 +276,20 @@ class Metadata {
     }
 
     setField(name: string, options: FieldOptions): void {
+        let path: string[] | undefined;
+        if (options.path !== undefined) {
+            path = options.path.split("/");
+            if (path.some((p) => p === "")) {
+                throw new InvalidPathError(options.path);
+            }
+        }
         this.fields[name] = {
             index: this.fieldsCount,
             name,
             custom: options.custom !== undefined ? options.custom : undefined,
             default: options.default,
             rename: options.rename,
-            path: options.path?.split("/"),
+            path,
         };
         this.fieldsCount++;
     }
