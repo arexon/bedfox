@@ -208,6 +208,7 @@ function classImpl(
 
 const CASEABLE_NAME = /^[A-Za-z][A-Za-z0-9]*$/;
 const CUSTOM_OVERRIDE_PREFIX = "customOverride";
+const IS_DEFAULT_PREFIX = "isDefault";
 const RESULT_VAR = "result";
 const FIELDS_METADATA_VAR = "fieldsMetadata";
 
@@ -323,17 +324,21 @@ function generateToJson(metadata: Metadata): string {
             }
 
             if (field.default !== undefined) {
-                const isDefault = `equal(${fieldMeta(field.name)}.default(),${
-                    thisProp(field.name)
-                })`;
+                const isDefaultVar = IS_DEFAULT_PREFIX + field.index;
+                consts.push([
+                    isDefaultVar,
+                    `equal(${fieldMeta(field.name)}.default(),${
+                        thisProp(field.name)
+                    })`,
+                ]);
                 if (
                     isNotTransparent && metadata.requireUndefinedForTransparency
                 ) {
-                    transparencyCheck.push(isDefault);
+                    transparencyCheck.push(isDefaultVar);
                 }
                 value = field.custom !== undefined
-                    ? `${isDefault}?undefined:${customExpr}`
-                    : `${isDefault}?undefined:${value}`;
+                    ? `${isDefaultVar}?undefined:${customExpr}`
+                    : `${isDefaultVar}?undefined:${value}`;
             }
 
             if (field.path !== undefined) {

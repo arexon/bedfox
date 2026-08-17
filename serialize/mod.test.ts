@@ -348,6 +348,26 @@ Deno.test("toJSON()", async (ctx) => {
         });
     });
 
+    await ctx.step("default() called once per serialize", () => {
+        let calls = 0;
+        @Ser({ transparent: "t" })
+        class Foo {
+            @Ser()
+            t = "x";
+
+            @Ser({
+                default: () => {
+                    calls++;
+                    return 0;
+                },
+            })
+            d = 0;
+        }
+
+        assertEquals(JSON.stringify(new Foo()), `"x"`);
+        assertEquals(calls, 1);
+    });
+
     await ctx.step("transparent", async (ctx) => {
         await ctx.step("unknown field", async (ctx) => {
             await ctx.step("with other fields", () => {
