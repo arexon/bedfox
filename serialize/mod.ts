@@ -100,8 +100,9 @@ export interface FieldOptions<FieldValue = unknown, This = unknown> {
      * Defines a callback that returns a custom value to override the serialized
      * field value.
      *
-     * When {@link FieldOptions.default} is set, it will compare against the
-     * custom value.
+     * When {@link FieldOptions.default} is set, it is compared against the
+     * field's current value (not the custom output). If they match, the field
+     * is omitted.
      */
     custom?(this: This, value: FieldValue): unknown;
     /**

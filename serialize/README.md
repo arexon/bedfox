@@ -95,7 +95,8 @@ assertEquals(JSON.stringify(conf), `{"minify":false}`);
 Defines a callback that returns a custom value to override the serialized field
 value.
 
-When `FieldOptions.default` is set, it will compare against the custom value.
+When `FieldOptions.default` is set, it is compared against the field's current
+value (not the custom output). If they match, the field is omitted.
 
 This can be used in conjunction with `ClassOptions.transparent` to completely
 change how the class is serialized.
