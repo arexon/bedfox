@@ -1,0 +1,470 @@
+import {
+    createSer,
+    DuplicateToJsonError,
+    FieldCasing,
+    Ser,
+    UnknownTransparentFieldError,
+} from "./mod.ts";
+import { assertEquals, assertThrows } from "@std/assert";
+
+Deno.test("toJSON()", async (ctx) => {
+    await ctx.step("empty", () => {
+        @Ser()
+        class Foo {}
+
+        assertEquals(JSON.stringify(new Foo()), `{}`);
+    });
+
+    await ctx.step("basic", () => {
+        @Ser()
+        class Foo {
+            @Ser()
+            a = 8;
+
+            @Ser()
+            b = "foo";
+        }
+
+        assertEquals(JSON.stringify(new Foo()), `{"a":8,"b":"foo"}`);
+    });
+
+    await ctx.step("special field names", () => {
+        @Ser()
+        class Foo {
+            @Ser()
+            "*" = 0;
+
+            @Ser()
+            "$" = 0;
+
+            @Ser()
+            "10" = 0;
+
+            @Ser()
+            "a:bB" = 0;
+        }
+
+        assertEquals(
+            JSON.stringify(new Foo()),
+            `{"10":0,"*":0,"$":0,"a:bB":0}`,
+        );
+    });
+
+    await ctx.step("inherit", async (ctx) => {
+        @Ser()
+        class Parent {
+            @Ser({ rename: "b" })
+            a = "foo";
+        }
+
+        await ctx.step("no method conflict", () => {
+            class Child extends Parent {}
+
+            assertEquals(JSON.stringify(new Child()), `{"b":"foo"}`);
+        });
+
+        await ctx.step("method conflict", () => {
+            assertThrows(
+                () => {
+                    @Ser()
+                    // deno-lint-ignore no-unused-vars
+                    class Child extends Parent {}
+                },
+                DuplicateToJsonError,
+                "Class 'Child' already has a toJSON() method defined",
+            );
+        });
+    });
+
+    await ctx.step("casing", async (ctx) => {
+        await ctx.step("camelCase", () => {
+            @Ser()
+            class Foo {
+                @Ser()
+                fooBarBazQux = 1;
+            }
+
+            assertEquals(JSON.stringify(new Foo()), `{"fooBarBazQux":1}`);
+        });
+
+        await ctx.step("kebab-case", () => {
+            const Ser = createSer({ fieldCasing: FieldCasing.Kebab });
+
+            @Ser()
+            class Foo {
+                @Ser()
+                fooBarBazQux = 1;
+            }
+
+            assertEquals(JSON.stringify(new Foo()), `{"foo-bar-baz-qux":1}`);
+        });
+
+        await ctx.step("PascalCase", () => {
+            const Ser = createSer({ fieldCasing: FieldCasing.Pascal });
+
+            @Ser()
+            class Foo {
+                @Ser()
+                fooBarBazQux = 1;
+            }
+
+            assertEquals(JSON.stringify(new Foo()), `{"FooBarBazQux":1}`);
+        });
+
+        await ctx.step("snake_case", () => {
+            const Ser = createSer({ fieldCasing: FieldCasing.Snake });
+
+            @Ser()
+            class Foo {
+                @Ser()
+                fooBarBazQux = 1;
+            }
+
+            assertEquals(JSON.stringify(new Foo()), `{"foo_bar_baz_qux":1}`);
+        });
+    });
+
+    await ctx.step("rename", async (ctx) => {
+        await ctx.step("basic", () => {
+            @Ser()
+            class Foo {
+                @Ser({ rename: "no" })
+                yes = 1;
+            }
+
+            assertEquals(JSON.stringify(new Foo()), `{"no":1}`);
+        });
+
+        await ctx.step("with custom override merge", () => {
+            @Ser()
+            class Foo {
+                @Ser({ rename: "no" })
+                yes = 1;
+
+                @Ser({ custom: [(v) => ({ no: v + 20 }), "merge"] })
+                merge = 1;
+            }
+
+            assertEquals(JSON.stringify(new Foo()), `{"no":21}`);
+        });
+    });
+
+    await ctx.step("defaults", async (ctx) => {
+        @Ser()
+        class Bar {
+            @Ser()
+            a = 0;
+        }
+
+        @Ser()
+        class Foo {
+            @Ser()
+            noDefault = 8;
+
+            @Ser({ default: () => "foo" })
+            primitive = "foo";
+
+            @Ser({ default: () => ["foo", "bar"] })
+            object = ["foo", "bar"];
+
+            @Ser({ default: () => new Bar() })
+            instance = new Bar();
+        }
+
+        const v = new Foo();
+        await ctx.step("all", () => {
+            assertEquals(JSON.stringify(v), `{"noDefault":8}`);
+        });
+
+        await ctx.step("primitive", () => {
+            v.primitive = "qux";
+            assertEquals(
+                JSON.stringify(v),
+                `{"noDefault":8,"primitive":"qux"}`,
+            );
+        });
+
+        await ctx.step("object", () => {
+            v.object.push("baz");
+            assertEquals(
+                JSON.stringify(v),
+                `{"noDefault":8,"primitive":"qux","object":["foo","bar","baz"]}`,
+            );
+        });
+
+        await ctx.step("instance", () => {
+            v.instance.a = 10;
+            assertEquals(
+                JSON.stringify(v),
+                `{"noDefault":8,"primitive":"qux","object":["foo","bar","baz"],"instance":{"a":10}}`,
+            );
+        });
+    });
+
+    await ctx.step("custom override", async (ctx) => {
+        await ctx.step("normal", () => {
+            @Ser()
+            class Foo {
+                @Ser({
+                    custom: [(_, foo) => ["custom", foo.normal], "normal"],
+                })
+                normal: string | string[] = "foo";
+
+                @Ser({
+                    custom: [(v) => ["custom", v], "normal"],
+                    default: () => "foo",
+                })
+                normalDefaulted: string | string[] = "foo";
+            }
+
+            const v = new Foo();
+            assertEquals(JSON.stringify(v), `{"normal":["custom","foo"]}`);
+
+            v.normalDefaulted = "bar";
+            assertEquals(
+                JSON.stringify(v),
+                `{"normal":["custom","foo"],"normalDefaulted":["custom","bar"]}`,
+            );
+        });
+
+        await ctx.step("merge", () => {
+            @Ser()
+            class Foo {
+                @Ser()
+                a = 1;
+
+                @Ser()
+                b = 2;
+
+                @Ser({
+                    custom: [(v) => v, "merge"],
+                    default: () => ({ a: 10, c: 3 }),
+                })
+                merge = { a: 10, c: 3 };
+            }
+
+            const v = new Foo();
+            assertEquals(JSON.stringify(v), `{"a":1,"b":2}`);
+
+            v.merge.a = 12;
+            assertEquals(JSON.stringify(v), `{"a":12,"b":2,"c":3}`);
+        });
+    });
+
+    await ctx.step("transparent", async (ctx) => {
+        await ctx.step("unknown field", () => {
+            assertThrows(
+                () => {
+                    @Ser({ transparent: "wrong" })
+                    // deno-lint-ignore no-unused-vars
+                    class Transparent {
+                        @Ser()
+                        a = "foo";
+                    }
+                },
+                UnknownTransparentFieldError,
+                "Cannot find a matching instance/getter field named 'wrong' in class 'Transparent'",
+            );
+        });
+
+        await ctx.step("without requiring undefined for other fields", () => {
+            const Ser = createSer({ requireUndefinedForTransparency: false });
+
+            @Ser({ transparent: "a" })
+            class NoRequireUndefined {
+                @Ser()
+                a = "foo";
+                @Ser()
+                b: boolean | undefined = undefined;
+            }
+
+            const v = new NoRequireUndefined();
+            assertEquals(JSON.stringify(v), `"foo"`);
+            v.b = false;
+            assertEquals(JSON.stringify(v), `"foo"`);
+        });
+
+        await ctx.step("with default", () => {
+            @Ser({ transparent: "basic" })
+            class WithDefault {
+                @Ser()
+                basic = "foo";
+
+                @Ser({ default: () => true })
+                default = true;
+            }
+
+            const v = new WithDefault();
+            assertEquals(JSON.stringify(v), `"foo"`);
+
+            v.default = false;
+            assertEquals(JSON.stringify(v), `{"basic":"foo","default":false}`);
+        });
+
+        await ctx.step("on default", () => {
+            @Ser({ transparent: "default" })
+            class OnDefault {
+                @Ser({ default: () => true })
+                default = true;
+            }
+
+            const v = new OnDefault();
+            assertEquals(JSON.stringify(v), `true`);
+
+            v.default = false;
+            assertEquals(JSON.stringify(v), `false`);
+        });
+
+        await ctx.step("on custom (normal) + on default", () => {
+            @Ser({ transparent: "custom" })
+            class OnCustom {
+                @Ser()
+                basic? = "foo";
+
+                @Ser({
+                    custom: [(v) => ["custom", v], "normal"],
+                    default: () => "foo",
+                })
+                custom: string | string[] = "bar";
+            }
+
+            const v = new OnCustom();
+            assertEquals(
+                JSON.stringify(v),
+                `{"basic":"foo","custom":["custom","bar"]}`,
+            );
+
+            v.custom = "foo";
+            assertEquals(JSON.stringify(v), `{"basic":"foo"}`);
+
+            v.basic = undefined;
+            assertEquals(JSON.stringify(v), `["custom","foo"]`);
+        });
+
+        await ctx.step("on custom (merge)", () => {
+            @Ser({ transparent: "custom" })
+            class OnCustom {
+                @Ser()
+                basic? = "foo";
+
+                @Ser({
+                    custom: [(v) => ({ merged: v }), "merge"],
+                    default: () => false,
+                })
+                custom: boolean | { merged: boolean } = false;
+            }
+
+            const v = new OnCustom();
+            assertEquals(JSON.stringify(v), `{"basic":"foo"}`);
+
+            v.custom = true;
+            assertEquals(JSON.stringify(v), `{"basic":"foo","merged":true}`);
+
+            v.basic = undefined;
+            assertEquals(JSON.stringify(v), `{"merged":true}`);
+        });
+
+        await ctx.step("on getter", () => {
+            @Ser({ transparent: "name" })
+            class OnGetter {
+                get name(): string {
+                    return "foo";
+                }
+            }
+
+            assertEquals(JSON.stringify(new OnGetter()), `"foo"`);
+        });
+    });
+
+    await ctx.step("path", async (ctx) => {
+        await ctx.step("basic", () => {
+            @Ser()
+            class Foo {
+                @Ser({ path: "root:foo/bar" })
+                a = 1;
+
+                @Ser({ path: "root:foo/baz/quux" })
+                b = 2;
+            }
+
+            assertEquals(
+                JSON.stringify(new Foo()),
+                `{"root:foo":{"bar":{"a":1},"baz":{"quux":{"b":2}}}}`,
+            );
+        });
+
+        await ctx.step("rename + custom", () => {
+            @Ser()
+            class Foo {
+                @Ser({
+                    path: "root:foo",
+                    rename: "__rename__",
+                })
+                rename = 1;
+
+                @Ser({
+                    path: "root:foo/bar",
+                    rename: "__rename__",
+                    custom: [(v) => v, "merge"],
+                })
+                renameWithCustomMerge = { merge: 1 };
+
+                @Ser({
+                    path: "root:foo/bar",
+                    rename: "__rename__",
+                    custom: [(v) => v, "normal"],
+                })
+                renameWithCustomNormal = { normal: 1 };
+            }
+
+            assertEquals(
+                JSON.stringify(new Foo()),
+                `{"root:foo":{"__rename__":1,"bar":{"merge":1,"__rename__":{"normal":1}}}}`,
+            );
+        });
+
+        await ctx.step("transparent", () => {
+            @Ser({ transparent: "value" })
+            class Foo {
+                @Ser({ path: "root:foo/bar" })
+                value = 1;
+            }
+
+            assertEquals(JSON.stringify(new Foo()), `1`);
+        });
+    });
+
+    await ctx.step("nested", async (ctx) => {
+        await ctx.step("basic", () => {
+            @Ser()
+            class Child {
+                @Ser({ rename: "b" })
+                a = "foo";
+            }
+
+            @Ser()
+            class Parent {
+                @Ser()
+                child = new Child();
+            }
+
+            assertEquals(JSON.stringify(new Parent()), `{"child":{"b":"foo"}}`);
+        });
+
+        await ctx.step(JSON.stringify("transparent"), () => {
+            @Ser()
+            class Child {
+                @Ser({ rename: "b" })
+                a = "foo";
+            }
+
+            @Ser({ transparent: "child" })
+            class Parent {
+                @Ser()
+                child = new Child();
+            }
+
+            assertEquals(JSON.stringify(new Parent()), `{"b":"foo"}`);
+        });
+    });
+});

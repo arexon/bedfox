@@ -1,6 +1,23 @@
 {
     "$schema": "https://raw.githubusercontent.com/denoland/deno/refs/heads/main/cli/schemas/config-file.v1.json",
+    "workspace": [
+        "serialize"
+    ],
+    "exclude": ["playground"],
+    "tasks": {
+        "test": "deno test --doc",
+        "ready": "deno task test && deno fmt --check && deno lint && deno check"
+    },
     "fmt": {
         "indentWidth": 4
+    },
+    "lint": {
+        "rules": {
+            "include": ["explicit-function-return-type"]
+        }
+    },
+    "imports": {
+        "@std/assert": "jsr:@std/assert@^1.0.19",
+        "@std/text": "jsr:@std/text@^1.0.18"
     }
 }
