@@ -184,6 +184,11 @@ const MySer = createSer({
 });
 ```
 
+Note: Use one `Ser` (whether it is the exported one or from `createSer()`) per
+class. Mixing different `Ser` factories on the same class shares one metadata
+bag internally; `GlobalOptions` come from whichever field decorator runs first,
+which can cause unintended behaviors.
+
 ### Field Name Handling
 
 Field names can be affected by multiple options. Below is their priority order
