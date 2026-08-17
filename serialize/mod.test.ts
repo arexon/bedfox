@@ -482,6 +482,40 @@ Deno.test("toJSON()", async (ctx) => {
 
             assertEquals(JSON.stringify(new OnGetter()), `"foo"`);
         });
+
+        await ctx.step("value evaluated once", async (ctx) => {
+            await ctx.step("getter", () => {
+                let calls = 0;
+                @Ser({ transparent: "name" })
+                class OnGetter {
+                    get name(): string {
+                        calls++;
+                        return "foo";
+                    }
+                }
+
+                assertEquals(JSON.stringify(new OnGetter()), `"foo"`);
+                assertEquals(calls, 1);
+            });
+
+            await ctx.step("custom + default", () => {
+                let calls = 0;
+                @Ser({ transparent: "c" })
+                class OnCustom {
+                    @Ser({
+                        custom: (v) => {
+                            calls++;
+                            return v;
+                        },
+                        default: () => 0,
+                    })
+                    c = 1;
+                }
+
+                assertEquals(JSON.stringify(new OnCustom()), `1`);
+                assertEquals(calls, 1);
+            });
+        });
     });
 
     await ctx.step("path", async (ctx) => {

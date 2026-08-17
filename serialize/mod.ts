@@ -211,6 +211,11 @@ const CUSTOM_OVERRIDE_PREFIX = "customOverride";
 const IS_DEFAULT_PREFIX = "isDefault";
 const RESULT_VAR = "result";
 const FIELDS_METADATA_VAR = "fieldsMetadata";
+const TRANSPARENT_VAR = "transparent";
+
+function transparentConst(expr: string): string {
+    return `const ${TRANSPARENT_VAR}=${expr};return ${TRANSPARENT_VAR}?.toJSON?.()??${TRANSPARENT_VAR};`;
+}
 
 function thisProp(name: string): string {
     return `this[${JSON.stringify(name)}]`;
@@ -418,23 +423,22 @@ function generateToJson(metadata: Metadata): string {
                 value = thisProp(metadata.transparent);
             }
 
-            value = `${value}?.toJSON?.()??${value}`;
-
             if (
                 transparencyChecks.length > 0 &&
                 metadata.requireUndefinedForTransparency
             ) {
-                body += `if(${transparencyChecks.join("&&")})return ${value};`;
+                body += `if(${transparencyChecks.join("&&")}){${
+                    transparentConst(value)
+                }}`;
                 body += `return ${RESULT_VAR};`;
             } else {
-                body += `return ${value};`;
+                body += transparentConst(value);
             }
         } else if (transparencyChecks.length > 0) {
             body += `return ${RESULT_VAR};`;
         }
     } else if (metadata.transparent !== undefined) {
-        const v = thisProp(metadata.transparent);
-        body += `return ${v}?.toJSON?.()??${v};`;
+        body += transparentConst(thisProp(metadata.transparent));
     } else {
         body += "return {};";
     }
