@@ -144,12 +144,17 @@ Deno.test("toJSON()", async (ctx) => {
         });
 
         await ctx.step("transparent", () => {
-            @Ser({ transparent: "#x" })
-            class Foo {
-                #x = 42;
-            }
-
-            assertEquals(JSON.stringify(new Foo()), undefined);
+            assertThrows(
+                () => {
+                    @Ser({ transparent: "#x" })
+                    // deno-lint-ignore no-unused-vars
+                    class Foo {
+                        #x = 42;
+                    }
+                },
+                UnknownTransparentFieldError,
+                "Cannot find a matching instance/getter field named '#x' in class 'Foo'",
+            );
         });
     });
 
@@ -319,19 +324,33 @@ Deno.test("toJSON()", async (ctx) => {
     });
 
     await ctx.step("transparent", async (ctx) => {
-        await ctx.step("unknown field", () => {
-            assertThrows(
-                () => {
-                    @Ser({ transparent: "wrong" })
-                    // deno-lint-ignore no-unused-vars
-                    class Transparent {
-                        @Ser()
-                        a = "foo";
-                    }
-                },
-                UnknownTransparentFieldError,
-                "Cannot find a matching instance/getter field named 'wrong' in class 'Transparent'",
-            );
+        await ctx.step("unknown field", async (ctx) => {
+            await ctx.step("with other fields", () => {
+                assertThrows(
+                    () => {
+                        @Ser({ transparent: "wrong" })
+                        // deno-lint-ignore no-unused-vars
+                        class Transparent {
+                            @Ser()
+                            a = "foo";
+                        }
+                    },
+                    UnknownTransparentFieldError,
+                    "Cannot find a matching instance/getter field named 'wrong' in class 'Transparent'",
+                );
+            });
+
+            await ctx.step("with zero fields", () => {
+                assertThrows(
+                    () => {
+                        @Ser({ transparent: "wrong" })
+                        // deno-lint-ignore no-unused-vars
+                        class Transparent {}
+                    },
+                    UnknownTransparentFieldError,
+                    "Cannot find a matching instance/getter field named 'wrong' in class 'Transparent'",
+                );
+            });
         });
 
         await ctx.step("without requiring undefined for other fields", () => {

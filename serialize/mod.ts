@@ -181,11 +181,17 @@ function classImpl(
     ctx.metadata[Metadata.symbol] ??= new Metadata("", globalOptions);
     const metadata = ctx.metadata[Metadata.symbol]!;
 
-    metadata.transparent = options?.transparent;
-
     // The order of class decorator is a bit odd, so this ensures we'll eventually
     // have the class name.
     if (metadata.className === "") metadata.className = ctor.name;
+
+    if (options?.transparent !== undefined) {
+        const name = options.transparent;
+        if (!(name in metadata.fields) && !(name in ctor.prototype)) {
+            throw new UnknownTransparentFieldError(ctor.name, name);
+        }
+        metadata.transparent = name;
+    }
 
     const body = generateToJson(metadata);
     const fn = new Function(Metadata.symbolName, "equal", body);
@@ -391,20 +397,10 @@ function generateToJson(metadata: Metadata): string {
         }
 
         if (metadata.transparent !== undefined) {
-            const transparentField = metadata.fields[metadata.transparent]!;
-            if (transparentField === undefined) {
-                throw new UnknownTransparentFieldError(
-                    metadata.className,
-                    metadata.transparent,
-                );
-            }
-
-            let value: string;
-            if (transparentField.custom !== undefined) {
-                value = CUSTOM_OVERRIDE_PREFIX + transparentField.index;
-            } else {
-                value = thisProp(transparentField.name);
-            }
+            const transparentField = metadata.fields[metadata.transparent];
+            let value = transparentField?.custom !== undefined
+                ? CUSTOM_OVERRIDE_PREFIX + transparentField.index
+                : thisProp(metadata.transparent);
 
             value = `${value}?.toJSON?.()??${value}`;
 
@@ -421,7 +417,8 @@ function generateToJson(metadata: Metadata): string {
             body += `return ${RESULT_VAR};`;
         }
     } else if (metadata.transparent !== undefined) {
-        body += `return ${thisProp(metadata.transparent)};`;
+        const v = thisProp(metadata.transparent);
+        body += `return ${v}?.toJSON?.()??${v};`;
     } else {
         body += "return {};";
     }
