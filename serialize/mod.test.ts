@@ -203,7 +203,19 @@ Deno.test("toJSON()", async (ctx) => {
     });
 
     await ctx.step("casing", async (ctx) => {
+        await ctx.step("snake_case", () => {
+            @Ser()
+            class Foo {
+                @Ser()
+                fooBarBazQux = 1;
+            }
+
+            assertEquals(JSON.stringify(new Foo()), `{"foo_bar_baz_qux":1}`);
+        });
+
         await ctx.step("camelCase", () => {
+            const Ser = createSer({ fieldCasing: FieldCasing.Camel });
+
             @Ser()
             class Foo {
                 @Ser()
@@ -235,18 +247,6 @@ Deno.test("toJSON()", async (ctx) => {
             }
 
             assertEquals(JSON.stringify(new Foo()), `{"FooBarBazQux":1}`);
-        });
-
-        await ctx.step("snake_case", () => {
-            const Ser = createSer({ fieldCasing: FieldCasing.Snake });
-
-            @Ser()
-            class Foo {
-                @Ser()
-                fooBarBazQux = 1;
-            }
-
-            assertEquals(JSON.stringify(new Foo()), `{"foo_bar_baz_qux":1}`);
         });
     });
 
@@ -286,14 +286,14 @@ Deno.test("toJSON()", async (ctx) => {
 
         const v = new Foo();
         await ctx.step("all", () => {
-            assertEquals(JSON.stringify(v), `{"noDefault":8}`);
+            assertEquals(JSON.stringify(v), `{"no_default":8}`);
         });
 
         await ctx.step("primitive", () => {
             v.primitive = "qux";
             assertEquals(
                 JSON.stringify(v),
-                `{"noDefault":8,"primitive":"qux"}`,
+                `{"no_default":8,"primitive":"qux"}`,
             );
         });
 
@@ -301,7 +301,7 @@ Deno.test("toJSON()", async (ctx) => {
             v.object.push("baz");
             assertEquals(
                 JSON.stringify(v),
-                `{"noDefault":8,"primitive":"qux","object":["foo","bar","baz"]}`,
+                `{"no_default":8,"primitive":"qux","object":["foo","bar","baz"]}`,
             );
         });
 
@@ -309,7 +309,7 @@ Deno.test("toJSON()", async (ctx) => {
             v.instance.a = 10;
             assertEquals(
                 JSON.stringify(v),
-                `{"noDefault":8,"primitive":"qux","object":["foo","bar","baz"],"instance":{"a":10}}`,
+                `{"no_default":8,"primitive":"qux","object":["foo","bar","baz"],"instance":{"a":10}}`,
             );
         });
     });
@@ -338,7 +338,7 @@ Deno.test("toJSON()", async (ctx) => {
             v.aDefaulted = "bar";
             assertEquals(
                 JSON.stringify(v),
-                `{"a":["custom","foo"],"aDefaulted":["custom","bar"]}`,
+                `{"a":["custom","foo"],"a_defaulted":["custom","bar"]}`,
             );
         });
 

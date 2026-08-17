@@ -78,7 +78,7 @@ export interface GlobalOptions {
     /**
      * The field casing to use for all fields.
      *
-     * Default: camelCase
+     * Default: snake_case
      */
     fieldCasing?: FieldCasing;
     /**
@@ -265,7 +265,7 @@ class Metadata {
 
     constructor(className: string, globalOptions: GlobalOptions) {
         this.className = className;
-        switch (globalOptions.fieldCasing ?? FieldCasing.Camel) {
+        switch (globalOptions.fieldCasing ?? FieldCasing.Snake) {
             case FieldCasing.Camel:
                 this.fieldCasingFn = toCamelCase;
                 break;

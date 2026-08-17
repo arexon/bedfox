@@ -166,7 +166,7 @@ class Puppy {
 
 assertEquals(
     JSON.stringify(new Puppy()),
-    `{"class:dog":{"puppy":{"isCute":true}}}`,
+    `{"class:dog":{"puppy":{"is_cute":true}}}`,
 );
 ```
 
@@ -179,7 +179,7 @@ automatically be applied to all annotated classes.
 import { createSer, FieldCasing } from "@bedfox/serialize";
 
 const MySer = createSer({
-    fieldCasing: FieldCasing.Snake,
+    fieldCasing: FieldCasing.Camel,
     requireUndefinedForTransparency: false,
 });
 ```
