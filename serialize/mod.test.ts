@@ -134,19 +134,6 @@ Deno.test("toJSON()", async (ctx) => {
 
             assertEquals(JSON.stringify(new Foo()), `{"no":1}`);
         });
-
-        await ctx.step("with custom override merge", () => {
-            @Ser()
-            class Foo {
-                @Ser({ rename: "no" })
-                yes = 1;
-
-                @Ser({ custom: [(v) => ({ no: v + 20 }), "merge"] })
-                merge = 1;
-            }
-
-            assertEquals(JSON.stringify(new Foo()), `{"no":21}`);
-        });
     });
 
     await ctx.step("defaults", async (ctx) => {
@@ -201,54 +188,29 @@ Deno.test("toJSON()", async (ctx) => {
         });
     });
 
-    await ctx.step("custom override", async (ctx) => {
-        await ctx.step("normal", () => {
-            @Ser()
-            class Foo {
-                @Ser({
-                    custom: [(_, foo) => ["custom", foo.normal], "normal"],
-                })
-                normal: string | string[] = "foo";
+    await ctx.step("custom override", () => {
+        @Ser()
+        class Foo {
+            @Ser({
+                custom: (_, foo) => ["custom", foo.a],
+            })
+            a: string | string[] = "foo";
 
-                @Ser({
-                    custom: [(v) => ["custom", v], "normal"],
-                    default: () => "foo",
-                })
-                normalDefaulted: string | string[] = "foo";
-            }
+            @Ser({
+                custom: (v) => ["custom", v],
+                default: () => "foo",
+            })
+            aDefaulted: string | string[] = "foo";
+        }
 
-            const v = new Foo();
-            assertEquals(JSON.stringify(v), `{"normal":["custom","foo"]}`);
+        const v = new Foo();
+        assertEquals(JSON.stringify(v), `{"a":["custom","foo"]}`);
 
-            v.normalDefaulted = "bar";
-            assertEquals(
-                JSON.stringify(v),
-                `{"normal":["custom","foo"],"normalDefaulted":["custom","bar"]}`,
-            );
-        });
-
-        await ctx.step("merge", () => {
-            @Ser()
-            class Foo {
-                @Ser()
-                a = 1;
-
-                @Ser()
-                b = 2;
-
-                @Ser({
-                    custom: [(v) => v, "merge"],
-                    default: () => ({ a: 10, c: 3 }),
-                })
-                merge = { a: 10, c: 3 };
-            }
-
-            const v = new Foo();
-            assertEquals(JSON.stringify(v), `{"a":1,"b":2}`);
-
-            v.merge.a = 12;
-            assertEquals(JSON.stringify(v), `{"a":12,"b":2,"c":3}`);
-        });
+        v.aDefaulted = "bar";
+        assertEquals(
+            JSON.stringify(v),
+            `{"a":["custom","foo"],"aDefaulted":["custom","bar"]}`,
+        );
     });
 
     await ctx.step("transparent", async (ctx) => {
@@ -315,14 +277,14 @@ Deno.test("toJSON()", async (ctx) => {
             assertEquals(JSON.stringify(v), `false`);
         });
 
-        await ctx.step("on custom (normal) + on default", () => {
+        await ctx.step("on custom + on default", () => {
             @Ser({ transparent: "custom" })
             class OnCustom {
                 @Ser()
                 basic? = "foo";
 
                 @Ser({
-                    custom: [(v) => ["custom", v], "normal"],
+                    custom: (v) => ["custom", v],
                     default: () => "foo",
                 })
                 custom: string | string[] = "bar";
@@ -339,29 +301,6 @@ Deno.test("toJSON()", async (ctx) => {
 
             v.basic = undefined;
             assertEquals(JSON.stringify(v), `["custom","foo"]`);
-        });
-
-        await ctx.step("on custom (merge)", () => {
-            @Ser({ transparent: "custom" })
-            class OnCustom {
-                @Ser()
-                basic? = "foo";
-
-                @Ser({
-                    custom: [(v) => ({ merged: v }), "merge"],
-                    default: () => false,
-                })
-                custom: boolean | { merged: boolean } = false;
-            }
-
-            const v = new OnCustom();
-            assertEquals(JSON.stringify(v), `{"basic":"foo"}`);
-
-            v.custom = true;
-            assertEquals(JSON.stringify(v), `{"basic":"foo","merged":true}`);
-
-            v.basic = undefined;
-            assertEquals(JSON.stringify(v), `{"merged":true}`);
         });
 
         await ctx.step("on getter", () => {
@@ -405,21 +344,14 @@ Deno.test("toJSON()", async (ctx) => {
                 @Ser({
                     path: "root:foo/bar",
                     rename: "__rename__",
-                    custom: [(v) => v, "merge"],
+                    custom: (v) => v,
                 })
-                renameWithCustomMerge = { merge: 1 };
-
-                @Ser({
-                    path: "root:foo/bar",
-                    rename: "__rename__",
-                    custom: [(v) => v, "normal"],
-                })
-                renameWithCustomNormal = { normal: 1 };
+                renameWithCustom = { a: 1 };
             }
 
             assertEquals(
                 JSON.stringify(new Foo()),
-                `{"root:foo":{"__rename__":1,"bar":{"merge":1,"__rename__":{"normal":1}}}}`,
+                `{"root:foo":{"__rename__":1,"bar":{"__rename__":{"a":1}}}}`,
             );
         });
 

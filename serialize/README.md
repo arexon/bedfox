@@ -93,12 +93,7 @@ assertEquals(JSON.stringify(conf), `{"minify":false}`);
 #### `FieldOptions.custom`
 
 Defines a callback that returns a custom value to override the serialized field
-and a strategy for how the custom value should be serialized.
-
-Strategies:
-
-- `normal`: directly place the value as is
-- `merge`: merge the value (object, array) with the class object properties
+value.
 
 When `FieldOptions.default` is set, it will compare against the custom value.
 
@@ -114,7 +109,7 @@ class Rgb {
     r: number;
     g: number;
     b: number;
-    @Ser({ custom: [(_value, rgb) => `${rgb.r},${rgb.g},${rgb.b}`, "normal"] })
+    @Ser({ custom: (_value, rgb) => `${rgb.r},${rgb.g},${rgb.b}` })
     readonly #value: string = "";
 
     constructor(r: number, g: number, b: number) {
@@ -130,9 +125,6 @@ assertEquals(JSON.stringify(new Rgb(209, 151, 240)), `"209,151,240"`);
 #### `FieldOptions.rename`
 
 A custom name for the serialized field.
-
-When `FieldOptions.custom` is set to `merge`, merged fields that match the
-renamed key will overwrite it.
 
 ```ts
 import { Ser } from "@bedfox/serialize";

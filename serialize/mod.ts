@@ -86,24 +86,14 @@ export interface FieldOptions<FieldValue = unknown, This = unknown> {
     default?: () => FieldValue;
     /**
      * Defines a callback that returns a custom value to override the serialized
-     * field and a strategy for how the custom value should be serialized.
-     *
-     * Strategies:
-     * - `normal`: directly place the value as is
-     * - `merge`: merge the value (object, array) with the class object properties
+     * field value.
      *
      * When {@link FieldOptions.default} is set, it will compare against the
      * custom value.
      */
-    custom?: [
-        (value: FieldValue, instance: This) => unknown,
-        "normal" | "merge",
-    ];
+    custom?: (value: FieldValue, instance: This) => unknown;
     /**
      * A custom name for the serialized field.
-     *
-     * When {@link FieldOptions.custom} is set to `merge`, merged fields that
-     * match the renamed key will overwrite it.
      */
     rename?: string;
     /**
@@ -201,16 +191,12 @@ const SPECIAL_CHARACTERS_REGEXP = /[$&+,:;=?@#|'<>.^*()%!-]/;
 const CUSTOM_OVERRIDE_PREFIX = "customOverride";
 const RESULT_VAR = "result";
 const FIELDS_METADATA_VAR = "fieldsMetadata";
-const MERGE_KEY = "...";
 
 interface FieldMetadata {
     index: number;
     name: string;
     default?: () => unknown;
-    custom?: {
-        fn: (value: unknown, instance: unknown) => unknown;
-        strategy: "normal" | "merge";
-    };
+    custom?: (value: unknown, instance: unknown) => unknown;
     rename?: string;
     path?: string[];
 }
@@ -250,9 +236,7 @@ class Metadata {
         this.fields[name] = {
             index: this.fieldsCount,
             name,
-            custom: options.custom !== undefined
-                ? { fn: options.custom[0], strategy: options.custom[1] }
-                : undefined,
+            custom: options.custom !== undefined ? options.custom : undefined,
             default: options.default,
             rename: options.rename,
             path: options.path?.split("/"),
@@ -262,9 +246,7 @@ class Metadata {
 
     getKey(name: string): string {
         const field = this.fields[name];
-        if (field.custom?.strategy === "merge") {
-            return MERGE_KEY;
-        } else if (field.rename !== undefined) {
+        if (field.rename !== undefined) {
             return field.rename;
         } else if (!SPECIAL_CHARACTERS_REGEXP.test(field.name)) {
             return this.fieldCasingFn(field.name);
@@ -307,7 +289,7 @@ function generateToJson(metadata: Metadata): string {
                 const customOverride = CUSTOM_OVERRIDE_PREFIX + field.index;
                 consts.push([
                     customOverride,
-                    `${FIELDS_METADATA_VAR}.fields["${field.name}"].custom.fn(${value},this)`,
+                    `${FIELDS_METADATA_VAR}.fields["${field.name}"].custom(${value},this)`,
                 ]);
                 value = customOverride;
             }
@@ -342,15 +324,11 @@ function generateToJson(metadata: Metadata): string {
         const appendObjectProps = (objectProps: ObjectProps) => {
             body += "{";
             for (const [key, value] of Object.entries(objectProps)) {
-                if (key === MERGE_KEY) {
-                    body += MERGE_KEY + value;
+                body += `"${key}":`;
+                if (typeof value === "string") {
+                    body += value;
                 } else {
-                    body += `"${key}":`;
-                    if (typeof value === "string") {
-                        body += value;
-                    } else {
-                        appendObjectProps(value);
-                    }
+                    appendObjectProps(value);
                 }
                 body += ",";
             }
