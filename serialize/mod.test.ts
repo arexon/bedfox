@@ -296,31 +296,56 @@ Deno.test("toJSON()", async (ctx) => {
         });
     });
 
-    await ctx.step("custom override", () => {
-        @Ser()
-        class Foo {
-            @Ser({
-                custom(): ["custom", string | string[]] {
-                    return ["custom", this.a];
-                },
-            })
-            a: string | string[] = "foo";
+    await ctx.step("custom override", async (ctx) => {
+        await ctx.step("basic", () => {
+            @Ser()
+            class Foo {
+                @Ser({
+                    custom(): ["custom", string | string[]] {
+                        return ["custom", this.a];
+                    },
+                })
+                a: string | string[] = "foo";
 
-            @Ser({
-                custom: (v) => ["custom", v],
-                default: () => "foo",
-            })
-            aDefaulted: string | string[] = "foo";
-        }
+                @Ser({
+                    custom: (v) => ["custom", v],
+                    default: () => "foo",
+                })
+                aDefaulted: string | string[] = "foo";
+            }
 
-        const v = new Foo();
-        assertEquals(JSON.stringify(v), `{"a":["custom","foo"]}`);
+            const v = new Foo();
+            assertEquals(JSON.stringify(v), `{"a":["custom","foo"]}`);
 
-        v.aDefaulted = "bar";
-        assertEquals(
-            JSON.stringify(v),
-            `{"a":["custom","foo"],"aDefaulted":["custom","bar"]}`,
-        );
+            v.aDefaulted = "bar";
+            assertEquals(
+                JSON.stringify(v),
+                `{"a":["custom","foo"],"aDefaulted":["custom","bar"]}`,
+            );
+        });
+
+        await ctx.step("skipped when default omits", () => {
+            let calls = 0;
+            @Ser()
+            class Foo {
+                @Ser({
+                    custom: (v) => {
+                        calls++;
+                        return v;
+                    },
+                    default: () => 1,
+                })
+                x = 1;
+            }
+
+            assertEquals(JSON.stringify(new Foo()), `{}`);
+            assertEquals(calls, 0);
+
+            const v = new Foo();
+            v.x = 2;
+            assertEquals(JSON.stringify(v), `{"x":2}`);
+            assertEquals(calls, 1);
+        });
     });
 
     await ctx.step("transparent", async (ctx) => {

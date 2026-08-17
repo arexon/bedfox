@@ -312,12 +312,13 @@ function generateToJson(metadata: Metadata): string {
                 }
             }
 
-            if (field.custom !== undefined) {
+            const customExpr = field.custom !== undefined
+                ? `${fieldMeta(field.name)}.custom.call(this,${value})`
+                : undefined;
+
+            if (field.custom !== undefined && field.default === undefined) {
                 const customOverride = CUSTOM_OVERRIDE_PREFIX + field.index;
-                consts.push([
-                    customOverride,
-                    `${fieldMeta(field.name)}.custom.call(this,${value})`,
-                ]);
+                consts.push([customOverride, customExpr!]);
                 value = customOverride;
             }
 
@@ -330,7 +331,9 @@ function generateToJson(metadata: Metadata): string {
                 ) {
                     transparencyCheck.push(isDefault);
                 }
-                value = `${isDefault}?undefined:${value}`;
+                value = field.custom !== undefined
+                    ? `${isDefault}?undefined:${customExpr}`
+                    : `${isDefault}?undefined:${value}`;
             }
 
             if (field.path !== undefined) {
@@ -399,9 +402,16 @@ function generateToJson(metadata: Metadata): string {
 
         if (metadata.transparent !== undefined) {
             const transparentField = metadata.fields[metadata.transparent];
-            let value = transparentField?.custom !== undefined
-                ? CUSTOM_OVERRIDE_PREFIX + transparentField.index
-                : thisProp(metadata.transparent);
+            let value: string;
+            if (transparentField?.custom !== undefined) {
+                value = transparentField.default === undefined
+                    ? CUSTOM_OVERRIDE_PREFIX + transparentField.index
+                    : `${fieldMeta(transparentField.name)}.custom.call(this,${
+                        thisProp(transparentField.name)
+                    })`;
+            } else {
+                value = thisProp(metadata.transparent);
+            }
 
             value = `${value}?.toJSON?.()??${value}`;
 
