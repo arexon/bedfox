@@ -2,6 +2,7 @@ import {
     createSer,
     DuplicateToJsonError,
     FieldCasing,
+    PathCollisionError,
     Ser,
     UnknownTransparentFieldError,
 } from "./mod.ts";
@@ -467,6 +468,44 @@ Deno.test("toJSON()", async (ctx) => {
             }
 
             assertEquals(JSON.stringify(new Foo()), `1`);
+        });
+
+        await ctx.step("path key vs field key", async (ctx) => {
+            await ctx.step("path then plain field", () => {
+                assertThrows(
+                    () => {
+                        @Ser()
+                        // deno-lint-ignore no-unused-vars
+                        class Foo {
+                            @Ser({ path: "nested" })
+                            x = 1;
+
+                            @Ser()
+                            nested = { y: 2 };
+                        }
+                    },
+                    PathCollisionError,
+                    "Serialized key 'nested' collides in class 'Foo'",
+                );
+            });
+
+            await ctx.step("plain field then path", () => {
+                assertThrows(
+                    () => {
+                        @Ser()
+                        // deno-lint-ignore no-unused-vars
+                        class Foo {
+                            @Ser()
+                            nested = { y: 2 };
+
+                            @Ser({ path: "nested" })
+                            x = 1;
+                        }
+                    },
+                    PathCollisionError,
+                    "Serialized key 'nested' collides in class 'Foo'",
+                );
+            });
         });
     });
 

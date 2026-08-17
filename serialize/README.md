@@ -149,6 +149,10 @@ A path within the serialized object to place this field, delimited by "/".
 
 Each part of the path is created as an object if it does not already exist.
 
+Two fields cannot claim the same serialized key or path segment (e.g.
+`@Ser({ path: "nested" }) x` together with `@Ser() nested`). Otherwise,
+`PathCollisionError` is thrown.
+
 ```ts
 import { Ser } from "@bedfox/serialize";
 import { assertEquals } from "@std/assert";

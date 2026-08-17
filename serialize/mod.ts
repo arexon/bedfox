@@ -36,6 +36,18 @@ export class DuplicateToJsonError extends TypeError {
     }
 }
 
+/**
+ * An error that occurs when two serialized fields claim the same key or path
+ * segment (e.g. `@Ser({ path: "nested" }) x` and `@Ser() nested`).
+ */
+export class PathCollisionError extends TypeError {
+    constructor(className: string, key: string) {
+        super(
+            `Serialized key '${key}' collides in class '${className}'`,
+        );
+    }
+}
+
 /** Which casing to use for serialized fields. */
 export const enum FieldCasing {
     Camel,
@@ -317,11 +329,28 @@ function generateToJson(metadata: Metadata): string {
             if (field.path !== undefined) {
                 let current = objectProps;
                 for (const part of field.path) {
-                    current[part] ??= {};
-                    current = current[part] as ObjectProps;
+                    if (part in current) {
+                        if (typeof current[part] === "string") {
+                            throw new PathCollisionError(
+                                metadata.className,
+                                part,
+                            );
+                        }
+                        current = current[part] as ObjectProps;
+                    } else {
+                        const next: ObjectProps = {};
+                        current[part] = next;
+                        current = next;
+                    }
+                }
+                if (key in current) {
+                    throw new PathCollisionError(metadata.className, key);
                 }
                 current[key] = value;
             } else {
+                if (key in objectProps) {
+                    throw new PathCollisionError(metadata.className, key);
+                }
                 objectProps[key] = value;
             }
 
@@ -330,9 +359,9 @@ function generateToJson(metadata: Metadata): string {
             }
         }
 
-        const appendObjectProps = (objectProps: ObjectProps) => {
+        const appendObjectProps = (props: ObjectProps): void => {
             body += "{";
-            for (const [key, value] of Object.entries(objectProps)) {
+            for (const [key, value] of Object.entries(props)) {
                 body += `${JSON.stringify(key)}:`;
                 if (typeof value === "string") {
                     body += value;
@@ -384,12 +413,11 @@ function generateToJson(metadata: Metadata): string {
                 metadata.requireUndefinedForTransparency
             ) {
                 body += `if(${transparencyChecks.join("&&")})return ${value};`;
+                body += `return ${RESULT_VAR};`;
             } else {
                 body += `return ${value};`;
             }
-        }
-
-        if (transparencyChecks.length > 0) {
+        } else if (transparencyChecks.length > 0) {
             body += `return ${RESULT_VAR};`;
         }
     } else if (metadata.transparent !== undefined) {
