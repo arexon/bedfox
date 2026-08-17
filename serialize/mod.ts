@@ -187,10 +187,18 @@ function classImpl(
     });
 }
 
-const SPECIAL_CHARACTERS_REGEXP = /[$&+,:;=?@#|'<>.^*()%!-]/;
+const CASEABLE_NAME = /^[A-Za-z][A-Za-z0-9]*$/;
 const CUSTOM_OVERRIDE_PREFIX = "customOverride";
 const RESULT_VAR = "result";
 const FIELDS_METADATA_VAR = "fieldsMetadata";
+
+function thisProp(name: string): string {
+    return `this[${JSON.stringify(name)}]`;
+}
+
+function fieldMeta(name: string): string {
+    return `${FIELDS_METADATA_VAR}.fields[${JSON.stringify(name)}]`;
+}
 
 interface FieldMetadata {
     index: number;
@@ -248,7 +256,7 @@ class Metadata {
         const field = this.fields[name];
         if (field.rename !== undefined) {
             return field.rename;
-        } else if (!SPECIAL_CHARACTERS_REGEXP.test(field.name)) {
+        } else if (CASEABLE_NAME.test(field.name)) {
             return this.fieldCasingFn(field.name);
         } else {
             return field.name;
@@ -269,7 +277,7 @@ function generateToJson(metadata: Metadata): string {
             const isNotTransparent = metadata.transparent !== undefined &&
                 field.name !== metadata.transparent;
             const key = metadata.getKey(field.name);
-            let value = `this["${field.name}"]`;
+            let value = thisProp(field.name);
 
             const transparencyCheck = [];
             if (isNotTransparent && metadata.requireUndefinedForTransparency) {
@@ -289,14 +297,15 @@ function generateToJson(metadata: Metadata): string {
                 const customOverride = CUSTOM_OVERRIDE_PREFIX + field.index;
                 consts.push([
                     customOverride,
-                    `${FIELDS_METADATA_VAR}.fields["${field.name}"].custom.call(this, ${value})`,
+                    `${fieldMeta(field.name)}.custom.call(this,${value})`,
                 ]);
                 value = customOverride;
             }
 
             if (field.default !== undefined) {
-                const isDefault =
-                    `equal(${FIELDS_METADATA_VAR}.fields["${field.name}"].default(),this["${field.name}"])`;
+                const isDefault = `equal(${fieldMeta(field.name)}.default(),${
+                    thisProp(field.name)
+                })`;
                 if (
                     isNotTransparent && metadata.requireUndefinedForTransparency
                 ) {
@@ -324,7 +333,7 @@ function generateToJson(metadata: Metadata): string {
         const appendObjectProps = (objectProps: ObjectProps) => {
             body += "{";
             for (const [key, value] of Object.entries(objectProps)) {
-                body += `"${key}":`;
+                body += `${JSON.stringify(key)}:`;
                 if (typeof value === "string") {
                     body += value;
                 } else {
@@ -365,7 +374,7 @@ function generateToJson(metadata: Metadata): string {
             if (transparentField.custom !== undefined) {
                 value = CUSTOM_OVERRIDE_PREFIX + transparentField.index;
             } else {
-                value = `this["${transparentField.name}"]`;
+                value = thisProp(transparentField.name);
             }
 
             value = `${value}?.toJSON?.()??${value}`;
@@ -384,7 +393,7 @@ function generateToJson(metadata: Metadata): string {
             body += `return ${RESULT_VAR};`;
         }
     } else if (metadata.transparent !== undefined) {
-        body += `return this["${metadata.transparent}"];`;
+        body += `return ${thisProp(metadata.transparent)};`;
     } else {
         body += "return {};";
     }

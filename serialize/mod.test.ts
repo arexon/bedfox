@@ -28,26 +28,98 @@ Deno.test("toJSON()", async (ctx) => {
         assertEquals(JSON.stringify(new Foo()), `{"a":8,"b":"foo"}`);
     });
 
-    await ctx.step("special field names", () => {
-        @Ser()
-        class Foo {
+    await ctx.step("special field names", async (ctx) => {
+        await ctx.step("basic special chars", () => {
             @Ser()
-            "*" = 0;
+            class Foo {
+                @Ser()
+                "*" = 0;
 
+                @Ser()
+                "$" = 0;
+
+                @Ser()
+                "10" = 0;
+
+                @Ser()
+                "a:bB" = 0;
+            }
+
+            assertEquals(
+                JSON.stringify(new Foo()),
+                `{"10":0,"*":0,"$":0,"a:bB":0}`,
+            );
+        });
+
+        await ctx.step("quote in field name", () => {
             @Ser()
-            "$" = 0;
+            class Foo {
+                @Ser()
+                ['a"b'] = 1;
+            }
 
+            assertEquals(JSON.stringify(new Foo()), `{"a\\"b":1}`);
+        });
+
+        await ctx.step("backslash in field name", () => {
             @Ser()
-            "10" = 0;
+            class Foo {
+                @Ser()
+                ["a\\b"] = 1;
+            }
 
+            assertEquals(JSON.stringify(new Foo()), `{"a\\\\b":1}`);
+        });
+
+        await ctx.step("newline in field name", () => {
             @Ser()
-            "a:bB" = 0;
-        }
+            class Foo {
+                @Ser()
+                ["a\nb"] = 1;
+            }
 
-        assertEquals(
-            JSON.stringify(new Foo()),
-            `{"10":0,"*":0,"$":0,"a:bB":0}`,
-        );
+            assertEquals(JSON.stringify(new Foo()), `{"a\\nb":1}`);
+        });
+
+        await ctx.step("space not mangled by casing", () => {
+            @Ser()
+            class Foo {
+                @Ser()
+                ["foo bar"] = 1;
+            }
+
+            assertEquals(JSON.stringify(new Foo()), `{"foo bar":1}`);
+        });
+
+        await ctx.step("leading underscore not stripped", () => {
+            @Ser()
+            class Foo {
+                @Ser()
+                _x = 1;
+            }
+
+            assertEquals(JSON.stringify(new Foo()), `{"_x":1}`);
+        });
+
+        await ctx.step("quote in rename", () => {
+            @Ser()
+            class Foo {
+                @Ser({ rename: 'a"b' })
+                x = 1;
+            }
+
+            assertEquals(JSON.stringify(new Foo()), `{"a\\"b":1}`);
+        });
+
+        await ctx.step("quote in path", () => {
+            @Ser()
+            class Foo {
+                @Ser({ path: 'a"b' })
+                x = 1;
+            }
+
+            assertEquals(JSON.stringify(new Foo()), `{"a\\"b":{"x":1}}`);
+        });
     });
 
     await ctx.step("private fields access", async (ctx) => {
