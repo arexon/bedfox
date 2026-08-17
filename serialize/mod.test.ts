@@ -5,6 +5,7 @@ import {
     InvalidPathError,
     PathCollisionError,
     Ser,
+    SymbolFieldError,
     UnknownTransparentFieldError,
 } from "./mod.ts";
 import { assertEquals, assertThrows } from "@std/assert";
@@ -122,6 +123,22 @@ Deno.test("toJSON()", async (ctx) => {
 
             assertEquals(JSON.stringify(new Foo()), `{"a\\"b":{"x":1}}`);
         });
+    });
+
+    await ctx.step("symbol field", () => {
+        assertThrows(
+            () => {
+                const s = Symbol("s");
+                @Ser()
+                // deno-lint-ignore no-unused-vars
+                class Foo {
+                    @Ser()
+                    [s] = 1;
+                }
+            },
+            SymbolFieldError,
+            "Symbol fields cannot be serialized",
+        );
     });
 
     await ctx.step("private fields access", async (ctx) => {

@@ -58,6 +58,13 @@ export class InvalidPathError extends TypeError {
     }
 }
 
+/** An error that occurs when {@link Ser} is applied to a symbol-named field. */
+export class SymbolFieldError extends TypeError {
+    constructor() {
+        super("Symbol fields cannot be serialized");
+    }
+}
+
 /** Which casing to use for serialized fields. */
 export const enum FieldCasing {
     Camel,
@@ -173,10 +180,11 @@ function fieldImpl(
     globalOptions: GlobalOptions,
     options: FieldOptions,
 ): void {
-    ctx.metadata[Metadata.symbol] ??= new Metadata("", globalOptions);
-    if (typeof ctx.name !== "symbol") {
-        ctx.metadata[Metadata.symbol]!.setField(ctx.name, options ?? {});
+    if (typeof ctx.name === "symbol") {
+        throw new SymbolFieldError();
     }
+    ctx.metadata[Metadata.symbol] ??= new Metadata("", globalOptions);
+    ctx.metadata[Metadata.symbol]!.setField(ctx.name, options ?? {});
 }
 
 function classImpl(
