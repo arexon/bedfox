@@ -109,8 +109,12 @@ class Rgb {
     r: number;
     g: number;
     b: number;
-    @Ser({ custom: (_value, rgb) => `${rgb.r},${rgb.g},${rgb.b}` })
-    readonly #value: string = "";
+    @Ser({
+        custom() {
+            return `${this.r},${this.g},${this.b}`;
+        },
+    })
+    #value: string = "";
 
     constructor(r: number, g: number, b: number) {
         this.r = r;

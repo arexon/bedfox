@@ -50,6 +50,36 @@ Deno.test("toJSON()", async (ctx) => {
         );
     });
 
+    await ctx.step("private fields access", async (ctx) => {
+        await ctx.step("direct or via custom override", () => {
+            @Ser()
+            class Foo {
+                @Ser()
+                a = 1;
+
+                @Ser()
+                #b = 2;
+
+                @Ser({ custom: (v) => `got:${v}` })
+                #c = 3;
+            }
+
+            assertEquals(
+                JSON.stringify(new Foo()),
+                `{"a":1,"#c":"got:undefined"}`,
+            );
+        });
+
+        await ctx.step("transparent", () => {
+            @Ser({ transparent: "#x" })
+            class Foo {
+                #x = 42;
+            }
+
+            assertEquals(JSON.stringify(new Foo()), undefined);
+        });
+    });
+
     await ctx.step("inherit", async (ctx) => {
         @Ser()
         class Parent {
@@ -192,7 +222,9 @@ Deno.test("toJSON()", async (ctx) => {
         @Ser()
         class Foo {
             @Ser({
-                custom: (_, foo) => ["custom", foo.a],
+                custom(): ["custom", string | string[]] {
+                    return ["custom", this.a];
+                },
             })
             a: string | string[] = "foo";
 

@@ -91,7 +91,7 @@ export interface FieldOptions<FieldValue = unknown, This = unknown> {
      * When {@link FieldOptions.default} is set, it will compare against the
      * custom value.
      */
-    custom?: (value: FieldValue, instance: This) => unknown;
+    custom?(this: This, value: FieldValue): unknown;
     /**
      * A custom name for the serialized field.
      */
@@ -196,7 +196,7 @@ interface FieldMetadata {
     index: number;
     name: string;
     default?: () => unknown;
-    custom?: (value: unknown, instance: unknown) => unknown;
+    custom?(this: unknown, value: unknown): unknown;
     rename?: string;
     path?: string[];
 }
@@ -289,7 +289,7 @@ function generateToJson(metadata: Metadata): string {
                 const customOverride = CUSTOM_OVERRIDE_PREFIX + field.index;
                 consts.push([
                     customOverride,
-                    `${FIELDS_METADATA_VAR}.fields["${field.name}"].custom(${value},this)`,
+                    `${FIELDS_METADATA_VAR}.fields["${field.name}"].custom.call(this, ${value})`,
                 ]);
                 value = customOverride;
             }
