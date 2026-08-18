@@ -153,9 +153,7 @@ export function createSer(
     target: Ctx extends { kind: "class" } ? AnyConstructor : undefined,
     ctx: Ctx,
 ) => void {
-    return function Ser(
-        options,
-    ): (
+    return function (options): (
         target: AnyConstructor | undefined,
         ctx: ClassDecoratorContext | ClassFieldDecoratorContext,
     ) => void {
@@ -504,7 +502,7 @@ function generateToJson(metadata: Metadata): string {
             metadata.nestedFieldCasing,
         );
     } else {
-        body += "return {};";
+        body += "return{};";
     }
 
     return body;
