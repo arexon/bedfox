@@ -82,6 +82,13 @@ export interface GlobalOptions {
      */
     fieldCasing?: FieldCasing;
     /**
+     * Whether to apply {@link GlobalOptions.fieldCasing} to keys inside plain
+     * nested objects and arrays.
+     *
+     * Default: true
+     */
+    propagateFieldCasing?: boolean;
+    /**
      * Whether to require other fields to be undefined for
      * {@link ClassOptions.transparent} to apply.
      *
@@ -231,8 +238,11 @@ const RESULT_VAR = "result";
 const FIELDS_METADATA_VAR = "fieldsMetadata";
 const TRANSPARENT_VAR = "transparent";
 
-function transparentConst(expr: string): string {
-    return `const ${TRANSPARENT_VAR}=${expr};return ${TRANSPARENT_VAR}?.toJSON?.()??${TRANSPARENT_VAR};`;
+function transparentConst(expr: string, nest: boolean): string {
+    const value = `${TRANSPARENT_VAR}?.toJSON?.()??${TRANSPARENT_VAR}`;
+    return nest
+        ? `const ${TRANSPARENT_VAR}=${expr};return ${FIELDS_METADATA_VAR}.propagateCasing(${value});`
+        : `const ${TRANSPARENT_VAR}=${expr};return ${value};`;
 }
 
 function thisProp(name: string): string {
@@ -262,6 +272,7 @@ class Metadata {
     transparent?: string;
     fieldCasingFn: (s: string) => string;
     requireUndefinedForTransparency: boolean;
+    nestedFieldCasing: boolean;
 
     constructor(className: string, globalOptions: GlobalOptions) {
         this.className = className;
@@ -281,6 +292,7 @@ class Metadata {
         }
         this.requireUndefinedForTransparency =
             globalOptions.requireUndefinedForTransparency ?? true;
+        this.nestedFieldCasing = globalOptions.propagateFieldCasing ?? true;
     }
 
     setField(name: string, options: FieldOptions): void {
@@ -312,6 +324,22 @@ class Metadata {
             return field.name;
         }
     }
+
+    propagateCasing(value: unknown): unknown {
+        if (value === null || typeof value !== "object") return value;
+        if (typeof (value as { toJSON?: unknown }).toJSON === "function") {
+            return value;
+        }
+        if (Array.isArray(value)) {
+            return value.map((v) => this.propagateCasing(v));
+        }
+        const out: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(value)) {
+            out[CASEABLE_NAME.test(k) ? this.fieldCasingFn(k) : k] = this
+                .propagateCasing(v);
+        }
+        return out;
+    }
 }
 
 type ObjectProps = { [key: string]: string | ObjectProps };
@@ -321,8 +349,14 @@ function generateToJson(metadata: Metadata): string {
     const objectProps: ObjectProps = {};
     const transparencyChecks: string[] = [];
     const consts: [string, string][] = [];
+    const fieldsMetadata =
+        `this.constructor[Symbol.metadata][${Metadata.symbolName}]`;
 
     if (metadata.fieldsCount > 0) {
+        if (metadata.nestedFieldCasing) {
+            consts.push([FIELDS_METADATA_VAR, fieldsMetadata]);
+        }
+
         for (const field of Object.values(metadata.fields)) {
             const isNotTransparent = metadata.transparent !== undefined &&
                 field.name !== metadata.transparent;
@@ -336,10 +370,7 @@ function generateToJson(metadata: Metadata): string {
 
             if (field.default !== undefined || field.custom !== undefined) {
                 if (consts.length === 0) {
-                    consts.push([
-                        FIELDS_METADATA_VAR,
-                        `this.constructor[Symbol.metadata][${Metadata.symbolName}]`,
-                    ]);
+                    consts.push([FIELDS_METADATA_VAR, fieldsMetadata]);
                 }
             }
 
@@ -409,7 +440,9 @@ function generateToJson(metadata: Metadata): string {
             for (const [key, value] of Object.entries(props)) {
                 body += `${JSON.stringify(key)}:`;
                 if (typeof value === "string") {
-                    body += value;
+                    body += metadata.nestedFieldCasing
+                        ? `${FIELDS_METADATA_VAR}.propagateCasing(${value})`
+                        : value;
                 } else {
                     appendObjectProps(value);
                 }
@@ -453,17 +486,23 @@ function generateToJson(metadata: Metadata): string {
                 metadata.requireUndefinedForTransparency
             ) {
                 body += `if(${transparencyChecks.join("&&")}){${
-                    transparentConst(value)
+                    transparentConst(value, metadata.nestedFieldCasing)
                 }}`;
                 body += `return ${RESULT_VAR};`;
             } else {
-                body += transparentConst(value);
+                body += transparentConst(value, metadata.nestedFieldCasing);
             }
         } else if (transparencyChecks.length > 0) {
             body += `return ${RESULT_VAR};`;
         }
     } else if (metadata.transparent !== undefined) {
-        body += transparentConst(thisProp(metadata.transparent));
+        if (metadata.nestedFieldCasing) {
+            body += `const ${FIELDS_METADATA_VAR}=${fieldsMetadata};`;
+        }
+        body += transparentConst(
+            thisProp(metadata.transparent),
+            metadata.nestedFieldCasing,
+        );
     } else {
         body += "return {};";
     }
