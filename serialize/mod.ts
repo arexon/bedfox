@@ -184,12 +184,19 @@ function fieldImpl(
     ctx: ClassFieldDecoratorContext & ContextMetadata,
     globalOptions: GlobalOptions,
     options: FieldOptions,
-): void {
+): (initialValue: unknown) => unknown {
     if (typeof ctx.name === "symbol") {
         throw new SymbolFieldError();
     }
     ctx.metadata[Metadata.symbol] ??= new Metadata("", globalOptions);
     ctx.metadata[Metadata.symbol]!.setField(ctx.name, options ?? {});
+    const name = ctx.name;
+    return function (this: object, initialValue: unknown): unknown {
+        if (Object.hasOwn(this, name)) {
+            return (this as Record<string | symbol, unknown>)[name];
+        }
+        return initialValue;
+    };
 }
 
 function classImpl(

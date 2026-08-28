@@ -202,6 +202,51 @@ Deno.test("toJSON()", async (ctx) => {
         });
     });
 
+    await ctx.step("base constructor assign", async (ctx) => {
+        class Base {
+            constructor(input: Record<string, unknown> = {}) {
+                Object.assign(this, input);
+            }
+        }
+
+        await ctx.step("keeps assigned values past field init", () => {
+            @Ser()
+            class Child extends Base {
+                @Ser()
+                a?: number;
+
+                @Ser()
+                b?: string;
+            }
+
+            assertEquals(
+                JSON.stringify(new Child({ a: 1, b: "x" })),
+                `{"a":1,"b":"x"}`,
+            );
+        });
+
+        await ctx.step("unassigned fields still use initializer", () => {
+            @Ser()
+            class Child extends Base {
+                @Ser()
+                a = 8;
+
+                @Ser()
+                b?: string;
+            }
+
+            assertEquals(JSON.stringify(new Child()), `{"a":8}`);
+            assertEquals(
+                JSON.stringify(new Child({ b: "x" })),
+                `{"a":8,"b":"x"}`,
+            );
+            assertEquals(
+                JSON.stringify(new Child({ a: 1, b: "x" })),
+                `{"a":1,"b":"x"}`,
+            );
+        });
+    });
+
     await ctx.step("casing", async (ctx) => {
         await ctx.step("snake_case", () => {
             @Ser()
