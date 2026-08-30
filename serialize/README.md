@@ -19,6 +19,9 @@ deno add jsr:@bedfox/serialize
 Annotate the `Ser` decorator on your class to generate a `toJSON()`. It must
 also be annotated on fields you wish to be serialized.
 
+Field names are converted to snake_case. Casing also applies to keys inside
+plain nested objects and arrays.
+
 ```ts
 import { Ser } from "@bedfox/serialize";
 import { assertEquals } from "@std/assert";
@@ -40,9 +43,8 @@ assertEquals(JSON.stringify(new Person()), `{"name":"Alice"}`);
 #### `ClassOptions.transparent`
 
 A field (instance field or getter) to use as the serialized value for the class.
-This will only apply if every other field annotated with `Ser` is undefined at
-serialization-time. However, this can be changed with
-`GlobalOptions.requireUndefinedForTransparency`.
+This only applies if every other field annotated with `Ser` is undefined (or at
+its `FieldOptions.default`) at serialization-time.
 
 ```ts
 import { Ser } from "@bedfox/serialize";
@@ -170,32 +172,13 @@ assertEquals(
 );
 ```
 
-#### `GlobalOptions`
-
-You can create a custom `Ser` with configured global options that will
-automatically be applied to all annotated classes.
-
-```ts
-import { createSer, FieldCasing } from "@bedfox/serialize";
-
-const MySer = createSer({
-    fieldCasing: FieldCasing.Camel,
-    requireUndefinedForTransparency: false,
-});
-```
-
-Note: Use one `Ser` (whether it is the exported one or from `createSer()`) per
-class. Mixing different `Ser` factories on the same class shares one metadata
-bag internally; `GlobalOptions` come from whichever field decorator runs first,
-which can cause unintended behaviors.
-
 ### Field Name Handling
 
 Field names can be affected by multiple options. Below is their priority order
 (highest gets picked first):
 
 1. `FieldOptions.rename`
-2. `GlobalOptions.fieldCasing`
+2. snake_case conversion
 3. The actual field name.
 
 ## License

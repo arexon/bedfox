@@ -1,7 +1,5 @@
 import {
-    createSer,
     DuplicateToJsonError,
-    FieldCasing,
     InvalidPathError,
     PathCollisionError,
     Ser,
@@ -258,42 +256,6 @@ Deno.test("toJSON()", async (ctx) => {
             assertEquals(JSON.stringify(new Foo()), `{"foo_bar_baz_qux":1}`);
         });
 
-        await ctx.step("camelCase", () => {
-            const Ser = createSer({ fieldCasing: FieldCasing.Camel });
-
-            @Ser()
-            class Foo {
-                @Ser()
-                fooBarBazQux = 1;
-            }
-
-            assertEquals(JSON.stringify(new Foo()), `{"fooBarBazQux":1}`);
-        });
-
-        await ctx.step("kebab-case", () => {
-            const Ser = createSer({ fieldCasing: FieldCasing.Kebab });
-
-            @Ser()
-            class Foo {
-                @Ser()
-                fooBarBazQux = 1;
-            }
-
-            assertEquals(JSON.stringify(new Foo()), `{"foo-bar-baz-qux":1}`);
-        });
-
-        await ctx.step("PascalCase", () => {
-            const Ser = createSer({ fieldCasing: FieldCasing.Pascal });
-
-            @Ser()
-            class Foo {
-                @Ser()
-                fooBarBazQux = 1;
-            }
-
-            assertEquals(JSON.stringify(new Foo()), `{"FooBarBazQux":1}`);
-        });
-
         await ctx.step("propagates to nested fields", () => {
             @Ser()
             class Foo {
@@ -304,21 +266,6 @@ Deno.test("toJSON()", async (ctx) => {
             assertEquals(
                 JSON.stringify(new Foo()),
                 `{"foo_bar":[{"is_a":true,"has_b":false}]}`,
-            );
-        });
-
-        await ctx.step("nested field casing off", () => {
-            const Ser = createSer({ propagateFieldCasing: false });
-
-            @Ser()
-            class Foo {
-                @Ser()
-                fooBar = [{ isA: true, hasB: false }];
-            }
-
-            assertEquals(
-                JSON.stringify(new Foo()),
-                `{"foo_bar":[{"isA":true,"hasB":false}]}`,
             );
         });
     });
@@ -487,23 +434,6 @@ Deno.test("toJSON()", async (ctx) => {
                     "Cannot find a matching instance/getter field named 'wrong' in class 'Transparent'",
                 );
             });
-        });
-
-        await ctx.step("without requiring undefined for other fields", () => {
-            const Ser = createSer({ requireUndefinedForTransparency: false });
-
-            @Ser({ transparent: "a" })
-            class NoRequireUndefined {
-                @Ser()
-                a = "foo";
-                @Ser()
-                b: boolean | undefined = undefined;
-            }
-
-            const v = new NoRequireUndefined();
-            assertEquals(JSON.stringify(v), `"foo"`);
-            v.b = false;
-            assertEquals(JSON.stringify(v), `"foo"`);
         });
 
         await ctx.step("with default", () => {

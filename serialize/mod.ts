@@ -10,7 +10,7 @@
  */
 
 import { type AnyConstructor, equal } from "@std/assert";
-import { toCamelCase, toKebabCase, toPascalCase, toSnakeCase } from "@std/text";
+import { toSnakeCase } from "@std/text";
 
 /**
  * An error that occurs when referring to an instance or getter field in
@@ -65,47 +65,14 @@ export class SymbolFieldError extends TypeError {
     }
 }
 
-/** Which casing to use for serialized fields. */
-export const enum FieldCasing {
-    Camel,
-    Kebab,
-    Pascal,
-    Snake,
-}
-
-/** Options to use in {@link createSer}. */
-export interface GlobalOptions {
-    /**
-     * The field casing to use for all fields.
-     *
-     * Default: snake_case
-     */
-    fieldCasing?: FieldCasing;
-    /**
-     * Whether to apply {@link GlobalOptions.fieldCasing} to keys inside plain
-     * nested objects and arrays.
-     *
-     * Default: true
-     */
-    propagateFieldCasing?: boolean;
-    /**
-     * Whether to require other fields to be undefined for
-     * {@link ClassOptions.transparent} to apply.
-     *
-     * Default: true
-     */
-    requireUndefinedForTransparency?: boolean;
-}
-
 /** Options to configure how a class should be serialized. */
 export interface ClassOptions {
     /**
      * A field (instance field or getter) to use as the serialized
      * value for the class.
      *
-     * This will only apply if every other field annotated with {@link Ser} is
-     * undefined at serialization-time. However, this can be changed with
-     * {@link GlobalOptions.requireUndefinedForTransparency}.
+     * This only applies if every other field annotated with {@link Ser} is
+     * undefined (or at its {@link FieldOptions.default}) at serialization-time.
      */
     transparent?: string;
 }
@@ -141,38 +108,31 @@ export interface FieldOptions<FieldValue = unknown, This = unknown> {
     path?: string;
 }
 
-/** Creates a custom {@link Ser} decorator with configured {@link GlobalOptions}. */
-export function createSer(
-    globalOptions: GlobalOptions = {},
-): <Ctx extends ClassDecoratorContext | ClassFieldDecoratorContext>(
+/**
+ * A decorator to apply on classes or instance fields.
+ *
+ * It implements `toJSON()` on the class prototype. Field names are converted to
+ * snake_case; casing also applies to keys inside plain nested objects and arrays.
+ */
+export function Ser<
+    Ctx extends ClassDecoratorContext | ClassFieldDecoratorContext,
+>(
     options?: Ctx extends { kind: "class" } ? ClassOptions : FieldOptions<
         Ctx extends ClassFieldDecoratorContext<unknown, infer V> ? V : never,
         Ctx extends ClassFieldDecoratorContext<infer V, unknown> ? V : never
     >,
-) => (
+): (
     target: Ctx extends { kind: "class" } ? AnyConstructor : undefined,
     ctx: Ctx,
 ) => void {
-    return function (options): (
-        target: AnyConstructor | undefined,
-        ctx: ClassDecoratorContext | ClassFieldDecoratorContext,
-    ) => void {
-        return (target, ctx) => {
-            if (ctx.kind === "field") {
-                return fieldImpl(ctx, globalOptions, options as FieldOptions);
-            } else if (ctx.kind === "class") {
-                classImpl(ctx, target!, globalOptions, options as ClassOptions);
-            }
-        };
+    return (target, ctx) => {
+        if (ctx.kind === "field") {
+            return fieldImpl(ctx, options as FieldOptions);
+        } else if (ctx.kind === "class") {
+            classImpl(ctx, target!, options as ClassOptions);
+        }
     };
 }
-
-/**
- * A decorator to apply on classes or instance fields.
- *
- * It implements `toJSON()` on the class prototype
- */
-export const Ser: ReturnType<typeof createSer> = createSer();
 
 interface ContextMetadata {
     readonly metadata: {
@@ -182,13 +142,12 @@ interface ContextMetadata {
 
 function fieldImpl(
     ctx: ClassFieldDecoratorContext & ContextMetadata,
-    globalOptions: GlobalOptions,
     options: FieldOptions,
 ): (initialValue: unknown) => unknown {
     if (typeof ctx.name === "symbol") {
         throw new SymbolFieldError();
     }
-    ctx.metadata[Metadata.symbol] ??= new Metadata("", globalOptions);
+    ctx.metadata[Metadata.symbol] ??= new Metadata("");
     ctx.metadata[Metadata.symbol]!.setField(ctx.name, options ?? {});
     const name = ctx.name;
     return function (this: object, initialValue: unknown): unknown {
@@ -202,14 +161,13 @@ function fieldImpl(
 function classImpl(
     ctx: ClassDecoratorContext & ContextMetadata,
     ctor: AnyConstructor,
-    globalOptions: GlobalOptions,
     options: ClassOptions,
 ): void {
     if ("toJSON" in ctor.prototype) {
         throw new DuplicateToJsonError(ctor.name);
     }
 
-    ctx.metadata[Metadata.symbol] ??= new Metadata("", globalOptions);
+    ctx.metadata[Metadata.symbol] ??= new Metadata("");
     const metadata = ctx.metadata[Metadata.symbol]!;
 
     // The order of class decorator is a bit odd, so this ensures we'll eventually
@@ -243,11 +201,9 @@ const RESULT_VAR = "result";
 const FIELDS_METADATA_VAR = "fieldsMetadata";
 const TRANSPARENT_VAR = "transparent";
 
-function transparentConst(expr: string, nest: boolean): string {
+function transparentConst(expr: string): string {
     const value = `${TRANSPARENT_VAR}?.toJSON?.()??${TRANSPARENT_VAR}`;
-    return nest
-        ? `const ${TRANSPARENT_VAR}=${expr};return ${FIELDS_METADATA_VAR}.propagateCasing(${value});`
-        : `const ${TRANSPARENT_VAR}=${expr};return ${value};`;
+    return `const ${TRANSPARENT_VAR}=${expr};return ${FIELDS_METADATA_VAR}.propagateCasing(${value});`;
 }
 
 function thisProp(name: string): string {
@@ -275,29 +231,9 @@ class Metadata {
     fieldsCount = 0;
     fields: Record<string, FieldMetadata> = {};
     transparent?: string;
-    fieldCasingFn: (s: string) => string;
-    requireUndefinedForTransparency: boolean;
-    nestedFieldCasing: boolean;
 
-    constructor(className: string, globalOptions: GlobalOptions) {
+    constructor(className: string) {
         this.className = className;
-        switch (globalOptions.fieldCasing ?? FieldCasing.Snake) {
-            case FieldCasing.Camel:
-                this.fieldCasingFn = toCamelCase;
-                break;
-            case FieldCasing.Kebab:
-                this.fieldCasingFn = toKebabCase;
-                break;
-            case FieldCasing.Pascal:
-                this.fieldCasingFn = toPascalCase;
-                break;
-            case FieldCasing.Snake:
-                this.fieldCasingFn = toSnakeCase;
-                break;
-        }
-        this.requireUndefinedForTransparency =
-            globalOptions.requireUndefinedForTransparency ?? true;
-        this.nestedFieldCasing = globalOptions.propagateFieldCasing ?? true;
     }
 
     setField(name: string, options: FieldOptions): void {
@@ -324,7 +260,7 @@ class Metadata {
         if (field.rename !== undefined) {
             return field.rename;
         } else if (CASEABLE_NAME.test(field.name)) {
-            return this.fieldCasingFn(field.name);
+            return toSnakeCase(field.name);
         } else {
             return field.name;
         }
@@ -340,7 +276,7 @@ class Metadata {
         }
         const out: Record<string, unknown> = {};
         for (const [k, v] of Object.entries(value)) {
-            out[CASEABLE_NAME.test(k) ? this.fieldCasingFn(k) : k] = this
+            out[CASEABLE_NAME.test(k) ? toSnakeCase(k) : k] = this
                 .propagateCasing(v);
         }
         return out;
@@ -358,9 +294,7 @@ function generateToJson(metadata: Metadata): string {
         `this.constructor[Symbol.metadata][${Metadata.symbolName}]`;
 
     if (metadata.fieldsCount > 0) {
-        if (metadata.nestedFieldCasing) {
-            consts.push([FIELDS_METADATA_VAR, fieldsMetadata]);
-        }
+        consts.push([FIELDS_METADATA_VAR, fieldsMetadata]);
 
         for (const field of Object.values(metadata.fields)) {
             const isNotTransparent = metadata.transparent !== undefined &&
@@ -369,14 +303,8 @@ function generateToJson(metadata: Metadata): string {
             let value = thisProp(field.name);
 
             const transparencyCheck = [];
-            if (isNotTransparent && metadata.requireUndefinedForTransparency) {
+            if (isNotTransparent) {
                 transparencyCheck.push(`${value}===undefined`);
-            }
-
-            if (field.default !== undefined || field.custom !== undefined) {
-                if (consts.length === 0) {
-                    consts.push([FIELDS_METADATA_VAR, fieldsMetadata]);
-                }
             }
 
             const customExpr = field.custom !== undefined
@@ -397,9 +325,7 @@ function generateToJson(metadata: Metadata): string {
                         thisProp(field.name)
                     })`,
                 ]);
-                if (
-                    isNotTransparent && metadata.requireUndefinedForTransparency
-                ) {
+                if (isNotTransparent) {
                     transparencyCheck.push(isDefaultVar);
                 }
                 value = field.custom !== undefined
@@ -435,7 +361,7 @@ function generateToJson(metadata: Metadata): string {
                 objectProps[key] = value;
             }
 
-            if (isNotTransparent && metadata.requireUndefinedForTransparency) {
+            if (isNotTransparent) {
                 transparencyChecks.push(`(${transparencyCheck.join("||")})`);
             }
         }
@@ -445,9 +371,7 @@ function generateToJson(metadata: Metadata): string {
             for (const [key, value] of Object.entries(props)) {
                 body += `${JSON.stringify(key)}:`;
                 if (typeof value === "string") {
-                    body += metadata.nestedFieldCasing
-                        ? `${FIELDS_METADATA_VAR}.propagateCasing(${value})`
-                        : value;
+                    body += `${FIELDS_METADATA_VAR}.propagateCasing(${value})`;
                 } else {
                     appendObjectProps(value);
                 }
@@ -460,10 +384,7 @@ function generateToJson(metadata: Metadata): string {
             body += `const ${name}=${value};`;
         }
 
-        if (
-            transparencyChecks.length > 0 &&
-            metadata.requireUndefinedForTransparency
-        ) {
+        if (transparencyChecks.length > 0) {
             body += `const ${RESULT_VAR}=`;
             appendObjectProps(objectProps);
             body += ";";
@@ -486,28 +407,20 @@ function generateToJson(metadata: Metadata): string {
                 value = thisProp(metadata.transparent);
             }
 
-            if (
-                transparencyChecks.length > 0 &&
-                metadata.requireUndefinedForTransparency
-            ) {
+            if (transparencyChecks.length > 0) {
                 body += `if(${transparencyChecks.join("&&")}){${
-                    transparentConst(value, metadata.nestedFieldCasing)
+                    transparentConst(value)
                 }}`;
                 body += `return ${RESULT_VAR};`;
             } else {
-                body += transparentConst(value, metadata.nestedFieldCasing);
+                body += transparentConst(value);
             }
         } else if (transparencyChecks.length > 0) {
             body += `return ${RESULT_VAR};`;
         }
     } else if (metadata.transparent !== undefined) {
-        if (metadata.nestedFieldCasing) {
-            body += `const ${FIELDS_METADATA_VAR}=${fieldsMetadata};`;
-        }
-        body += transparentConst(
-            thisProp(metadata.transparent),
-            metadata.nestedFieldCasing,
-        );
+        body += `const ${FIELDS_METADATA_VAR}=${fieldsMetadata};`;
+        body += transparentConst(thisProp(metadata.transparent));
     } else {
         body += "return{};";
     }
