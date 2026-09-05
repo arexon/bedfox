@@ -589,6 +589,54 @@ Deno.test("toJSON()", async (ctx) => {
             assertEquals(JSON.stringify(new Foo()), `1`);
         });
 
+        await ctx.step("omits empty nested objects", async (ctx) => {
+            await ctx.step("undefined field", () => {
+                @Ser()
+                class Foo {
+                    @Ser({ path: "a/b" })
+                    x: number | undefined = undefined;
+                }
+
+                assertEquals(JSON.stringify(new Foo()), `{}`);
+            });
+
+            await ctx.step("default-omitted field", () => {
+                @Ser()
+                class Foo {
+                    @Ser({ path: "a/b", default: () => 1 })
+                    x = 1;
+                }
+
+                assertEquals(JSON.stringify(new Foo()), `{}`);
+            });
+
+            await ctx.step("sibling path keeps only defined", () => {
+                @Ser()
+                class Foo {
+                    @Ser({ path: "a/b" })
+                    x = 1;
+
+                    @Ser({ path: "a/c" })
+                    y: number | undefined = undefined;
+                }
+
+                assertEquals(JSON.stringify(new Foo()), `{"a":{"b":{"x":1}}}`);
+            });
+
+            await ctx.step("all path fields undefined", () => {
+                @Ser()
+                class Foo {
+                    @Ser({ path: "a/b" })
+                    x: number | undefined = undefined;
+
+                    @Ser({ path: "a/c" })
+                    y: number | undefined = undefined;
+                }
+
+                assertEquals(JSON.stringify(new Foo()), `{}`);
+            });
+        });
+
         await ctx.step("empty path segment", () => {
             for (const path of ["", "a//b", "/a", "a/", "/"]) {
                 assertThrows(

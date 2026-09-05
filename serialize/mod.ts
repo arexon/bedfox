@@ -341,31 +341,41 @@ class Compiler {
             body += `const ${name}=${value};`;
         }
 
-        const object = this.#printObjectProps(plan.tree);
-        if (plan.transparent === undefined) {
-            return body + `return ${object};`;
-        }
         if (plan.transparent !== undefined && plan.transparency.length === 0) {
             return body + Compiler.#transparentReturn(plan.transparent);
         }
 
-        body += `const ${Compiler.#RESULT_VAR}=${object};`;
-        body += `if(${plan.transparency.join("&&")}){${
-            Compiler.#transparentReturn(plan.transparent)
-        }}`;
+        body += `const ${Compiler.#RESULT_VAR}={};`;
+        body += this.#printAssigns(plan.tree);
+        if (plan.transparent !== undefined) {
+            body += `if(${plan.transparency.join("&&")}){${
+                Compiler.#transparentReturn(plan.transparent)
+            }}`;
+        }
         return body + `return ${Compiler.#RESULT_VAR};`;
     }
 
-    #printObjectProps(props: ObjectProps): string {
+    #printAssigns(props: ObjectProps, path: string[] = []): string {
         let out = "";
         for (const [key, value] of Object.entries(props)) {
-            out += `${JSON.stringify(key)}:`;
-            out += typeof value === "string"
-                ? `${Compiler.#PROPAGATE_CASING_VAR}(${value})`
-                : this.#printObjectProps(value);
-            out += ",";
+            if (typeof value === "string") {
+                out += `{const v=${Compiler.#PROPAGATE_CASING_VAR}(${value});` +
+                    `if(v!==undefined)${
+                        this.#printAssignTarget([...path, key])
+                    }=v;}`;
+            } else {
+                out += this.#printAssigns(value, [...path, key]);
+            }
         }
-        return `{${out}}`;
+        return out;
+    }
+
+    #printAssignTarget(path: string[]): string {
+        let expr = Compiler.#RESULT_VAR;
+        for (let i = 0; i < path.length - 1; i++) {
+            expr = `(${expr}[${JSON.stringify(path[i])}]??={})`;
+        }
+        return `${expr}[${JSON.stringify(path[path.length - 1])}]`;
     }
 
     static #serializedKey(name: string, field: Field): string {
