@@ -19,8 +19,7 @@ deno add jsr:@bedfox/serialize
 Annotate the `Ser` decorator on your class to generate a `toJSON()`. It must
 also be annotated on fields you wish to be serialized.
 
-Field names are converted to snake_case. Casing also applies to keys inside
-plain nested objects and arrays.
+Field names are converted to snake_case.
 
 ```ts
 import { Ser } from "@bedfox/serialize";

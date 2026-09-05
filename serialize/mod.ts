@@ -88,8 +88,7 @@ export class SymbolFieldError extends TypeError {
  * A decorator to apply on classes or instance fields.
  *
  * It implements `toJSON()` on the class prototype. Field names are converted
- * to snake_case; casing also applies to keys inside plain nested objects and
- * arrays.
+ * to snake_case.
  */
 export function Ser<
     Ctx extends ClassDecoratorContext | ClassFieldDecoratorContext,
@@ -142,7 +141,6 @@ class Compiler {
     static readonly #RESULT_VAR = "result";
     static readonly #RUNTIME_VAR = "runtime";
     static readonly #TRANSPARENT_VAR = "transparent";
-    static readonly #PROPAGATE_CASING_VAR = "propagateCasing";
     static readonly #PENDING = new WeakMap<object, Compiler>();
 
     readonly #fields: Fields = {};
@@ -188,15 +186,13 @@ class Compiler {
         const fn = new Function(
             Compiler.#RUNTIME_VAR,
             equal.name,
-            Compiler.#PROPAGATE_CASING_VAR,
             compiler.#print(plan),
         );
         const runtime = plan.runtime;
-        const propagateCasing = Compiler.#propagateCasing;
 
         Object.defineProperty(ctor.prototype, "toJSON", {
             value() {
-                return fn.call(this, runtime, equal, propagateCasing);
+                return fn.call(this, runtime, equal);
             },
             configurable: true,
             writable: true,
@@ -359,7 +355,7 @@ class Compiler {
         let out = "";
         for (const [key, value] of Object.entries(props)) {
             if (typeof value === "string") {
-                out += `{const v=${Compiler.#PROPAGATE_CASING_VAR}(${value});` +
+                out += `{const v=${value};` +
                     `if(v!==undefined)${
                         this.#printAssignTarget([...path, key])
                     }=v;}`;
@@ -393,23 +389,6 @@ class Compiler {
 
     static #transparentReturn(expr: string): string {
         const name = Compiler.#TRANSPARENT_VAR;
-        const value = `${name}?.toJSON?.()??${name}`;
-        return `const ${name}=${expr};return ${Compiler.#PROPAGATE_CASING_VAR}(${value});`;
-    }
-
-    static #propagateCasing(value: unknown): unknown {
-        if (value === null || typeof value !== "object") return value;
-        if (typeof (value as { toJSON?: unknown }).toJSON === "function") {
-            return value;
-        }
-        if (Array.isArray(value)) {
-            return value.map(Compiler.#propagateCasing);
-        }
-        const out: Record<string, unknown> = {};
-        for (const [key, nested] of Object.entries(value)) {
-            out[Compiler.#CASEABLE_NAME.test(key) ? toSnakeCase(key) : key] =
-                Compiler.#propagateCasing(nested);
-        }
-        return out;
+        return `const ${name}=${expr};return ${name}?.toJSON?.()??${name};`;
     }
 }

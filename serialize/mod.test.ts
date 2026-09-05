@@ -245,29 +245,14 @@ Deno.test("toJSON()", async (ctx) => {
         });
     });
 
-    await ctx.step("casing", async (ctx) => {
-        await ctx.step("snake_case", () => {
+    await ctx.step("casing", () => {
+        @Ser()
+        class Foo {
             @Ser()
-            class Foo {
-                @Ser()
-                fooBarBazQux = 1;
-            }
+            fooBarBazQux = 1;
+        }
 
-            assertEquals(JSON.stringify(new Foo()), `{"foo_bar_baz_qux":1}`);
-        });
-
-        await ctx.step("propagates to nested fields", () => {
-            @Ser()
-            class Foo {
-                @Ser()
-                fooBar = [{ isA: true, hasB: false }];
-            }
-
-            assertEquals(
-                JSON.stringify(new Foo()),
-                `{"foo_bar":[{"is_a":true,"has_b":false}]}`,
-            );
-        });
+        assertEquals(JSON.stringify(new Foo()), `{"foo_bar_baz_qux":1}`);
     });
 
     await ctx.step("rename", async (ctx) => {
