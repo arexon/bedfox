@@ -6,7 +6,7 @@
  * @module
  */
 
-import { type AnyConstructor, equal } from "@std/assert";
+import { equal } from "@std/assert";
 import { toSnakeCase } from "@std/text";
 
 /** Options to configure how a class should be serialized. */
@@ -98,7 +98,9 @@ export function Ser<
         Ctx extends ClassFieldDecoratorContext<infer V, unknown> ? V : never
     >,
 ): (
-    target: Ctx extends { kind: "class" } ? AnyConstructor : undefined,
+    target: Ctx extends { kind: "class" }
+        ? abstract new (...args: never[]) => unknown
+        : undefined,
     ctx: Ctx,
 ) => void {
     return (target, ctx) => {
@@ -164,7 +166,7 @@ class Compiler {
 
     static decorateClass(
         ctx: ClassDecoratorContext,
-        ctor: AnyConstructor,
+        ctor: abstract new (...args: never[]) => unknown,
         options?: ClassOptions,
     ): void {
         if ("toJSON" in ctor.prototype) {
