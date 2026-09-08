@@ -1,0 +1,13 @@
+{
+    "$schema": "https://raw.githubusercontent.com/denoland/deno/refs/heads/main/cli/schemas/config-file.v1.json",
+    "name": "@bedfox/api",
+    "version": "1.0.0",
+    "exports": {
+        "./block": "./block/mod.ts",
+        "./common": "./common/mod.ts",
+        "./feature": "./feature/mod.ts",
+        "./molang": "./molang.ts",
+        "./registry": "./registry.ts",
+        "./version": "./version.ts"
+    }
+}
