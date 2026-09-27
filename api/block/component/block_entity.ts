@@ -24,6 +24,9 @@ export class BlockEntityBlockComponent extends Component {
     @Ser({ custom: (v) => autoInstance(BlockContainer, v) })
     container?: BlockContainer;
 
+    @Ser({ default: () => false })
+    entityStorage?: boolean;
+
     constructor(props: ComponentProps<BlockEntityBlockComponent>) {
         super();
         Object.assign(this, props);
