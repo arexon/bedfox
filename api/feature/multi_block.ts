@@ -1,18 +1,17 @@
-import {
-    type BlockDescriptorRef,
-    Definition,
-    type DefinitionProps,
-    type Reference,
-    Relation,
+import type {
+    BlockDescriptorRef,
+    DefinitionProps,
+    ReferenceTarget,
 } from "@bedfox/api/common";
 import { FormatVersion } from "@bedfox/api/version";
+import { Feature } from "./base.ts";
 import { Ser } from "@bedfox/serialize";
-import { refs } from "../_utils.ts";
+import { targets } from "../_utils.ts";
 
 const PATH = "minecraft:multi_block_feature";
 
 @Ser()
-export class MultiBlockFeature extends Definition {
+export class MultiBlockFeature extends Feature {
     override get fallbackFormatVersion(): FormatVersion {
         return new FormatVersion(1, 26, 50);
     }
@@ -41,10 +40,16 @@ export class MultiBlockFeature extends Definition {
         Object.assign(this, props);
     }
 
-    override _references(): Reference[] {
-        return [
-            ...refs(Relation.Places, this.placesBlock),
-            ...refs(Relation.Requires, this.mayReplace),
-        ];
+    override _placements(): ReferenceTarget[] {
+        return targets(
+            this.placesBlock,
+        );
+    }
+
+    override _references(): ReferenceTarget[] {
+        return targets(
+            this._placements(),
+            this.mayReplace,
+        );
     }
 }

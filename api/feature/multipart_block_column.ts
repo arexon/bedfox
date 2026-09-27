@@ -1,20 +1,19 @@
 import {
     type BlockDescriptorRef,
-    Definition,
     type DefinitionProps,
     Range,
-    type Reference,
-    Relation,
+    type ReferenceTarget,
     type VerticalDirection,
 } from "@bedfox/api/common";
 import { FormatVersion } from "@bedfox/api/version";
+import { Feature } from "./base.ts";
 import { Ser } from "@bedfox/serialize";
-import { refs } from "../_utils.ts";
+import { targets } from "../_utils.ts";
 
 const PATH = "minecraft:multipart_block_column_feature";
 
 @Ser()
-export class MultipartBlockColumnFeature extends Definition {
+export class MultipartBlockColumnFeature extends Feature {
     override get fallbackFormatVersion(): FormatVersion {
         return new FormatVersion(1, 26, 50);
     }
@@ -58,16 +57,20 @@ export class MultipartBlockColumnFeature extends Definition {
         Object.assign(this, props);
     }
 
-    override _references(): Reference[] {
-        return [
-            ...refs(
-                Relation.Places,
-                this.tipBlock,
-                this.frustumBlock,
-                this.middleBlock,
-                this.baseBlock,
-            ),
-            ...refs(Relation.Requires, this.mayPlaceOn, this.mayReplace),
-        ];
+    override _placements(): ReferenceTarget[] {
+        return targets(
+            this.tipBlock,
+            this.frustumBlock,
+            this.middleBlock,
+            this.baseBlock,
+        );
+    }
+
+    override _references(): ReferenceTarget[] {
+        return targets(
+            this._placements(),
+            this.mayPlaceOn,
+            this.mayReplace,
+        );
     }
 }

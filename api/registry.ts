@@ -1,37 +1,10 @@
 import { Block } from "@bedfox/api/block";
-import {
-    type Component,
-    type Definition,
-    type ReferenceTarget,
-    Relation,
+import type {
+    Definition,
+    DefinitionCtor,
+    ReferenceTarget,
 } from "@bedfox/api/common";
-import {
-    AggregateFeature,
-    CaveCarverFeature,
-    ConditionalListFeature,
-    FeatureRules,
-    FossilFeature,
-    GeodeFeature,
-    GrowingPlantFeature,
-    HeightDifferenceFilterFeature,
-    HorizontalTreeDecorationFeature,
-    MultiBlockFeature,
-    MultifaceFeature,
-    MultipartBlockColumnFeature,
-    NetherCaveCarverFeature,
-    OreFeature,
-    PartiallyExposedBlobFeature,
-    ScatterFeature,
-    SearchFeature,
-    SequenceFeature,
-    SingleBlockFeature,
-    SnapToSurfaceFeature,
-    StructureTemplateFeature,
-    SurfaceRelativeThresholdFeature,
-    UnderwaterCaveCarverFeature,
-    VegetationPatchFeature,
-    WeightedRandomFeature,
-} from "@bedfox/api/feature";
+import { Feature, FeatureRules } from "@bedfox/api/feature";
 import { autoIdentifier } from "./_utils.ts";
 
 const IDENTIFIER_REG = /^[a-z0-9._-]+$/;
@@ -40,63 +13,16 @@ export function validateIdentifier(value: string): boolean {
     return IDENTIFIER_REG.test(value);
 }
 
-// Assigned in Registry's static block so that Query can reach the Registry's
-// internals without them being public.
-let internals: {
-    all(reg: Registry): Iterable<Definition>;
-    get(
-        reg: Registry,
-        ctor: DefinitionCtor,
-        id: string,
-    ): Definition | undefined;
-    stripNamespace(reg: Registry, id: string): string;
-    isReferenced(reg: Registry, def: Definition): boolean;
-};
-
 export class Registry {
     readonly namespace: string;
 
     #blocks = new DefinitionStore(Block);
     #featureRules = new DefinitionStore(FeatureRules);
-    #features = new DefinitionStore(
-        AggregateFeature,
-        CaveCarverFeature,
-        ConditionalListFeature,
-        FossilFeature,
-        GeodeFeature,
-        GrowingPlantFeature,
-        HeightDifferenceFilterFeature,
-        HorizontalTreeDecorationFeature,
-        MultiBlockFeature,
-        MultifaceFeature,
-        MultipartBlockColumnFeature,
-        NetherCaveCarverFeature,
-        OreFeature,
-        PartiallyExposedBlobFeature,
-        ScatterFeature,
-        SearchFeature,
-        SequenceFeature,
-        SingleBlockFeature,
-        SnapToSurfaceFeature,
-        StructureTemplateFeature,
-        SurfaceRelativeThresholdFeature,
-        UnderwaterCaveCarverFeature,
-        VegetationPatchFeature,
-        WeightedRandomFeature,
-    );
+    #features = new DefinitionStore(Feature);
 
     #stores = [this.#blocks, this.#features, this.#featureRules];
     #systems = new Map<Schedule, System[]>();
     #referenced?: Set<string>;
-
-    static {
-        internals = {
-            all: (reg) => reg.#all(),
-            get: (reg, ctor, id) => reg.#get(ctor, id),
-            stripNamespace: (reg, id) => reg.#stripNamespace(id),
-            isReferenced: (reg, def) => reg.#isReferenced(def),
-        };
-    }
 
     constructor(namespace: string) {
         this.namespace = namespace;
@@ -108,7 +34,7 @@ export class Registry {
                 throw new InvalidIdentifierError(def.identifier);
             }
 
-            this.add(...def._resolveInstances());
+            this.add(...def._referencedInstances());
             this.#storeFor(def).add(def);
         }
         this.#referenced = undefined;
@@ -150,11 +76,16 @@ export class Registry {
         }
     }
 
-    *#all(): Generator<Definition, void, unknown> {
+    /** Every registered definition, by kind then insertion order. */
+    *all(): Generator<Definition, void, unknown> {
         for (const store of this.#stores) yield* store.values();
     }
 
-    #get(ctor: DefinitionCtor, id: string): Definition | undefined {
+    /** Looks up a definition by class and identifier, with or without this registry's namespace. */
+    resolve<T extends Definition>(
+        ctor: DefinitionCtor<T>,
+        id: string,
+    ): T | undefined {
         const localId = this.#stripNamespace(id);
         for (const store of this.#stores) {
             const def = store.get(localId);
@@ -162,16 +93,34 @@ export class Registry {
         }
     }
 
+    /**
+     * Whether a reference target refers to `target`: a registered instance of
+     * the given class, or the same identifier ignoring this registry's
+     * namespace.
+     */
+    matches(
+        ref: ReferenceTarget,
+        target: DefinitionCtor | ReferenceTarget,
+    ): boolean {
+        const id = autoIdentifier(ref);
+        if (typeof target === "function") {
+            return this.resolve(target, id) !== undefined;
+        }
+        return this.#stripNamespace(id) ===
+            this.#stripNamespace(autoIdentifier(target));
+    }
+
     #stripNamespace(id: string): string {
         const prefix = `${this.namespace}:`;
         return id.startsWith(prefix) ? id.slice(prefix.length) : id;
     }
 
-    #isReferenced(def: Definition): boolean {
+    /** Whether any registered definition references `def`. */
+    isReferenced(def: Definition): boolean {
         this.#referenced ??= new Set(
-            Iterator.from(this.#all()).flatMap((def) =>
+            Iterator.from(this.all()).flatMap((def) =>
                 def._references().map((ref) =>
-                    this.#stripNamespace(autoIdentifier(ref.target))
+                    this.#stripNamespace(autoIdentifier(ref))
                 )
             ),
         );
@@ -193,19 +142,22 @@ export const enum Schedule {
     Finalize,
 }
 
-export type SystemCallback<T extends Definition[]> = (
-    reg: Registry,
-    defs: Generator<T[number], void, unknown>,
-) => void;
-
-export type System = (reg: Registry) => void;
+/** One or more definition types; `[Definition]` for everything. */
+export type Defs = [Definition, ...Definition[]];
 
 export type Filter<T extends Definition = Definition> = (
     def: T,
     reg: Registry,
 ) => boolean;
 
-export class Query<T extends Definition[]> {
+export type System = (reg: Registry) => void;
+
+export type SystemCallback<T extends Defs> = (
+    reg: Registry,
+    defs: Generator<T[number], void, unknown>,
+) => void;
+
+export class Query<T extends Defs> {
     #ctors: DefinitionCtor<T[number]>[];
     #filters: Filter<T[number]>[] = [];
 
@@ -217,34 +169,8 @@ export class Query<T extends Definition[]> {
         return predicate;
     }
 
-    static withComponent(...ctors: ComponentCtor[]): Filter<Block> {
-        return (def) => def.components.has(...ctors);
-    }
-
-    static withoutComponent(...ctors: ComponentCtor[]): Filter<Block> {
-        return (def) => !ctors.some((ctor) => def.components.has(ctor));
-    }
-
-    static references(target: DefinitionCtor | ReferenceTarget): Filter {
-        return referencing(target);
-    }
-
-    static placing(target: DefinitionCtor | ReferenceTarget): Filter {
-        return referencing(target, Relation.Places);
-    }
-
-    static requiring(target: DefinitionCtor | ReferenceTarget): Filter {
-        return referencing(target, Relation.Requires);
-    }
-
-    static orphan(): Filter {
-        return (def, reg) => !internals.isReferenced(reg, def);
-    }
-
     filter(...filters: Filter<T[number]>[]): Query<T> {
-        const query = new Query<T>(
-            ...this.#ctors as { [K in keyof T]: DefinitionCtor<T[K]> },
-        );
+        const query = new Query<T>(...this.#ctors as never);
         query.#filters = [...this.#filters, ...filters];
         return query;
     }
@@ -254,7 +180,7 @@ export class Query<T extends Definition[]> {
     }
 
     *#run(reg: Registry): Generator<T[number], void, unknown> {
-        for (const def of internals.all(reg)) {
+        for (const def of reg.all()) {
             if (
                 this.#ctors.some((ctor) => def instanceof ctor) &&
                 this.#filters.every((filter) => filter(def as T[number], reg))
@@ -262,32 +188,6 @@ export class Query<T extends Definition[]> {
         }
     }
 }
-
-function referencing(
-    target: DefinitionCtor | ReferenceTarget,
-    relation?: Relation,
-): Filter {
-    return (def, reg) =>
-        def._references().some((ref) => {
-            if (relation !== undefined && ref.relation !== relation) {
-                return false;
-            }
-
-            const id = autoIdentifier(ref.target);
-            if (typeof target === "function") {
-                return internals.get(reg, target, id) !== undefined;
-            } else {
-                return internals.stripNamespace(reg, id) ===
-                    internals.stripNamespace(reg, autoIdentifier(target));
-            }
-        });
-}
-
-type ComponentCtor = abstract new (...args: never[]) => Component;
-
-type DefinitionCtor<T extends Definition = Definition> = abstract new (
-    ...args: never[]
-) => T;
 
 class DefinitionStore {
     #inner = new Map<string, Definition>();

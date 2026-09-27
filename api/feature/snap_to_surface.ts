@@ -1,15 +1,14 @@
 import {
     BlockDescriptor,
     type BlockDescriptorRef,
-    Definition,
     type DefinitionProps,
-    type Reference,
-    Relation,
+    type ReferenceTarget,
 } from "@bedfox/api/common";
 import type { FeatureReference } from "@bedfox/api/feature";
 import { FormatVersion } from "@bedfox/api/version";
+import { Feature } from "./base.ts";
 import { Ser } from "@bedfox/serialize";
-import { autoIdentifier, autoInstance, refs } from "../_utils.ts";
+import { autoIdentifier, autoInstance, targets } from "../_utils.ts";
 
 export enum SnapSurface {
     Ceiling = "ceiling",
@@ -21,7 +20,7 @@ export enum SnapSurface {
 const PATH = "minecraft:snap_to_surface_feature";
 
 @Ser()
-export class SnapToSurfaceFeature extends Definition {
+export class SnapToSurfaceFeature extends Feature {
     override get fallbackFormatVersion(): FormatVersion {
         return new FormatVersion(1, 26, 50);
     }
@@ -68,10 +67,16 @@ export class SnapToSurfaceFeature extends Definition {
         Object.assign(this, props);
     }
 
-    override _references(): Reference[] {
-        return [
-            ...refs(Relation.Places, this.featureToSnap),
-            ...refs(Relation.Requires, this.allowedSurfaceBlocks),
-        ];
+    override _placements(): ReferenceTarget[] {
+        return targets(
+            this.featureToSnap,
+        );
+    }
+
+    override _references(): ReferenceTarget[] {
+        return targets(
+            this._placements(),
+            this.allowedSurfaceBlocks,
+        );
     }
 }

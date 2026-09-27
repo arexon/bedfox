@@ -1,18 +1,14 @@
-import {
-    Definition,
-    type DefinitionProps,
-    type Reference,
-    Relation,
-} from "@bedfox/api/common";
+import type { DefinitionProps, ReferenceTarget } from "@bedfox/api/common";
 import type { FeatureReference } from "@bedfox/api/feature";
 import { FormatVersion } from "@bedfox/api/version";
+import { Feature } from "./base.ts";
 import { Ser } from "@bedfox/serialize";
-import { autoIdentifier, refs } from "../_utils.ts";
+import { autoIdentifier, targets } from "../_utils.ts";
 
 const PATH = "minecraft:weighted_random_feature";
 
 @Ser()
-export class WeightedRandomFeature extends Definition {
+export class WeightedRandomFeature extends Feature {
     override get fallbackFormatVersion(): FormatVersion {
         return new FormatVersion(1, 26, 50);
     }
@@ -40,9 +36,9 @@ export class WeightedRandomFeature extends Definition {
         return this;
     }
 
-    override _references(): Reference[] {
-        return [
-            ...refs(Relation.Places, this.features.map(([feature]) => feature)),
-        ];
+    override _placements(): ReferenceTarget[] {
+        return targets(
+            this.features.map(([feature]) => feature),
+        );
     }
 }

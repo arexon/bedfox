@@ -1,13 +1,12 @@
-import {
-    type BlockDescriptorRef,
-    Definition,
-    type DefinitionProps,
-    type Reference,
-    Relation,
+import type {
+    BlockDescriptorRef,
+    DefinitionProps,
+    ReferenceTarget,
 } from "@bedfox/api/common";
 import { FormatVersion } from "@bedfox/api/version";
+import { Feature } from "./base.ts";
 import { Ser } from "@bedfox/serialize";
-import { refs } from "../_utils.ts";
+import { targets } from "../_utils.ts";
 
 @Ser()
 export class OreReplaceRule {
@@ -29,7 +28,7 @@ export class OreReplaceRule {
 const PATH = "minecraft:ore_feature";
 
 @Ser()
-export class OreFeature extends Definition {
+export class OreFeature extends Feature {
     override get fallbackFormatVersion(): FormatVersion {
         return new FormatVersion(1, 26, 50);
     }
@@ -60,16 +59,16 @@ export class OreFeature extends Definition {
         return this;
     }
 
-    override _references(): Reference[] {
-        return [
-            ...refs(
-                Relation.Places,
-                this.replaceRules.map((rule) => rule.placesBlock),
-            ),
-            ...refs(
-                Relation.Requires,
-                this.replaceRules.flatMap((rule) => rule.mayReplace ?? []),
-            ),
-        ];
+    override _placements(): ReferenceTarget[] {
+        return targets(
+            this.replaceRules.map((rule) => rule.placesBlock),
+        );
+    }
+
+    override _references(): ReferenceTarget[] {
+        return targets(
+            this._placements(),
+            this.replaceRules.flatMap((rule) => rule.mayReplace ?? []),
+        );
     }
 }

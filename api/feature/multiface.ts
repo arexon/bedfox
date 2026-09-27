@@ -1,18 +1,17 @@
-import {
-    type BlockDescriptorRef,
-    Definition,
-    type DefinitionProps,
-    type Reference,
-    Relation,
+import type {
+    BlockDescriptorRef,
+    DefinitionProps,
+    ReferenceTarget,
 } from "@bedfox/api/common";
 import { FormatVersion } from "@bedfox/api/version";
+import { Feature } from "./base.ts";
 import { Ser } from "@bedfox/serialize";
-import { refs } from "../_utils.ts";
+import { targets } from "../_utils.ts";
 
 const PATH = "minecraft:multiface_feature";
 
 @Ser()
-export class MultifaceFeature extends Definition {
+export class MultifaceFeature extends Feature {
     override get fallbackFormatVersion(): FormatVersion {
         return new FormatVersion(1, 26, 50);
     }
@@ -47,10 +46,16 @@ export class MultifaceFeature extends Definition {
         Object.assign(this, props);
     }
 
-    override _references(): Reference[] {
-        return [
-            ...refs(Relation.Places, this.placesBlock),
-            ...refs(Relation.Requires, this.canPlaceOn),
-        ];
+    override _placements(): ReferenceTarget[] {
+        return targets(
+            this.placesBlock,
+        );
+    }
+
+    override _references(): ReferenceTarget[] {
+        return targets(
+            this._placements(),
+            this.canPlaceOn,
+        );
     }
 }

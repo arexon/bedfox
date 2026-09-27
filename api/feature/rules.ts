@@ -1,8 +1,8 @@
 import {
     Definition,
+    type DefinitionCtor,
     type DefinitionProps,
-    type Reference,
-    Relation,
+    type ReferenceTarget,
 } from "@bedfox/api/common";
 import {
     BiomeFilter,
@@ -12,9 +12,10 @@ import {
     type ScatterDistribution,
 } from "@bedfox/api/feature";
 import type { Molang } from "@bedfox/api/molang";
+import type { Filter } from "@bedfox/api/registry";
 import { FormatVersion } from "@bedfox/api/version";
 import { Ser } from "@bedfox/serialize";
-import { autoIdentifier, autoInstance, refs } from "../_utils.ts";
+import { autoIdentifier, autoInstance, targets } from "../_utils.ts";
 
 export const enum PlacementPass {
     FirstPass = "first_pass",
@@ -81,9 +82,20 @@ export class FeatureRules extends Definition {
         Object.assign(this, props);
     }
 
-    override _references(): Reference[] {
-        return [
-            ...refs(Relation.Places, this.placesFeature),
-        ];
+    /** Matches feature rules that place `target`. */
+    static placing(
+        target: DefinitionCtor | ReferenceTarget,
+    ): Filter<FeatureRules> {
+        return (rule, reg) =>
+            rule._references().some((ref) => reg.matches(ref, target));
+    }
+
+    _placements(): ReferenceTarget[] {
+        return [this.placesFeature];
+    }
+
+    /** A rule references exactly what it places. */
+    override _references(): ReferenceTarget[] {
+        return targets(this.placesFeature);
     }
 }

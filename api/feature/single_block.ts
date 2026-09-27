@@ -1,13 +1,12 @@
-import {
-    type BlockDescriptorRef,
-    Definition,
-    type DefinitionProps,
-    type Reference,
-    Relation,
+import type {
+    BlockDescriptorRef,
+    DefinitionProps,
+    ReferenceTarget,
 } from "@bedfox/api/common";
 import { FormatVersion } from "@bedfox/api/version";
+import { Feature } from "./base.ts";
 import { Ser } from "@bedfox/serialize";
-import { refs } from "../_utils.ts";
+import { targets } from "../_utils.ts";
 
 @Ser()
 export class WeightedBlock {
@@ -66,7 +65,7 @@ export class BlockAttachmentRules {
 const PATH = "minecraft:single_block_feature";
 
 @Ser()
-export class SingleBlockFeature extends Definition {
+export class SingleBlockFeature extends Feature {
     override get fallbackFormatVersion(): FormatVersion {
         return new FormatVersion(1, 26, 50);
     }
@@ -104,21 +103,21 @@ export class SingleBlockFeature extends Definition {
         Object.assign(this, props);
     }
 
-    override _references(): Reference[] {
-        return [
-            ...refs(
-                Relation.Places,
-                Array.isArray(this.placesBlock)
-                    ? this.placesBlock.map((weighted) => weighted.block)
-                    : this.placesBlock,
-            ),
-            ...refs(
-                Relation.Requires,
-                this.mayReplace,
-                attachmentTargets(this.mayAttachTo),
-                attachmentTargets(this.mayNotAttachTo),
-            ),
-        ];
+    override _placements(): ReferenceTarget[] {
+        return targets(
+            Array.isArray(this.placesBlock)
+                ? this.placesBlock.map((weighted) => weighted.block)
+                : this.placesBlock,
+        );
+    }
+
+    override _references(): ReferenceTarget[] {
+        return targets(
+            this._placements(),
+            this.mayReplace,
+            attachmentTargets(this.mayAttachTo),
+            attachmentTargets(this.mayNotAttachTo),
+        );
     }
 }
 

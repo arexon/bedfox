@@ -2,11 +2,13 @@ import { type BlockTrait, BlockTraitCollection } from "@bedfox/api/block";
 import {
     type Component,
     ComponentCollection,
+    type ComponentCtor,
     Definition,
     type DefinitionProps,
     ItemCategory,
     Range,
 } from "@bedfox/api/common";
+import type { Filter } from "@bedfox/api/registry";
 import { FormatVersion } from "@bedfox/api/version";
 import { Ser } from "@bedfox/serialize";
 
@@ -67,6 +69,23 @@ export class Block extends Definition {
         super();
         this.identifier = identifier;
         Object.assign(this, props);
+    }
+
+    /** Matches blocks that have every given component. */
+    static withComponent(
+        first: ComponentCtor,
+        ...rest: ComponentCtor[]
+    ): Filter<Block> {
+        return (block) => block.components.has(first, ...rest);
+    }
+
+    /** Matches blocks that have none of the given components. */
+    static withoutComponent(
+        first: ComponentCtor,
+        ...rest: ComponentCtor[]
+    ): Filter<Block> {
+        const ctors = [first, ...rest];
+        return (block) => !ctors.some((ctor) => block.components.has(ctor));
     }
 
     setState(name: string, ...number: number[]): this;

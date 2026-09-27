@@ -9,6 +9,8 @@ export abstract class Component {
     abstract get componentId(): string;
 }
 
+export type ComponentCtor = abstract new (...args: never[]) => Component;
+
 export class ComponentCollection extends KeyedCollection<Component> {
     constructor(...components: Component[]) {
         super((component) => component.componentId, ...components);

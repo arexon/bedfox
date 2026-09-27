@@ -1,3 +1,4 @@
+import type { Filter } from "@bedfox/api/registry";
 import type { FormatVersion } from "@bedfox/api/version";
 import { Ser } from "@bedfox/serialize";
 import type { BlockDescriptor } from "./descriptor.ts";
@@ -46,29 +47,24 @@ export abstract class Definition {
     }
 
     /** Internal. Everything this definition directly references. */
-    _references(): Reference[] {
+    _references(): ReferenceTarget[] {
         return [];
     }
 
     /** Internal. Directly nested definition instances. */
-    _resolveInstances(): Definition[] {
-        return this._references()
-            .map((ref) => ref.target)
-            .filter((target) => target instanceof Definition);
+    _referencedInstances(): Definition[] {
+        return this._references().filter((ref) => ref instanceof Definition);
+    }
+
+    /** Matches definitions nothing else in the registry references. */
+    static orphan(): Filter<Definition> {
+        return (def, reg) => !reg.isReferenced(def);
     }
 }
 
-/** How a definition relates to something it references. */
-export const enum Relation {
-    /** The referrer places the target in the world. */
-    Places,
-    /** The referrer conditions on the target (may replace, may attach to, allowlists). */
-    Requires,
-}
+/** Any concrete or abstract definition class. */
+export type DefinitionCtor<T extends Definition = Definition> = abstract new (
+    ...args: never[]
+) => T;
 
 export type ReferenceTarget = Definition | BlockDescriptor | string;
-
-export interface Reference {
-    relation: Relation;
-    target: ReferenceTarget;
-}

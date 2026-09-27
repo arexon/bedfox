@@ -1,31 +1,5 @@
-import type {
-    AggregateFeature,
-    CaveCarverFeature,
-    ConditionalListFeature,
-    FossilFeature,
-    GeodeFeature,
-    GrowingPlantFeature,
-    HeightDifferenceFilterFeature,
-    HorizontalTreeDecorationFeature,
-    MultiBlockFeature,
-    MultifaceFeature,
-    MultipartBlockColumnFeature,
-    NetherCaveCarverFeature,
-    OreFeature,
-    PartiallyExposedBlobFeature,
-    ScatterFeature,
-    SearchFeature,
-    SequenceFeature,
-    SingleBlockFeature,
-    SnapToSurfaceFeature,
-    StructureTemplateFeature,
-    SurfaceRelativeThresholdFeature,
-    UnderwaterCaveCarverFeature,
-    VegetationPatchFeature,
-    WeightedRandomFeature,
-} from "@bedfox/api/feature";
-
 export * from "./aggregate.ts";
+export * from "./base.ts";
 export * from "./biome_filter.ts";
 export * from "./cave_carver.ts";
 export * from "./conditional_list.ts";
@@ -52,30 +26,6 @@ export * from "./underwater_cave_carver.ts";
 export * from "./vegetation_patch.ts";
 export * from "./weighted_random.ts";
 
-export type FeatureReference = string | Feature;
+import type { Feature } from "./base.ts";
 
-export type Feature =
-    | ScatterFeature
-    | AggregateFeature
-    | SequenceFeature
-    | WeightedRandomFeature
-    | ConditionalListFeature
-    | SearchFeature
-    | SnapToSurfaceFeature
-    | HeightDifferenceFilterFeature
-    | SurfaceRelativeThresholdFeature
-    | SingleBlockFeature
-    | MultiBlockFeature
-    | HorizontalTreeDecorationFeature
-    | MultifaceFeature
-    | OreFeature
-    | FossilFeature
-    | CaveCarverFeature
-    | NetherCaveCarverFeature
-    | UnderwaterCaveCarverFeature
-    | PartiallyExposedBlobFeature
-    | GrowingPlantFeature
-    | VegetationPatchFeature
-    | GeodeFeature
-    | StructureTemplateFeature
-    | MultipartBlockColumnFeature;
+export type FeatureReference = string | Feature;

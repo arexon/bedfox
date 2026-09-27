@@ -1,14 +1,10 @@
-import {
-    Definition,
-    type DefinitionProps,
-    type Reference,
-    Relation,
-} from "@bedfox/api/common";
+import type { DefinitionProps, ReferenceTarget } from "@bedfox/api/common";
 import type { FeatureReference } from "@bedfox/api/feature";
 import type { Molang } from "@bedfox/api/molang";
 import { FormatVersion } from "@bedfox/api/version";
+import { Feature } from "./base.ts";
 import { Ser } from "@bedfox/serialize";
-import { autoIdentifier, refs } from "../_utils.ts";
+import { autoIdentifier, targets } from "../_utils.ts";
 
 export enum ConditionalEarlyOut {
     ConditionSuccess = "condition_success",
@@ -33,7 +29,7 @@ export class ConditionalFeatureEntry {
 const PATH = "minecraft:conditional_list";
 
 @Ser()
-export class ConditionalListFeature extends Definition {
+export class ConditionalListFeature extends Feature {
     override get fallbackFormatVersion(): FormatVersion {
         return new FormatVersion(1, 26, 50);
     }
@@ -65,12 +61,9 @@ export class ConditionalListFeature extends Definition {
         return this;
     }
 
-    override _references(): Reference[] {
-        return [
-            ...refs(
-                Relation.Places,
-                this.features.map((entry) => entry.placesFeature),
-            ),
-        ];
+    override _placements(): ReferenceTarget[] {
+        return targets(
+            this.features.map((entry) => entry.placesFeature),
+        );
     }
 }

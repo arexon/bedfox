@@ -1,18 +1,17 @@
-import {
-    type BlockDescriptorRef,
-    Definition,
-    type DefinitionProps,
-    type Reference,
-    Relation,
+import type {
+    BlockDescriptorRef,
+    DefinitionProps,
+    ReferenceTarget,
 } from "@bedfox/api/common";
 import { FormatVersion } from "@bedfox/api/version";
+import { Feature } from "./base.ts";
 import { Ser } from "@bedfox/serialize";
-import { refs } from "../_utils.ts";
+import { targets } from "../_utils.ts";
 
 const PATH = "minecraft:horizontal_tree_decoration_feature";
 
 @Ser()
-export class HorizontalTreeDecorationFeature extends Definition {
+export class HorizontalTreeDecorationFeature extends Feature {
     override get fallbackFormatVersion(): FormatVersion {
         return new FormatVersion(1, 26, 50);
     }
@@ -38,9 +37,9 @@ export class HorizontalTreeDecorationFeature extends Definition {
         Object.assign(this, props);
     }
 
-    override _references(): Reference[] {
-        return [
-            ...refs(Relation.Places, this.placesBlock),
-        ];
+    override _placements(): ReferenceTarget[] {
+        return targets(
+            this.placesBlock,
+        );
     }
 }

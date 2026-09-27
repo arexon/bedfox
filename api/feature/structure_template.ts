@@ -1,14 +1,13 @@
-import {
-    type BlockDescriptorRef,
-    Definition,
-    type DefinitionProps,
-    type FacingDirection,
-    type Reference,
-    Relation,
+import type {
+    BlockDescriptorRef,
+    DefinitionProps,
+    FacingDirection,
+    ReferenceTarget,
 } from "@bedfox/api/common";
 import { FormatVersion } from "@bedfox/api/version";
+import { Feature } from "./base.ts";
 import { Ser } from "@bedfox/serialize";
-import { refs } from "../_utils.ts";
+import { targets } from "../_utils.ts";
 
 @Ser()
 export class LeveledConstraint {
@@ -36,7 +35,7 @@ export class BlockIntersectionConstraint {
 const PATH = "minecraft:structure_template_feature";
 
 @Ser()
-export class StructureTemplateFeature extends Definition {
+export class StructureTemplateFeature extends Feature {
     override get fallbackFormatVersion(): FormatVersion {
         return new FormatVersion(1, 26, 50);
     }
@@ -80,15 +79,13 @@ export class StructureTemplateFeature extends Definition {
         Object.assign(this, props);
     }
 
-    override _references(): Reference[] {
-        return [
-            ...refs(
-                Relation.Requires,
-                typeof this.blockIntersection === "object"
-                    ? this.blockIntersection.blockAllowlist
-                    : undefined,
-            ),
-        ];
+    override _references(): ReferenceTarget[] {
+        return targets(
+            this._placements(),
+            typeof this.blockIntersection === "object"
+                ? this.blockIntersection.blockAllowlist
+                : undefined,
+        );
     }
 }
 

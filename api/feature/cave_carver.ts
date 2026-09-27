@@ -1,20 +1,19 @@
 import {
     type BlockDescriptorRef,
-    Definition,
     type DefinitionProps,
     Range,
-    type Reference,
-    Relation,
+    type ReferenceTarget,
 } from "@bedfox/api/common";
 import type { Molang } from "@bedfox/api/molang";
 import { FormatVersion } from "@bedfox/api/version";
+import { Feature } from "./base.ts";
 import { Ser } from "@bedfox/serialize";
-import { refs } from "../_utils.ts";
+import { targets } from "../_utils.ts";
 
 const PATH = "minecraft:cave_carver_feature";
 
 @Ser()
-export class CaveCarverFeature extends Definition {
+export class CaveCarverFeature extends Feature {
     override get fallbackFormatVersion(): FormatVersion {
         return new FormatVersion(1, 26, 50);
     }
@@ -55,9 +54,9 @@ export class CaveCarverFeature extends Definition {
         Object.assign(this, props);
     }
 
-    override _references(): Reference[] {
-        return [
-            ...refs(Relation.Places, this.fillWith),
-        ];
+    override _placements(): ReferenceTarget[] {
+        return targets(
+            this.fillWith,
+        );
     }
 }
