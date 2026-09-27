@@ -35,6 +35,7 @@ export class CollisionBoxBlockComponent extends Component {
         return "minecraft:collision_box";
     }
 
+    // TODO: Add min/max
     @Ser({
         default: () => true,
         custom: (v) =>
