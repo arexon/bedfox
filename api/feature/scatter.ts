@@ -1,9 +1,14 @@
-import { Definition, type DefinitionProps } from "@bedfox/api/common";
+import {
+    Definition,
+    type DefinitionProps,
+    type Reference,
+    Relation,
+} from "@bedfox/api/common";
 import type { FeatureReference } from "@bedfox/api/feature";
 import type { Molang } from "@bedfox/api/molang";
 import { FormatVersion } from "@bedfox/api/version";
 import { Ser } from "@bedfox/serialize";
-import { autoIdentifier } from "../_utils.ts";
+import { autoIdentifier, refs } from "../_utils.ts";
 
 const PATH = "minecraft:scatter_feature";
 
@@ -49,10 +54,10 @@ export class ScatterFeature extends Definition {
         Object.assign(this, props);
     }
 
-    override _resolveInstances(): Definition[] {
-        return typeof this.placesFeature === "string"
-            ? []
-            : [this.placesFeature];
+    override _references(): Reference[] {
+        return [
+            ...refs(Relation.Places, this.placesFeature),
+        ];
     }
 }
 

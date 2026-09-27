@@ -2,9 +2,12 @@ import {
     type BlockDescriptorRef,
     Definition,
     type DefinitionProps,
+    type Reference,
+    Relation,
 } from "@bedfox/api/common";
 import { FormatVersion } from "@bedfox/api/version";
 import { Ser } from "@bedfox/serialize";
+import { refs } from "../_utils.ts";
 
 const PATH = "minecraft:fossil_feature";
 
@@ -29,7 +32,9 @@ export class FossilFeature extends Definition {
         Object.assign(this, props);
     }
 
-    override _resolveInstances(): Definition[] {
-        return [];
+    override _references(): Reference[] {
+        return [
+            ...refs(Relation.Places, this.oreBlock),
+        ];
     }
 }

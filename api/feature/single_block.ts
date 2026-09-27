@@ -2,9 +2,12 @@ import {
     type BlockDescriptorRef,
     Definition,
     type DefinitionProps,
+    type Reference,
+    Relation,
 } from "@bedfox/api/common";
 import { FormatVersion } from "@bedfox/api/version";
 import { Ser } from "@bedfox/serialize";
+import { refs } from "../_utils.ts";
 
 @Ser()
 export class WeightedBlock {
@@ -101,7 +104,31 @@ export class SingleBlockFeature extends Definition {
         Object.assign(this, props);
     }
 
-    override _resolveInstances(): Definition[] {
-        return [];
+    override _references(): Reference[] {
+        return [
+            ...refs(
+                Relation.Places,
+                Array.isArray(this.placesBlock)
+                    ? this.placesBlock.map((weighted) => weighted.block)
+                    : this.placesBlock,
+            ),
+            ...refs(
+                Relation.Requires,
+                this.mayReplace,
+                attachmentTargets(this.mayAttachTo),
+                attachmentTargets(this.mayNotAttachTo),
+            ),
+        ];
     }
+}
+
+function attachmentTargets(
+    rules: BlockAttachmentRules | undefined,
+): BlockDescriptorRef[] {
+    if (rules === undefined) return [];
+    const { top, bottom, north, east, south, west, all, sides, diagonal } =
+        rules;
+    return [top, bottom, north, east, south, west, all, sides, diagonal]
+        .flat()
+        .filter((ref) => ref !== undefined);
 }

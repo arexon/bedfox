@@ -3,10 +3,13 @@ import {
     Definition,
     type DefinitionProps,
     Range,
+    type Reference,
+    Relation,
 } from "@bedfox/api/common";
 import type { Molang } from "@bedfox/api/molang";
 import { FormatVersion } from "@bedfox/api/version";
 import { Ser } from "@bedfox/serialize";
+import { refs } from "../_utils.ts";
 
 const PATH = "minecraft:cave_carver_feature";
 
@@ -52,7 +55,9 @@ export class CaveCarverFeature extends Definition {
         Object.assign(this, props);
     }
 
-    override _resolveInstances(): Definition[] {
-        return [];
+    override _references(): Reference[] {
+        return [
+            ...refs(Relation.Places, this.fillWith),
+        ];
     }
 }

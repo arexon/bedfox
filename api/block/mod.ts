@@ -118,10 +118,6 @@ export class Block extends Definition {
         this.permutations.push(new BlockPermutation(condition, ...components));
         return this;
     }
-
-    override _resolveInstances(): Definition[] {
-        return [];
-    }
 }
 
 @Ser()

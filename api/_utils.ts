@@ -1,4 +1,9 @@
-import type { Definition } from "@bedfox/api/common";
+import {
+    BlockDescriptor,
+    type Reference,
+    type ReferenceTarget,
+    type Relation,
+} from "@bedfox/api/common";
 
 export function autoInstance<Props extends Val | undefined, Val>(
     ctor: new (props: Props) => Props,
@@ -27,7 +32,18 @@ export function multiAutoInstance<Props extends Val, Val>(
     return values;
 }
 
-export function autoIdentifier(defOrRef: Definition | string): string {
-    if (typeof defOrRef === "string") return defOrRef;
-    else return defOrRef.identifier;
+export function autoIdentifier(target: ReferenceTarget): string {
+    if (typeof target === "string") return target;
+    if (target instanceof BlockDescriptor) return target.name;
+    return target.identifier;
+}
+
+/** Builds references of one relation from targets, flattening arrays and skipping `undefined`. */
+export function refs(
+    relation: Relation,
+    ...targets: (ReferenceTarget | ReferenceTarget[] | undefined)[]
+): Reference[] {
+    return targets.flat().flatMap((target) =>
+        target === undefined ? [] : [{ relation, target }]
+    );
 }

@@ -2,9 +2,12 @@ import {
     type BlockDescriptorRef,
     Definition,
     type DefinitionProps,
+    type Reference,
+    Relation,
 } from "@bedfox/api/common";
 import { FormatVersion } from "@bedfox/api/version";
 import { Ser } from "@bedfox/serialize";
+import { refs } from "../_utils.ts";
 
 const PATH = "minecraft:geode_feature";
 
@@ -86,7 +89,17 @@ export class GeodeFeature extends Definition {
         Object.assign(this, props);
     }
 
-    override _resolveInstances(): Definition[] {
-        return [];
+    override _references(): Reference[] {
+        return [
+            ...refs(
+                Relation.Places,
+                this.filler,
+                this.innerLayer,
+                this.alternateInnerLayer,
+                this.middleLayer,
+                this.outerLayer,
+                this.innerPlacements,
+            ),
+        ];
     }
 }

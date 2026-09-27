@@ -3,11 +3,13 @@ import {
     Definition,
     type DefinitionProps,
     Range,
+    type Reference,
+    Relation,
 } from "@bedfox/api/common";
 import type { FeatureReference } from "@bedfox/api/feature";
 import { FormatVersion } from "@bedfox/api/version";
 import { Ser } from "@bedfox/serialize";
-import { autoIdentifier } from "../_utils.ts";
+import { autoIdentifier, refs } from "../_utils.ts";
 
 export enum VegetationPatchSurface {
     Floor = "floor",
@@ -67,9 +69,10 @@ export class VegetationPatchFeature extends Definition {
         Object.assign(this, props);
     }
 
-    override _resolveInstances(): Definition[] {
-        return typeof this.vegetationFeature === "string"
-            ? []
-            : [this.vegetationFeature];
+    override _references(): Reference[] {
+        return [
+            ...refs(Relation.Places, this.vegetationFeature, this.groundBlock),
+            ...refs(Relation.Requires, this.replaceableBlocks),
+        ];
     }
 }

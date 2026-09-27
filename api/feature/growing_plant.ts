@@ -3,10 +3,13 @@ import {
     Definition,
     type DefinitionProps,
     Range,
+    type Reference,
+    Relation,
     type VerticalDirection,
 } from "@bedfox/api/common";
 import { FormatVersion } from "@bedfox/api/version";
 import { Ser } from "@bedfox/serialize";
+import { refs } from "../_utils.ts";
 
 const PATH = "minecraft:growing_plant_feature";
 
@@ -52,7 +55,13 @@ export class GrowingPlantFeature extends Definition {
         Object.assign(this, props);
     }
 
-    override _resolveInstances(): Definition[] {
-        return [];
+    override _references(): Reference[] {
+        return [
+            ...refs(
+                Relation.Places,
+                this.bodyBlocks.map(([block]) => block),
+                this.headBlocks.map(([block]) => block),
+            ),
+        ];
     }
 }

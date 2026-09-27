@@ -3,9 +3,12 @@ import {
     Definition,
     type DefinitionProps,
     type FacingDirection,
+    type Reference,
+    Relation,
 } from "@bedfox/api/common";
 import { FormatVersion } from "@bedfox/api/version";
 import { Ser } from "@bedfox/serialize";
+import { refs } from "../_utils.ts";
 
 @Ser()
 export class LeveledConstraint {
@@ -77,8 +80,15 @@ export class StructureTemplateFeature extends Definition {
         Object.assign(this, props);
     }
 
-    override _resolveInstances(): Definition[] {
-        return [];
+    override _references(): Reference[] {
+        return [
+            ...refs(
+                Relation.Requires,
+                typeof this.blockIntersection === "object"
+                    ? this.blockIntersection.blockAllowlist
+                    : undefined,
+            ),
+        ];
     }
 }
 

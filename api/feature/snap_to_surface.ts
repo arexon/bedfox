@@ -3,11 +3,13 @@ import {
     type BlockDescriptorRef,
     Definition,
     type DefinitionProps,
+    type Reference,
+    Relation,
 } from "@bedfox/api/common";
 import type { FeatureReference } from "@bedfox/api/feature";
 import { FormatVersion } from "@bedfox/api/version";
 import { Ser } from "@bedfox/serialize";
-import { autoIdentifier, autoInstance } from "../_utils.ts";
+import { autoIdentifier, autoInstance, refs } from "../_utils.ts";
 
 export enum SnapSurface {
     Ceiling = "ceiling",
@@ -66,9 +68,10 @@ export class SnapToSurfaceFeature extends Definition {
         Object.assign(this, props);
     }
 
-    override _resolveInstances(): Definition[] {
-        return typeof this.featureToSnap === "string"
-            ? []
-            : [this.featureToSnap];
+    override _references(): Reference[] {
+        return [
+            ...refs(Relation.Places, this.featureToSnap),
+            ...refs(Relation.Requires, this.allowedSurfaceBlocks),
+        ];
     }
 }

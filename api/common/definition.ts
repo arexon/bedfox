@@ -1,5 +1,6 @@
 import type { FormatVersion } from "@bedfox/api/version";
 import { Ser } from "@bedfox/serialize";
+import type { BlockDescriptor } from "./descriptor.ts";
 import type { InstanceProps } from "./props.ts";
 
 export type DefinitionProps<T> = Partial<
@@ -31,9 +32,6 @@ export abstract class Definition {
 
     abstract identifier: string;
 
-    /** Internal. Resolves all of the nested definitions recursively. */
-    abstract _resolveInstances(): Definition[];
-
     if(condition: boolean, callback: (def: this) => void): this {
         if (condition) callback(this);
         return this;
@@ -46,4 +44,31 @@ export abstract class Definition {
         for (let i = 0; i < array.length; i++) callback(this, array[i], i);
         return this;
     }
+
+    /** Internal. Everything this definition directly references. */
+    _references(): Reference[] {
+        return [];
+    }
+
+    /** Internal. Directly nested definition instances. */
+    _resolveInstances(): Definition[] {
+        return this._references()
+            .map((ref) => ref.target)
+            .filter((target) => target instanceof Definition);
+    }
+}
+
+/** How a definition relates to something it references. */
+export const enum Relation {
+    /** The referrer places the target in the world. */
+    Places,
+    /** The referrer conditions on the target (may replace, may attach to, allowlists). */
+    Requires,
+}
+
+export type ReferenceTarget = Definition | BlockDescriptor | string;
+
+export interface Reference {
+    relation: Relation;
+    target: ReferenceTarget;
 }

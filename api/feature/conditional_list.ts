@@ -1,9 +1,14 @@
-import { Definition, type DefinitionProps } from "@bedfox/api/common";
+import {
+    Definition,
+    type DefinitionProps,
+    type Reference,
+    Relation,
+} from "@bedfox/api/common";
 import type { FeatureReference } from "@bedfox/api/feature";
 import type { Molang } from "@bedfox/api/molang";
 import { FormatVersion } from "@bedfox/api/version";
 import { Ser } from "@bedfox/serialize";
-import { autoIdentifier } from "../_utils.ts";
+import { autoIdentifier, refs } from "../_utils.ts";
 
 export enum ConditionalEarlyOut {
     ConditionSuccess = "condition_success",
@@ -60,9 +65,12 @@ export class ConditionalListFeature extends Definition {
         return this;
     }
 
-    override _resolveInstances(): Definition[] {
-        return this.features.flatMap((v) =>
-            typeof v.placesFeature === "string" ? [] : [v.placesFeature]
-        );
+    override _references(): Reference[] {
+        return [
+            ...refs(
+                Relation.Places,
+                this.features.map((entry) => entry.placesFeature),
+            ),
+        ];
     }
 }

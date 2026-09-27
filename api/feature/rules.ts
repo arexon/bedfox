@@ -1,4 +1,9 @@
-import { Definition, type DefinitionProps } from "@bedfox/api/common";
+import {
+    Definition,
+    type DefinitionProps,
+    type Reference,
+    Relation,
+} from "@bedfox/api/common";
 import {
     BiomeFilter,
     CoordinateEvalOrder,
@@ -9,7 +14,7 @@ import {
 import type { Molang } from "@bedfox/api/molang";
 import { FormatVersion } from "@bedfox/api/version";
 import { Ser } from "@bedfox/serialize";
-import { autoIdentifier, autoInstance } from "../_utils.ts";
+import { autoIdentifier, autoInstance, refs } from "../_utils.ts";
 
 export const enum PlacementPass {
     FirstPass = "first_pass",
@@ -28,7 +33,7 @@ export const enum PlacementPass {
 const PATH = "minecraft:feature_rules";
 
 @Ser()
-export class FeatureRule extends Definition {
+export class FeatureRules extends Definition {
     override get fallbackFormatVersion(): FormatVersion {
         return new FormatVersion(1, 26, 50);
     }
@@ -70,15 +75,15 @@ export class FeatureRule extends Definition {
     @Ser({ path: `${PATH}/distribution` })
     scatterChance?: ScatterChance;
 
-    constructor(identifier: string, props?: DefinitionProps<FeatureRule>) {
+    constructor(identifier: string, props?: DefinitionProps<FeatureRules>) {
         super();
         this.identifier = identifier;
         Object.assign(this, props);
     }
 
-    override _resolveInstances(): Definition[] {
-        return typeof this.placesFeature === "string"
-            ? []
-            : [this.placesFeature];
+    override _references(): Reference[] {
+        return [
+            ...refs(Relation.Places, this.placesFeature),
+        ];
     }
 }

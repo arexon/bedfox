@@ -52,8 +52,9 @@ export * from "./underwater_cave_carver.ts";
 export * from "./vegetation_patch.ts";
 export * from "./weighted_random.ts";
 
-export type FeatureReference =
-    | string
+export type FeatureReference = string | Feature;
+
+export type Feature =
     | ScatterFeature
     | AggregateFeature
     | SequenceFeature

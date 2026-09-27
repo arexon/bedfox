@@ -2,9 +2,12 @@ import {
     type BlockDescriptorRef,
     Definition,
     type DefinitionProps,
+    type Reference,
+    Relation,
 } from "@bedfox/api/common";
 import { FormatVersion } from "@bedfox/api/version";
 import { Ser } from "@bedfox/serialize";
+import { refs } from "../_utils.ts";
 
 @Ser()
 export class OreReplaceRule {
@@ -57,7 +60,16 @@ export class OreFeature extends Definition {
         return this;
     }
 
-    override _resolveInstances(): Definition[] {
-        return [];
+    override _references(): Reference[] {
+        return [
+            ...refs(
+                Relation.Places,
+                this.replaceRules.map((rule) => rule.placesBlock),
+            ),
+            ...refs(
+                Relation.Requires,
+                this.replaceRules.flatMap((rule) => rule.mayReplace ?? []),
+            ),
+        ];
     }
 }
