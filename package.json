@@ -1,0 +1,23 @@
+{
+    "name": "bedfox",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "ready": "vp run -r build && vp check && vp run -r test"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+        "vite-plus": "catalog:"
+    },
+    "devEngines": {
+        "packageManager": {
+            "name": "pnpm",
+            "version": "^12.3.4",
+            "onFail": "download"
+        }
+    },
+    "engines": {
+        "node": ">=26"
+    }
+}

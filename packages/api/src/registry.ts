@@ -1,0 +1,247 @@
+import { autoIdentifier } from "#/_utils";
+import { Block } from "#/block/index";
+import type { Definition, DefinitionCtor, ReferenceTarget } from "#/common/index";
+import { Feature, FeatureRules } from "#/feature/index";
+
+const IDENTIFIER_REG = /^[a-z0-9._-]+$/;
+
+export function validateIdentifier(value: string): boolean {
+    return IDENTIFIER_REG.test(value);
+}
+
+export class Registry {
+    readonly namespace: string;
+
+    #blocks = new DefinitionStore(Block);
+    #featureRules = new DefinitionStore(FeatureRules);
+    #features = new DefinitionStore(Feature);
+
+    #stores = [this.#blocks, this.#features, this.#featureRules];
+    #systems = new Map<Schedule, System[]>();
+    #referenced?: Set<string>;
+
+    constructor(namespace: string) {
+        this.namespace = namespace;
+    }
+
+    add(...defs: Definition[]): this {
+        for (const def of defs) {
+            if (!validateIdentifier(def.identifier)) {
+                throw new InvalidIdentifierError(def.identifier);
+            }
+
+            this.add(...def._referencedInstances());
+            this.#storeFor(def).add(def);
+        }
+        this.#referenced = undefined;
+        return this;
+    }
+
+    remove(...defs: Definition[]): void {
+        for (const def of defs) {
+            this.#storeFor(def).delete(def);
+        }
+        this.#referenced = undefined;
+    }
+
+    addSystem(schedule: Schedule, ...systems: System[]): this;
+    addSystem(...systems: System[]): this;
+    addSystem(firstArg: Schedule | System, ...restArgs: System[]): this {
+        const [schedule, systems] =
+            typeof firstArg === "number"
+                ? [firstArg, restArgs]
+                : [Schedule.Transform, [firstArg, ...restArgs]];
+        const list = this.#systems.get(schedule) ?? [];
+        list.push(...systems);
+        this.#systems.set(schedule, list);
+        return this;
+    }
+
+    run(): void {
+        for (const schedule of [Schedule.Setup, Schedule.Transform, Schedule.Finalize]) {
+            for (const system of this.#systems.get(schedule) ?? []) {
+                // Systems may mutate references, so we recompute lazily per-system.
+                this.#referenced = undefined;
+                system(this);
+            }
+        }
+    }
+
+    /** @yields Every registered definition, by kind then insertion order. */
+    *all(): Generator<Definition, void, unknown> {
+        for (const store of this.#stores) yield* store.values();
+    }
+
+    /** Looks up a definition by class and identifier, with or without this registry's namespace. */
+    resolve<T extends Definition>(ctor: DefinitionCtor<T>, id: string): T | undefined {
+        const localId = this.#stripNamespace(id);
+        for (const store of this.#stores) {
+            const def = store.get(localId);
+            if (def instanceof ctor) return def;
+        }
+        return undefined;
+    }
+
+    /**
+     * Whether a reference target refers to `target`: a registered instance of the given class, or
+     * the same identifier ignoring this registry's namespace.
+     */
+    matches(ref: ReferenceTarget, target: DefinitionCtor | ReferenceTarget): boolean {
+        const id = autoIdentifier(ref);
+        if (typeof target === "function") {
+            return this.resolve(target, id) !== undefined;
+        }
+        return this.#stripNamespace(id) === this.#stripNamespace(autoIdentifier(target));
+    }
+
+    #stripNamespace(id: string): string {
+        const prefix = `${this.namespace}:`;
+        return id.startsWith(prefix) ? id.slice(prefix.length) : id;
+    }
+
+    /** Whether any registered definition references `def`. */
+    isReferenced(def: Definition): boolean {
+        this.#referenced ??= new Set(
+            Iterator.from(this.all()).flatMap((def) =>
+                def._references().map((ref) => this.#stripNamespace(autoIdentifier(ref))),
+            ),
+        );
+        return this.#referenced.has(def.identifier);
+    }
+
+    #storeFor(def: Definition): DefinitionStore {
+        const store = this.#stores.find((store) => store.is(def));
+        if (store === undefined) {
+            throw new UnknownDefinitionError(def.constructor.name);
+        }
+        return store;
+    }
+}
+
+export const enum Schedule {
+    Setup,
+    Transform,
+    Finalize,
+}
+
+/** One or more definition types; `[Definition]` for everything. */
+export type Defs = [Definition, ...Definition[]];
+
+export type Filter<T extends Definition = Definition> = (def: T, reg: Registry) => boolean;
+
+export type System = (reg: Registry) => void;
+
+export type SystemCallback<T extends Defs> = (
+    reg: Registry,
+    defs: Generator<T[number], void, unknown>,
+) => void;
+
+export class Query<T extends Defs> {
+    #ctors: DefinitionCtor<T[number]>[];
+    #filters: Filter<T[number]>[] = [];
+
+    constructor(...ctors: { [K in keyof T]: DefinitionCtor<T[K]> }) {
+        this.#ctors = ctors;
+    }
+
+    static where<T extends Definition>(predicate: Filter<T>): Filter<T> {
+        return predicate;
+    }
+
+    filter(...filters: Filter<T[number]>[]): Query<T> {
+        const query = new Query<T>(...(this.#ctors as never));
+        query.#filters = [...this.#filters, ...filters];
+        return query;
+    }
+
+    system(callback: SystemCallback<T>): System {
+        return (reg) => callback(reg, this.#run(reg));
+    }
+
+    *#run(reg: Registry): Generator<T[number], void, unknown> {
+        for (const def of reg.all()) {
+            if (
+                this.#ctors.some((ctor) => def instanceof ctor) &&
+                this.#filters.every((filter) => filter(def as T[number], reg))
+            ) {
+                yield def;
+            }
+        }
+    }
+}
+
+class DefinitionStore {
+    #inner = new Map<string, Definition>();
+    #ctors: DefinitionCtor[];
+
+    constructor(...ctors: DefinitionCtor[]) {
+        this.#ctors = ctors;
+    }
+
+    is(def: Definition): boolean {
+        for (const ctor of this.#ctors) {
+            if (def instanceof ctor) return true;
+        }
+        return false;
+    }
+
+    get(id: string): Definition | undefined {
+        return this.#inner.get(id);
+    }
+
+    values(): IterableIterator<Definition> {
+        return this.#inner.values();
+    }
+
+    add(def: Definition): this {
+        const id = this.#idFor(def);
+
+        // Skip already registered objects.
+        const existing = this.#inner.get(id);
+        if (existing === def) return this;
+        if (existing !== undefined) throw new DuplicateDefinitionIdError(id);
+
+        this.#inner.set(id, def);
+        return this;
+    }
+
+    delete(def: Definition): void {
+        this.#inner.delete(this.#idFor(def));
+    }
+
+    clear(): void {
+        this.#inner.clear();
+    }
+
+    #idFor(def: Definition): string {
+        if (this.#ctors.some((ctor) => def instanceof ctor)) {
+            return def.identifier;
+        }
+        throw new UnknownDefinitionError(def.constructor.name, this.#ctors);
+    }
+}
+
+export class UnknownDefinitionError extends TypeError {
+    constructor(defName: string, defCtors?: DefinitionCtor[]) {
+        let msg = `Unknown definition: got ${defName}`;
+        if (defCtors !== undefined) {
+            msg += `, expected `;
+            const expectedCtors = defCtors.map((ctor) => ctor.name).join(", ");
+            if (defCtors.length > 1) msg += `one of ${expectedCtors}`;
+            else msg += expectedCtors;
+        }
+        super(msg);
+    }
+}
+
+export class DuplicateDefinitionIdError extends TypeError {
+    constructor(id: string) {
+        super(`Found duplicate definition identifier: ${id}`);
+    }
+}
+
+export class InvalidIdentifierError extends TypeError {
+    constructor(id: string) {
+        super(`Invalid registry identifier: ${id}`);
+    }
+}

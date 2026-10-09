@@ -1,0 +1,13 @@
+{
+    "compilerOptions": {
+        "noEmit": true,
+        "skipLibCheck": true,
+        "target": "esnext",
+        "lib": ["esnext"],
+        "types": ["node"],
+        "module": "nodenext",
+        "verbatimModuleSyntax": true,
+        "experimentalDecorators": true
+    },
+    "include": ["packages/*/src", "packages/*/tests", "*.ts"]
+}

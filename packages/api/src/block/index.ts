@@ -1,0 +1,140 @@
+import { Ser } from "@bedfox/serialize";
+
+import { type BlockTrait, BlockTraitCollection } from "#/block/trait/base";
+import {
+    type Component,
+    ComponentCollection,
+    type ComponentCtor,
+    Definition,
+    type DefinitionProps,
+    ItemCategory,
+    Range,
+} from "#/common/index";
+import type { Filter } from "#/registry";
+import { FormatVersion } from "#/version";
+
+export * from "#/block/component/index";
+export * from "#/block/trait/index";
+
+const PATH = "minecraft:block";
+
+@Ser()
+export class Block extends Definition {
+    override get fallbackFormatVersion(): FormatVersion {
+        return new FormatVersion(1, 26, 40);
+    }
+
+    @Ser({ path: `${PATH}/description` })
+    override identifier: string;
+
+    @Ser({ path: `${PATH}/description` })
+    traits: BlockTraitCollection = new BlockTraitCollection();
+
+    @Ser({
+        path: `${PATH}/description/menu_category`,
+        default: () => ItemCategory.None,
+    })
+    category?: ItemCategory;
+
+    @Ser({ path: `${PATH}/description/menu_category` })
+    group?: string;
+
+    @Ser({
+        path: `${PATH}/description/menu_category`,
+        default: () => false,
+    })
+    isHiddenInCommand?: boolean;
+
+    @Ser({
+        path: `${PATH}/description`,
+        default: () => ({}),
+        custom: (states) =>
+            Object.fromEntries(
+                Object.entries(states).map(([key, state]) => [
+                    key,
+                    state instanceof Range ? Range.CUSTOM_SER.VALUES_OBJECT(state) : state,
+                ]),
+            ),
+    })
+    states: Record<string, (number | boolean | string)[] | Range> = {};
+
+    @Ser({ path: PATH })
+    components: ComponentCollection = new ComponentCollection();
+
+    @Ser({ path: PATH, default: () => [] })
+    permutations: BlockPermutation[] = [];
+
+    constructor(identifier: string, props?: DefinitionProps<Block>) {
+        super();
+        this.identifier = identifier;
+        Object.assign(this, props);
+    }
+
+    /** Matches blocks that have every given component. */
+    static withComponent(first: ComponentCtor, ...rest: ComponentCtor[]): Filter<Block> {
+        return (block) => block.components.has(first, ...rest);
+    }
+
+    /** Matches blocks that have none of the given components. */
+    static withoutComponent(first: ComponentCtor, ...rest: ComponentCtor[]): Filter<Block> {
+        const ctors = [first, ...rest];
+        return (block) => !ctors.some((ctor) => block.components.has(ctor));
+    }
+
+    setState(name: string, ...number: number[]): this;
+    setState(name: string, ...boolean: boolean[]): this;
+    setState(name: string, ...string: string[]): this;
+    setState(name: string, range: Range): this;
+    setState(
+        name: string,
+        first: number | boolean | string | Range,
+        ...rest: (number | boolean | string)[]
+    ): this {
+        this.states[name] = first instanceof Range ? first : [first, ...rest];
+        return this;
+    }
+
+    deleteState(...names: string[]): this {
+        for (const name of names) delete this.states[name];
+        return this;
+    }
+
+    setTrait(...traits: BlockTrait[]): this {
+        this.traits.set(...traits);
+        return this;
+    }
+
+    deleteTrait(...traitCtors: (abstract new (...args: never[]) => BlockTrait)[]): this {
+        this.traits.delete(...traitCtors);
+        return this;
+    }
+
+    setComponent(...components: Component[]): this {
+        this.components.set(...components);
+        return this;
+    }
+
+    deleteComponent(...componentCtors: (abstract new (...args: never[]) => Component)[]): this {
+        this.components.delete(...componentCtors);
+        return this;
+    }
+
+    pushPermutation(condition: string, ...components: Component[]): this {
+        this.permutations.push(new BlockPermutation(condition, ...components));
+        return this;
+    }
+}
+
+@Ser()
+export class BlockPermutation {
+    @Ser()
+    condition: string;
+
+    @Ser({ custom: (c) => (c.size === 0 ? undefined : c) })
+    components: ComponentCollection;
+
+    constructor(condition: string, ...components: Component[]) {
+        this.condition = condition;
+        this.components = new ComponentCollection(...components);
+    }
+}

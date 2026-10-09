@@ -12,9 +12,13 @@
 
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
-            deno
-            vscode-json-languageserver
+            nodejs_26
+            pnpm
           ];
+
+          shellHook = ''
+            export PATH="$PWD/node_modules/.bin:$PATH"
+          '';
         };
       };
     };

@@ -1,0 +1,88 @@
+[language-server.vp-fmt]
+command = "vp"
+args = ["fmt", "--lsp"]
+
+[language-server.vp-lint]
+command = "vp"
+args = ["lint", "--lsp"]
+
+[language-server.vp-tsc]
+command = "vp"
+args = ["exec", "tsc", "--lsp", "--stdio"]
+
+[[language]]
+name = "typescript"
+formatter = { command = "use-language-server" }
+auto-format = true
+language-servers = [
+    "vp-fmt",
+    { name = "vp-tsc", except-features = [
+        "format",
+    ] },
+    { name = "vp-lint", except-features = [
+        "format",
+    ] },
+    "copilot",
+]
+
+[[language]]
+name = "javascript"
+formatter = { command = "use-language-server" }
+auto-format = true
+language-servers = [
+    "vp-fmt",
+    { name = "vp-tsc", except-features = [
+        "format",
+    ] },
+    { name = "vp-lint", except-features = [
+        "format",
+    ] },
+]
+
+[[language]]
+name = "jsonc"
+formatter = { command = "use-language-server" }
+auto-format = true
+language-servers = [
+    "vp-fmt",
+    { name = "vscode-json-language-server", except-features = [
+        "format",
+    ] },
+]
+
+[[language]]
+name = "json"
+formatter = { command = "use-language-server" }
+auto-format = true
+language-servers = [
+    "vp-fmt",
+    { name = "vscode-json-language-server", except-features = [
+        "format",
+    ] },
+]
+
+[[language]]
+name = "yaml"
+formatter = { command = "use-language-server" }
+auto-format = true
+language-servers = ["vp-fmt", { name = "yaml-language-server", except-features = ["format"] }]
+
+[[language]]
+name = "markdown"
+formatter = { command = "use-language-server" }
+auto-format = true
+language-servers = [
+    "vp-fmt",
+    { name = "marksman", except-features = [
+        "format",
+    ] },
+    { name = "harper", except-features = [
+        "format",
+    ] },
+]
+
+[[language]]
+name = "toml"
+formatter = { command = "use-language-server" }
+auto-format = true
+language-servers = ["vp-fmt", { name = "taplo", except-features = ["format"] }]
