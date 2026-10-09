@@ -1,0 +1,34 @@
+{
+    "name": "bedfox",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "tsdown",
+        "dev": "tsdown --watch",
+        "fmt": "oxfmt",
+        "lint": "oxlint",
+        "check": "oxfmt --check && oxlint",
+        "test": "node --import @oxc-node/core/register --import ./packages/api/tests/_setup.ts --test",
+        "test:update": "pnpm test --test-update-snapshots",
+        "ready": "pnpm build && pnpm check && pnpm test"
+    },
+    "devDependencies": {
+        "@oxc-node/core": "catalog:",
+        "@types/node": "catalog:",
+        "oxfmt": "catalog:",
+        "oxlint": "catalog:",
+        "oxlint-tsgolint": "catalog:",
+        "tsdown": "catalog:",
+        "typescript": "catalog:"
+    },
+    "devEngines": {
+        "packageManager": {
+            "name": "pnpm",
+            "version": "^12.3.4",
+            "onFail": "download"
+        }
+    },
+    "engines": {
+        "node": ">=26"
+    }
+}

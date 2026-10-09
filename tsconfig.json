@@ -1,0 +1,14 @@
+{
+    "compilerOptions": {
+        "noEmit": true,
+        "target": "esnext",
+        "lib": ["esnext"],
+        "types": ["node"],
+        "module": "nodenext",
+        "verbatimModuleSyntax": true,
+        "rewriteRelativeImportExtensions": true,
+        "erasableSyntaxOnly": true,
+        "experimentalDecorators": true
+    },
+    "include": ["packages/*/src", "packages/*/tests", "*.ts"]
+}

@@ -1,0 +1,36 @@
+{
+    "name": "@bedfox/api",
+    "version": "1.0.0",
+    "description": "Cute and programmatic MCBE Add-On framework for TypeScript",
+    "homepage": "https://github.com/arexon/bedfox#readme",
+    "bugs": {
+        "url": "https://github.com/arexon/bedfox/issues"
+    },
+    "license": "Apache-2.0",
+    "author": "arexon <me@arexon.dev>",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/arexon/bedfox.git",
+        "directory": "packages/api"
+    },
+    "files": [
+        "dist"
+    ],
+    "type": "module",
+    "imports": {
+        "#/*": "./src/*.ts"
+    },
+    "exports": {
+        "./block": "./dist/block/index.mjs",
+        "./core": "./dist/core/index.mjs",
+        "./feature": "./dist/feature/index.mjs",
+        "./primitive": "./dist/primitive/index.mjs",
+        "./package.json": "./package.json"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "prepublishOnly": "pnpm -w build"
+    }
+}
