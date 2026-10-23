@@ -1,9 +1,7 @@
 import { KeyedCollection } from "#/core/collection";
 import type { Ctor, InstanceProps } from "#/core/props";
 
-/** A block trait, which generates block states and permutations. */
 export abstract class BlockTrait {
-    /** This trait class's identifier, e.g. `minecraft:placement_direction`. */
     declare static readonly traitId: string;
 
     /** A base for a trait class identified by `traitId`, e.g. `minecraft:placement_direction`. */

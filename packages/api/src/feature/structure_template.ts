@@ -22,19 +22,15 @@ export class StructureTemplateFeature extends Feature.of(
 
     structureName!: string;
 
-    /** Serialized under `constraints`: `true` emits `{}`, `false` omits it. */
     @serialize({ within: "constraints", override: serConstraint })
     grounded?: boolean;
 
-    /** Serialized under `constraints`: `true` emits `{}`, `false` omits it. */
     @serialize({ within: "constraints", override: serConstraint })
     unburied?: boolean;
 
-    /** Serialized under `constraints`: `true` emits `{}`, `false` omits it. */
     @serialize({ within: "constraints", override: serConstraint })
     leveled?: boolean | LeveledConstraint;
 
-    /** Serialized under `constraints`: `true` emits `{}`, `false` omits it. */
     @serialize({ within: "constraints", override: serConstraint })
     blockIntersection?: boolean | BlockIntersectionConstraint;
 

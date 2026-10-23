@@ -20,7 +20,6 @@ export class GeometryBlockComponent extends Component.of("minecraft:geometry") {
 
     cullingLayer?: string;
 
-    /** Keyed by bone name, which is kept exactly as written. */
     @serialize({ keepKeys: true })
     boneVisibility?: Record<string, string>;
 

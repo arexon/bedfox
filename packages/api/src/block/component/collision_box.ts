@@ -24,7 +24,6 @@ export const BoundingBox = {
 @serialize
 export class CollisionBoxBlockComponent extends Component.of("minecraft:collision_box") {
     // TODO: Add min/max
-    /** `true` for a full block, `false` for no collision, or one or more boxes. */
     @serialize({ transparent: true })
     value!: boolean | BoundingBox[];
 

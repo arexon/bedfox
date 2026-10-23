@@ -38,7 +38,6 @@ export class FeatureRules extends Definition.of(
     @serialize({ within: "conditions" })
     placementPass?: PlacementPass;
 
-    /** Serialized as `minecraft:biome_filter` under `conditions`. */
     @serialize({ within: "conditions", rename: "minecraft:biome_filter" })
     biomeFilter?: BiomeFilter;
 

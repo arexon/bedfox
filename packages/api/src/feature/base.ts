@@ -1,7 +1,6 @@
 import { Definition, type DefinitionCtor, type ReferenceTarget } from "#/core/definition";
 import type { Filter } from "#/registry";
 
-/** A world generation feature; every `minecraft:*_feature` definition. */
 export abstract class Feature extends Definition {
     /** Matches features that place `target` in the world. */
     static placing(target: DefinitionCtor | ReferenceTarget): Filter<Feature> {

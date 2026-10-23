@@ -4,7 +4,6 @@ import { serialize } from "#/serialize";
 
 @serialize
 export class SelectionBoxBlockComponent extends Component.of("minecraft:selection_box") {
-    /** `true` for a full block, `false` for none, or a single box. */
     @serialize({ transparent: true })
     value?: boolean | BoundingBox;
 
