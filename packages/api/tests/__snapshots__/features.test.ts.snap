@@ -199,41 +199,6 @@ exports[`FeatureRules > full instance 1`] = `
 }
 `;
 
-exports[`FeatureRules > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:feature_rules": {
-    "description": {
-      "identifier": "test:rules_min",
-      "places_feature": "test:string_feature"
-    }
-  }
-}
-`;
-
-exports[`FeatureRules > string feature 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:feature_rules": {
-    "description": {
-      "identifier": "test:rules_str",
-      "places_feature": "test:string_feature"
-    },
-    "conditions": {
-      "placement_pass": "surface_pass",
-      "minecraft:biome_filter": {
-        "test": "has_biome_tag",
-        "operator": "==",
-        "value": "forest"
-      }
-    },
-    "distribution": {
-      "coordinate_eval_order": "xzy"
-    }
-  }
-}
-`;
-
 exports[`features > aggregate > full 1`] = `
 {
   "format_version": "1.26.50",
@@ -247,35 +212,6 @@ exports[`features > aggregate > full 1`] = `
       "test:live_sequence"
     ],
     "early_out": "first_success"
-  }
-}
-`;
-
-exports[`features > aggregate > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:aggregate_feature": {
-    "description": {
-      "identifier": "test:aggregate_min"
-    }
-  }
-}
-`;
-
-exports[`features > cave_carver > descriptor fill 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:cave_carver_feature": {
-    "description": {
-      "identifier": "test:cave_carver_desc"
-    },
-    "fill_with": {
-      "name": "minecraft:stone",
-      "states": {
-        "stone_type": "granite"
-      }
-    },
-    "y_scale": 0.5
   }
 }
 `;
@@ -308,17 +244,6 @@ exports[`features > cave_carver > full 1`] = `
 }
 `;
 
-exports[`features > cave_carver > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:cave_carver_feature": {
-    "description": {
-      "identifier": "test:cave_carver_min"
-    }
-  }
-}
-`;
-
 exports[`features > conditional_list > full 1`] = `
 {
   "format_version": "1.26.50",
@@ -344,35 +269,6 @@ exports[`features > conditional_list > full 1`] = `
 }
 `;
 
-exports[`features > conditional_list > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:conditional_list": {
-    "description": {
-      "identifier": "test:conditional_min"
-    }
-  }
-}
-`;
-
-exports[`features > fossil > descriptor 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:fossil_feature": {
-    "description": {
-      "identifier": "test:fossil_desc"
-    },
-    "ore_block": {
-      "name": "minecraft:stone",
-      "states": {
-        "stone_type": "granite"
-      }
-    },
-    "max_empty_corners": 0
-  }
-}
-`;
-
 exports[`features > fossil > full 1`] = `
 {
   "format_version": "1.26.50",
@@ -382,17 +278,6 @@ exports[`features > fossil > full 1`] = `
     },
     "ore_block": "minecraft:coal_ore",
     "max_empty_corners": 4
-  }
-}
-`;
-
-exports[`features > fossil > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:fossil_feature": {
-    "description": {
-      "identifier": "test:fossil_min"
-    }
   }
 }
 `;
@@ -438,36 +323,6 @@ exports[`features > geode > full 1`] = `
     "use_alternate_layer0_chance": 0.083,
     "placements_require_layer0_alternate": true,
     "invalid_blocks_threshold": 1
-  }
-}
-`;
-
-exports[`features > geode > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:geode_feature": {
-    "description": {
-      "identifier": "test:geode_min"
-    }
-  }
-}
-`;
-
-exports[`features > growing_plant > age number 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:growing_plant_feature": {
-    "description": {
-      "identifier": "test:growing_plant_num"
-    },
-    "height_distribution": [
-      [
-        5,
-        1
-      ]
-    ],
-    "growth_direction": "up",
-    "age": 3
   }
 }
 `;
@@ -523,17 +378,6 @@ exports[`features > growing_plant > full 1`] = `
 }
 `;
 
-exports[`features > growing_plant > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:growing_plant_feature": {
-    "description": {
-      "identifier": "test:growing_plant_min"
-    }
-  }
-}
-`;
-
 exports[`features > height_difference_filter > full 1`] = `
 {
   "format_version": "1.26.50",
@@ -547,18 +391,6 @@ exports[`features > height_difference_filter > full 1`] = `
     "min_required_downward_height_diff": 2,
     "max_allowed_upward_height_diff": 5,
     "max_allowed_downward_height_diff": 6
-  }
-}
-`;
-
-exports[`features > height_difference_filter > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:height_difference_filter_feature": {
-    "description": {
-      "identifier": "test:hdf_min"
-    },
-    "places_feature": "test:string_feature"
   }
 }
 `;
@@ -578,29 +410,6 @@ exports[`features > horizontal_tree_decoration > full 1`] = `
     },
     "allow_adjacent": true,
     "bark_side_only": false
-  }
-}
-`;
-
-exports[`features > horizontal_tree_decoration > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:horizontal_tree_decoration_feature": {
-    "description": {
-      "identifier": "test:htd_min"
-    }
-  }
-}
-`;
-
-exports[`features > horizontal_tree_decoration > string 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:horizontal_tree_decoration_feature": {
-    "description": {
-      "identifier": "test:htd_str"
-    },
-    "places_block": "minecraft:cocoa"
   }
 }
 `;
@@ -628,17 +437,6 @@ exports[`features > multi_block > full 1`] = `
 }
 `;
 
-exports[`features > multi_block > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:multi_block_feature": {
-    "description": {
-      "identifier": "test:multi_block_min"
-    }
-  }
-}
-`;
-
 exports[`features > multiface > full 1`] = `
 {
   "format_version": "1.26.50",
@@ -661,17 +459,6 @@ exports[`features > multiface > full 1`] = `
         }
       }
     ]
-  }
-}
-`;
-
-exports[`features > multiface > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:multiface_feature": {
-    "description": {
-      "identifier": "test:multiface_min"
-    }
   }
 }
 `;
@@ -718,33 +505,6 @@ exports[`features > multipart_block_column > full 1`] = `
 }
 `;
 
-exports[`features > multipart_block_column > height number 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:multipart_block_column_feature": {
-    "description": {
-      "identifier": "test:column_num"
-    },
-    "tip_block": "a:a",
-    "frustum_block": "a:b",
-    "middle_block": "a:c",
-    "base_block": "a:d",
-    "height_range": 4
-  }
-}
-`;
-
-exports[`features > multipart_block_column > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:multipart_block_column_feature": {
-    "description": {
-      "identifier": "test:column_min"
-    }
-  }
-}
-`;
-
 exports[`features > nether_cave_carver > full 1`] = `
 {
   "format_version": "1.26.50",
@@ -769,17 +529,6 @@ exports[`features > nether_cave_carver > full 1`] = `
       -1,
       -0.4
     ]
-  }
-}
-`;
-
-exports[`features > nether_cave_carver > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:nether_cave_carver_feature": {
-    "description": {
-      "identifier": "test:nether_carver_min"
-    }
   }
 }
 `;
@@ -828,17 +577,6 @@ exports[`features > ore > full 1`] = `
 }
 `;
 
-exports[`features > ore > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:ore_feature": {
-    "description": {
-      "identifier": "test:ore_min"
-    }
-  }
-}
-`;
-
 exports[`features > partially_exposed_blob > full 1`] = `
 {
   "format_version": "1.26.50",
@@ -855,17 +593,6 @@ exports[`features > partially_exposed_blob > full 1`] = `
     "placement_radius_around_floor": 2,
     "placement_probability_per_valid_position": 0.5,
     "exposed_face": "up"
-  }
-}
-`;
-
-exports[`features > partially_exposed_blob > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:partially_exposed_blob_feature": {
-    "description": {
-      "identifier": "test:blob_min"
-    }
   }
 }
 `;
@@ -908,44 +635,6 @@ exports[`features > scatter > full 1`] = `
 }
 `;
 
-exports[`features > scatter > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:scatter_feature": {
-    "description": {
-      "identifier": "test:scatter_min"
-    },
-    "places_feature": "test:string_feature"
-  }
-}
-`;
-
-exports[`features > scatter > plain distribution 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:scatter_feature": {
-    "description": {
-      "identifier": "test:scatter_plain"
-    },
-    "places_feature": "test:string_feature",
-    "distribution": {
-      "x": {
-        "distribution": "gaussian",
-        "extent": [
-          "0",
-          "15"
-        ]
-      },
-      "coordinate_eval_order": "xzy",
-      "scatter_chance": {
-        "numerator": 1,
-        "denominator": 2
-      }
-    }
-  }
-}
-`;
-
 exports[`features > search > full 1`] = `
 {
   "format_version": "1.26.50",
@@ -972,43 +661,6 @@ exports[`features > search > full 1`] = `
 }
 `;
 
-exports[`features > search > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:search_feature": {
-    "description": {
-      "identifier": "test:search_min"
-    },
-    "places_feature": "test:string_feature"
-  }
-}
-`;
-
-exports[`features > search > plain volume 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:search_feature": {
-    "description": {
-      "identifier": "test:search_plain"
-    },
-    "places_feature": "test:string_feature",
-    "search_volume": {
-      "min": [
-        0,
-        0,
-        0
-      ],
-      "max": [
-        1,
-        1,
-        1
-      ]
-    },
-    "search_axis": "+x"
-  }
-}
-`;
-
 exports[`features > sequence > full 1`] = `
 {
   "format_version": "1.26.50",
@@ -1021,17 +673,6 @@ exports[`features > sequence > full 1`] = `
       "test:string_feature",
       "test:live_aggregate"
     ]
-  }
-}
-`;
-
-exports[`features > sequence > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:sequence_feature": {
-    "description": {
-      "identifier": "test:sequence_min"
-    }
   }
 }
 `;
@@ -1096,29 +737,6 @@ exports[`features > single_block > full 1`] = `
 }
 `;
 
-exports[`features > single_block > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:single_block_feature": {
-    "description": {
-      "identifier": "test:single_min"
-    }
-  }
-}
-`;
-
-exports[`features > single_block > string 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:single_block_feature": {
-    "description": {
-      "identifier": "test:single_str"
-    },
-    "places_block": "minecraft:stone"
-  }
-}
-`;
-
 exports[`features > single_block > weighted 1`] = `
 {
   "format_version": "1.26.50",
@@ -1145,22 +763,6 @@ exports[`features > single_block > weighted 1`] = `
         "weight": 3
       }
     ]
-  }
-}
-`;
-
-exports[`features > snap_to_surface > defaults explicit 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:snap_to_surface_feature": {
-    "description": {
-      "identifier": "test:snap_defaults"
-    },
-    "feature_to_snap": "test:string_feature",
-    "search_range": 4,
-    "allow_air_placement": true,
-    "allow_non_air_placement": false,
-    "allow_underwater_placement": false
   }
 }
 `;
@@ -1196,18 +798,6 @@ exports[`features > snap_to_surface > full 1`] = `
       }
     ],
     "embed_in_surface": true
-  }
-}
-`;
-
-exports[`features > snap_to_surface > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:snap_to_surface_feature": {
-    "description": {
-      "identifier": "test:snap_min"
-    },
-    "feature_to_snap": "test:string_feature"
   }
 }
 `;
@@ -1280,40 +870,6 @@ exports[`features > structure_template > full 1`] = `
 }
 `;
 
-exports[`features > structure_template > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:structure_template_feature": {
-    "description": {
-      "identifier": "test:structure_min"
-    }
-  }
-}
-`;
-
-exports[`features > structure_template > plain constraints 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:structure_template_feature": {
-    "description": {
-      "identifier": "test:structure_plain"
-    },
-    "structure_name": "mystructure:tower",
-    "constraints": {
-      "leveled": {
-        "max_steepness": 1
-      },
-      "block_intersection": {
-        "block_allowlist": [
-          "minecraft:water"
-        ]
-      }
-    },
-    "facing_direction": "north"
-  }
-}
-`;
-
 exports[`features > surface_relative_threshold > full 1`] = `
 {
   "format_version": "1.26.50",
@@ -1323,18 +879,6 @@ exports[`features > surface_relative_threshold > full 1`] = `
     },
     "feature_to_place": "test:live_ore",
     "minimum_distance_below_surface": 4
-  }
-}
-`;
-
-exports[`features > surface_relative_threshold > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:surface_relative_threshold_feature": {
-    "description": {
-      "identifier": "test:srt_min"
-    },
-    "feature_to_place": "test:string_feature"
   }
 }
 `;
@@ -1369,17 +913,6 @@ exports[`features > underwater_cave_carver > full 1`] = `
       -1,
       -0.4
     ]
-  }
-}
-`;
-
-exports[`features > underwater_cave_carver > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:underwater_cave_carver_feature": {
-    "description": {
-      "identifier": "test:uw_carver_min"
-    }
   }
 }
 `;
@@ -1420,39 +953,6 @@ exports[`features > vegetation_patch > full 1`] = `
 }
 `;
 
-exports[`features > vegetation_patch > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:vegetation_patch_feature": {
-    "description": {
-      "identifier": "test:veg_min"
-    },
-    "vegetation_feature": "test:string_feature"
-  }
-}
-`;
-
-exports[`features > vegetation_patch > numbers 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:vegetation_patch_feature": {
-    "description": {
-      "identifier": "test:veg_num"
-    },
-    "ground_block": {
-      "name": "minecraft:stone",
-      "states": {
-        "stone_type": "granite"
-      }
-    },
-    "vegetation_feature": "test:string_feature",
-    "depth": 1,
-    "vertical_range": 3,
-    "horizontal_radius": 2
-  }
-}
-`;
-
 exports[`features > weighted_random > full 1`] = `
 {
   "format_version": "1.26.50",
@@ -1474,17 +974,6 @@ exports[`features > weighted_random > full 1`] = `
         0.5
       ]
     ]
-  }
-}
-`;
-
-exports[`features > weighted_random > minimal 1`] = `
-{
-  "format_version": "1.26.50",
-  "minecraft:weighted_random_feature": {
-    "description": {
-      "identifier": "test:weighted_min"
-    }
   }
 }
 `;

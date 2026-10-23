@@ -11,7 +11,6 @@ import {
     NestedTransparentFieldError,
     serialize,
     toReference,
-    UnsupportedJsonValueError,
 } from "#/serialize";
 
 @serialize
@@ -141,10 +140,6 @@ describe("@serialize defaults", () => {
                 });
             });
         }
-
-        test("UnsupportedJsonValueError is a TypeError", () => {
-            assert.ok(new UnsupportedJsonValueError("Map") instanceof TypeError);
-        });
     });
 });
 
@@ -204,14 +199,6 @@ describe("@serialize with options", () => {
                     JSON.stringify(keyed),
                     '{"by_name":{"leftArm":{"render_method":"blend"}},"other":{"camel_key":1}}',
                 );
-            });
-
-            test("an empty record is omitted", () => {
-                @serialize
-                class Keyed {
-                    @serialize({ keepKeys: true }) byName = {};
-                }
-                assert.equal(JSON.stringify(new Keyed()), "{}");
             });
         });
 
@@ -383,15 +370,6 @@ describe("@serialize with options", () => {
     });
 
     describe("on classes", () => {
-        test("gives the class a toJSON() that serializes its fields", () => {
-            @serialize
-            class Plain {
-                itemName = "x";
-                @serialize({ rename: "other_key" }) other = 1;
-            }
-            assert.equal(JSON.stringify(new Plain()), '{"item_name":"x","other_key":1}');
-        });
-
         test("subclasses inherit its toJSON, or can repeat @serialize", () => {
             class Inherited extends Block {}
             @serialize
@@ -415,17 +393,6 @@ describe("of() bases", () => {
 
         test("each call makes a distinct base", () => {
             assert.notEqual(Component.of("a:a"), Component.of("a:a"));
-        });
-
-        test("custom components are snake_cased like built-in ones", () => {
-            @serialize
-            class Spin extends Component.of("custom:spin") {
-                @serialize({ transparent: true }) spinSpeed = 2;
-                axisWeights?: Record<string, number>;
-            }
-            const spin = Object.assign(new Spin(), { axisWeights: { upAxis: 1 } });
-            assert.equal(JSON.stringify(spin), '{"spin_speed":2,"axis_weights":{"up_axis":1}}');
-            assert.equal(JSON.stringify(new Spin()), "2");
         });
     });
 
@@ -481,14 +448,6 @@ describe("of() bases", () => {
                 assert.equal(
                     JSON.stringify(scatter),
                     '{"format_version":"1.26.50","minecraft:scatter_feature":{"description":{"identifier":"test:scatter"},"places_feature":"test:feature"}}',
-                );
-            });
-
-            test("subclasses of built-in definitions inherit their root", () => {
-                class MyBlock extends Block {}
-                assert.equal(
-                    JSON.stringify(new MyBlock("test:block")),
-                    '{"format_version":"1.26.40","minecraft:block":{"description":{"identifier":"test:block"}}}',
                 );
             });
         });

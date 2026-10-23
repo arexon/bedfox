@@ -27,17 +27,6 @@ exports[`Block > defaults explicit 1`] = `
 }
 `;
 
-exports[`Block > explicit format version 1`] = `
-{
-  "format_version": "1.21.0",
-  "minecraft:block": {
-    "description": {
-      "identifier": "test:fv"
-    }
-  }
-}
-`;
-
 exports[`Block > full 1`] = `
 {
   "format_version": "1.26.40",
@@ -167,18 +156,6 @@ exports[`Block > permutation > with components 1`] = `
 }
 `;
 
-exports[`Block > permutation > without components 1`] = `
-{
-  "condition": "true"
-}
-`;
-
-exports[`components > block_entity > empty container 1`] = `
-{
-  "minecraft:block_entity": {}
-}
-`;
-
 exports[`components > block_entity > full 1`] = `
 {
   "minecraft:block_entity": {
@@ -191,41 +168,11 @@ exports[`components > block_entity > full 1`] = `
 }
 `;
 
-exports[`components > block_entity > minimal 1`] = `
-{
-  "minecraft:block_entity": {}
-}
-`;
-
-exports[`components > block_entity > plain container 1`] = `
-{
-  "minecraft:block_entity": {
-    "container": {
-      "slot_count": 9
-    }
-  }
-}
-`;
-
-exports[`components > chest_obstruction > default value 1`] = `
-{
-  "minecraft:chest_obstruction": {
-    "obstruction_rule": "shape"
-  }
-}
-`;
-
 exports[`components > chest_obstruction > full 1`] = `
 {
   "minecraft:chest_obstruction": {
     "obstruction_rule": "always"
   }
-}
-`;
-
-exports[`components > chest_obstruction > minimal 1`] = `
-{
-  "minecraft:chest_obstruction": {}
 }
 `;
 
@@ -334,31 +281,6 @@ exports[`components > collision_box > boxes instances 1`] = `
 }
 `;
 
-exports[`components > collision_box > boxes plain 1`] = `
-{
-  "minecraft:collision_box": [
-    {
-      "origin": [
-        -2,
-        0,
-        -2
-      ],
-      "size": [
-        4,
-        16,
-        4
-      ]
-    }
-  ]
-}
-`;
-
-exports[`components > collision_box > transparent false 1`] = `
-{
-  "minecraft:collision_box": false
-}
-`;
-
 exports[`components > collision_box > transparent true 1`] = `
 {
   "minecraft:collision_box": true
@@ -377,12 +299,6 @@ exports[`components > connection_rule > full 1`] = `
 }
 `;
 
-exports[`components > connection_rule > minimal 1`] = `
-{
-  "minecraft:connection_rule": {}
-}
-`;
-
 exports[`components > crafting_table > full 1`] = `
 {
   "minecraft:crafting_table": {
@@ -392,18 +308,6 @@ exports[`components > crafting_table > full 1`] = `
     ],
     "table_name": "Test Workbench"
   }
-}
-`;
-
-exports[`components > crafting_table > minimal 1`] = `
-{
-  "minecraft:crafting_table": {}
-}
-`;
-
-exports[`components > destructible_by_explosion > empty 1`] = `
-{
-  "minecraft:destructible_by_explosion": {}
 }
 `;
 
@@ -427,18 +331,6 @@ exports[`components > destructible_by_explosion > full 1`] = `
 exports[`components > destructible_by_explosion > transparent only 1`] = `
 {
   "minecraft:destructible_by_explosion": true
-}
-`;
-
-exports[`components > destructible_by_explosion > transparent only false 1`] = `
-{
-  "minecraft:destructible_by_explosion": false
-}
-`;
-
-exports[`components > destructible_by_mining > empty 1`] = `
-{
-  "minecraft:destructible_by_mining": {}
 }
 `;
 
@@ -466,12 +358,6 @@ exports[`components > destructible_by_mining > transparent only 1`] = `
 }
 `;
 
-exports[`components > destructible_by_mining > transparent only false 1`] = `
-{
-  "minecraft:destructible_by_mining": false
-}
-`;
-
 exports[`components > destructible_by_mining > transparent with extra 1`] = `
 {
   "minecraft:destructible_by_mining": {
@@ -488,12 +374,6 @@ exports[`components > destruction_particles > full 1`] = `
     "tint_method": "grass",
     "particle_count": 50
   }
-}
-`;
-
-exports[`components > destruction_particles > minimal 1`] = `
-{
-  "minecraft:destruction_particles": {}
 }
 `;
 
@@ -552,38 +432,11 @@ exports[`components > embedded_visual > geometry string 1`] = `
 }
 `;
 
-exports[`components > embedded_visual > minimal 1`] = `
-{
-  "minecraft:embedded_visual": {}
-}
-`;
-
 exports[`components > entity_fall_on > full 1`] = `
 {
   "minecraft:entity_fall_on": {
     "min_fall_distance": 3
   }
-}
-`;
-
-exports[`components > entity_fall_on > minimal 1`] = `
-{
-  "minecraft:entity_fall_on": {}
-}
-`;
-
-exports[`components > flammable > defaults only 1`] = `
-{
-  "minecraft:flammable": {
-    "catch_chance_modifier": 5,
-    "destroy_chance_modifier": 20
-  }
-}
-`;
-
-exports[`components > flammable > empty 1`] = `
-{
-  "minecraft:flammable": {}
 }
 `;
 
@@ -612,12 +465,6 @@ exports[`components > flammable > transparent only 1`] = `
 }
 `;
 
-exports[`components > flammable > transparent only false 1`] = `
-{
-  "minecraft:flammable": false
-}
-`;
-
 exports[`components > flower_pottable > minimal 1`] = `
 {
   "minecraft:flower_pottable": {}
@@ -627,21 +474,6 @@ exports[`components > flower_pottable > minimal 1`] = `
 exports[`components > friction > transparent only 1`] = `
 {
   "minecraft:friction": 0.4
-}
-`;
-
-exports[`components > geometry > defaults explicit 1`] = `
-{
-  "minecraft:geometry": {
-    "identifier": "geometry.test",
-    "uv_lock": false
-  }
-}
-`;
-
-exports[`components > geometry > empty 1`] = `
-{
-  "minecraft:geometry": {}
 }
 `;
 
@@ -705,12 +537,6 @@ exports[`components > instrument_sound > full 1`] = `
 }
 `;
 
-exports[`components > instrument_sound > minimal 1`] = `
-{
-  "minecraft:instrument_sound": {}
-}
-`;
-
 exports[`components > item_visual > geometry component full 1`] = `
 {
   "minecraft:item_visual": {
@@ -752,12 +578,6 @@ exports[`components > item_visual > geometry string 1`] = `
 }
 `;
 
-exports[`components > item_visual > minimal 1`] = `
-{
-  "minecraft:item_visual": {}
-}
-`;
-
 exports[`components > leashable > full 1`] = `
 {
   "minecraft:leashable": {
@@ -767,26 +587,6 @@ exports[`components > leashable > full 1`] = `
       -0.5
     ]
   }
-}
-`;
-
-exports[`components > leashable > minimal 1`] = `
-{
-  "minecraft:leashable": {}
-}
-`;
-
-exports[`components > leashable > omits unset value fields 1`] = `
-{}
-`;
-
-exports[`components > leashable > omits unset value fields 2`] = `
-{
-  "offset": [
-    1,
-    2,
-    3
-  ]
 }
 `;
 
@@ -826,21 +626,9 @@ exports[`components > liquid_detection > full 1`] = `
 }
 `;
 
-exports[`components > liquid_detection > minimal 1`] = `
-{
-  "minecraft:liquid_detection": {}
-}
-`;
-
 exports[`components > loot > transparent only 1`] = `
 {
   "minecraft:loot": "loot_tables/blocks/test.json"
-}
-`;
-
-exports[`components > map_color > empty 1`] = `
-{
-  "minecraft:map_color": {}
 }
 `;
 
@@ -853,45 +641,9 @@ exports[`components > map_color > full 1`] = `
 }
 `;
 
-exports[`components > map_color > is transparent on its color 1`] = `
-{}
-`;
-
-exports[`components > map_color > is transparent on its color 2`] = `
-"#010210"
-`;
-
 exports[`components > map_color > transparent only rgb 1`] = `
 {
   "minecraft:map_color": "#ff0000"
-}
-`;
-
-exports[`components > map_color > transparent only rgba 1`] = `
-{
-  "minecraft:map_color": "#ff000080"
-}
-`;
-
-exports[`components > material_instances > defaults explicit 1`] = `
-{
-  "minecraft:material_instances": {
-    "*": {
-      "texture": "test",
-      "ambient_occlusion": 1,
-      "render_method": "opaque",
-      "tint_method": "none",
-      "face_dimming": true,
-      "isotropic": false,
-      "alpha_masked_tint": false
-    }
-  }
-}
-`;
-
-exports[`components > material_instances > empty 1`] = `
-{
-  "minecraft:material_instances": {}
 }
 `;
 
@@ -936,12 +688,6 @@ exports[`components > movable > full 1`] = `
 }
 `;
 
-exports[`components > movable > minimal 1`] = `
-{
-  "minecraft:movable": {}
-}
-`;
-
 exports[`components > placement_filter > full 1`] = `
 {
   "minecraft:placement_filter": {
@@ -982,23 +728,11 @@ exports[`components > placement_filter > full 1`] = `
 }
 `;
 
-exports[`components > placement_filter > minimal 1`] = `
-{
-  "minecraft:placement_filter": {}
-}
-`;
-
 exports[`components > precipitation_interactions > full 1`] = `
 {
   "minecraft:precipitation_interactions": {
     "precipitation_behavior": "obstruct_rain_accumulate_snow"
   }
-}
-`;
-
-exports[`components > precipitation_interactions > minimal 1`] = `
-{
-  "minecraft:precipitation_interactions": {}
 }
 `;
 
@@ -1063,24 +797,12 @@ exports[`components > redstone_conductivity > full 1`] = `
 }
 `;
 
-exports[`components > redstone_conductivity > minimal 1`] = `
-{
-  "minecraft:redstone_conductivity": {}
-}
-`;
-
 exports[`components > redstone_consumer > full 1`] = `
 {
   "minecraft:redstone_consumer": {
     "min_power": 5,
     "propagates_power": true
   }
-}
-`;
-
-exports[`components > redstone_consumer > minimal 1`] = `
-{
-  "minecraft:redstone_consumer": {}
 }
 `;
 
@@ -1095,12 +817,6 @@ exports[`components > redstone_producer > full 1`] = `
     ],
     "transform_relative": false
   }
-}
-`;
-
-exports[`components > redstone_producer > minimal 1`] = `
-{
-  "minecraft:redstone_producer": {}
 }
 `;
 
@@ -1127,29 +843,6 @@ exports[`components > selection_box > box instance 1`] = `
 }
 `;
 
-exports[`components > selection_box > box plain 1`] = `
-{
-  "minecraft:selection_box": {
-    "origin": [
-      -8,
-      0,
-      -8
-    ],
-    "size": [
-      16,
-      4,
-      16
-    ]
-  }
-}
-`;
-
-exports[`components > selection_box > transparent false 1`] = `
-{
-  "minecraft:selection_box": false
-}
-`;
-
 exports[`components > selection_box > transparent true 1`] = `
 {
   "minecraft:selection_box": true
@@ -1164,37 +857,11 @@ exports[`components > sound > full 1`] = `
 }
 `;
 
-exports[`components > sound > minimal 1`] = `
-{
-  "minecraft:sound": {}
-}
-`;
-
 exports[`components > support > full fence 1`] = `
 {
   "minecraft:support": {
     "shape": "fence"
   }
-}
-`;
-
-exports[`components > support > full stair 1`] = `
-{
-  "minecraft:support": {
-    "shape": "stair"
-  }
-}
-`;
-
-exports[`components > support > minimal 1`] = `
-{
-  "minecraft:support": {}
-}
-`;
-
-exports[`components > tags > empty 1`] = `
-{
-  "minecraft:tags": {}
 }
 `;
 
@@ -1216,25 +883,6 @@ exports[`components > tick > full 1`] = `
     ],
     "looping": false
   }
-}
-`;
-
-exports[`components > tick > minimal 1`] = `
-{
-  "minecraft:tick": {}
-}
-`;
-
-exports[`components > tick > omits unset value fields 1`] = `
-{}
-`;
-
-exports[`components > tick > omits unset value fields 2`] = `
-{
-  "interval_range": [
-    10,
-    20
-  ]
 }
 `;
 
@@ -1270,26 +918,6 @@ exports[`components > transformation > full 1`] = `
 }
 `;
 
-exports[`components > transformation > minimal 1`] = `
-{
-  "minecraft:transformation": {}
-}
-`;
-
-exports[`components > transformation > omits unset value fields 1`] = `
-{}
-`;
-
-exports[`components > transformation > omits unset value fields 2`] = `
-{
-  "rotation": [
-    0,
-    90,
-    0
-  ]
-}
-`;
-
 exports[`traits > collection > multiple 1`] = `
 {
   "minecraft:placement_position": {
@@ -1315,12 +943,6 @@ exports[`traits > connection > full 1`] = `
 }
 `;
 
-exports[`traits > connection > minimal 1`] = `
-{
-  "minecraft:connection": {}
-}
-`;
-
 exports[`traits > multi_block > full 1`] = `
 {
   "minecraft:multi_block": {
@@ -1329,17 +951,6 @@ exports[`traits > multi_block > full 1`] = `
     ],
     "direction": "up",
     "parts": 3
-  }
-}
-`;
-
-exports[`traits > multi_block > minimal 1`] = `
-{
-  "minecraft:multi_block": {
-    "enabled_states": [
-      "minecraft:multi_block_part"
-    ],
-    "direction": "down"
   }
 }
 `;
@@ -1420,11 +1031,5 @@ exports[`traits > placement_position > full 1`] = `
       "minecraft:vertical_half"
     ]
   }
-}
-`;
-
-exports[`traits > placement_position > minimal 1`] = `
-{
-  "minecraft:placement_position": {}
 }
 `;

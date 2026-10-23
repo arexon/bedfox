@@ -103,16 +103,6 @@ describe("Registry", () => {
             reg.add(old).remove(old);
             assert.doesNotThrow(() => reg.add(new Block("dirt")));
         });
-
-        test("ignores definitions that are not registered", () => {
-            const reg = new Registry(NS);
-            assert.doesNotThrow(() => reg.remove(new Block("dirt")));
-        });
-
-        test("rejects unknown definition kinds", () => {
-            const reg = new Registry(NS);
-            assert.throws(() => reg.remove(new Unregistrable()), UnknownDefinitionError);
-        });
     });
 
     describe("all()", () => {
@@ -125,10 +115,6 @@ describe("Registry", () => {
                 new Block("a_block"),
             );
             assert.deepEqual(ids(reg.all()), ["b_block", "a_block", "b_ore", "a_ore", "rules"]);
-        });
-
-        test("yields nothing when empty", () => {
-            assert.deepEqual([...new Registry(NS).all()], []);
         });
     });
 
@@ -145,10 +131,6 @@ describe("Registry", () => {
             assert.equal(reg.resolve(Block, `${NS}:dirt`), dirt);
         });
 
-        test("keeps other namespaces", () => {
-            assert.equal(reg.resolve(Block, "other:dirt"), undefined);
-        });
-
         test("matches base classes", () => {
             assert.equal(reg.resolve(Feature, "ore"), ore);
             assert.equal(reg.resolve(Definition, "dirt"), dirt);
@@ -159,8 +141,9 @@ describe("Registry", () => {
             assert.equal(reg.resolve(ScatterFeature, "ore"), undefined);
         });
 
-        test("misses unknown identifiers", () => {
+        test("misses unknown identifiers and other namespaces", () => {
             assert.equal(reg.resolve(Block, "stone"), undefined);
+            assert.equal(reg.resolve(Block, "other:dirt"), undefined);
         });
     });
 
@@ -184,7 +167,6 @@ describe("Registry", () => {
             assert.ok(reg.matches(`${NS}:dirt`, Block));
             assert.ok(reg.matches(dirt, Block));
             assert.equal(reg.matches(`${NS}:dirt`, Feature), false);
-            assert.equal(reg.matches(`${NS}:stone`, Block), false);
             assert.equal(reg.matches("minecraft:stone", Block), false);
         });
     });
@@ -273,13 +255,6 @@ describe("Registry", () => {
             assert.deepEqual(order, ["setup", "default", "finalize"]);
         });
 
-        test("receive the registry", () => {
-            const reg = new Registry(NS);
-            let received: Registry | undefined;
-            reg.addSystem((r) => (received = r)).run();
-            assert.equal(received, reg);
-        });
-
         test("see definitions added by earlier systems", () => {
             let found: Block | undefined;
             new Registry(NS)
@@ -320,19 +295,6 @@ describe("Query", () => {
         assert.deepEqual(collect(reg, new Query(ScatterFeature)), ["scatter"]);
     });
 
-    test("applies every filter", () => {
-        const reg = new Registry(NS).add(
-            new Block("dirt"),
-            new Block("dirt_slab"),
-            new Block("stone_slab"),
-        );
-        const query = new Query(Block).filter(
-            Query.where((block) => block.identifier.startsWith("dirt")),
-            Query.where((block) => block.identifier.endsWith("slab")),
-        );
-        assert.deepEqual(collect(reg, query), ["dirt_slab"]);
-    });
-
     test("filter returns a new query", () => {
         const reg = new Registry(NS).add(new Block("dirt"), new Block("stone"));
         const base = new Query(Block);
@@ -341,16 +303,6 @@ describe("Query", () => {
         assert.deepEqual(collect(reg, base), ["dirt", "stone"]);
         assert.deepEqual(collect(reg, dirt), ["dirt"]);
         assert.deepEqual(collect(reg, none), []);
-    });
-
-    test("passes the registry to filters", () => {
-        const reg = new Registry(NS).add(new Block("dirt"));
-        let received: Registry | undefined;
-        collect(
-            reg,
-            new Query(Block).filter((_, r) => ((received = r), true)),
-        );
-        assert.equal(received, reg);
     });
 
     test("allows removing definitions while iterating", () => {

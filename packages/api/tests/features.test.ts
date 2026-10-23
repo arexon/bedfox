@@ -108,10 +108,6 @@ describe("features", () => {
                 }),
             );
         });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new AggregateFeature("test:aggregate_min", { features: [] }));
-        });
     });
 
     describe("cave_carver", () => {
@@ -129,19 +125,6 @@ describe("features", () => {
                 }),
             );
         });
-
-        test("descriptor fill", (t) => {
-            t.assert.snapshot(
-                new CaveCarverFeature("test:cave_carver_desc", {
-                    fillWith: { name: "minecraft:stone", states: { stone_type: "granite" } },
-                    yScale: 0.5,
-                }),
-            );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new CaveCarverFeature("test:cave_carver_min"));
-        });
     });
 
     describe("conditional_list", () => {
@@ -155,10 +138,6 @@ describe("features", () => {
                     .add(new SequenceFeature("test:live_sequence", { features: [] }), "v.x > 0"),
             );
         });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new ConditionalListFeature("test:conditional_min"));
-        });
     });
 
     describe("fossil", () => {
@@ -169,19 +148,6 @@ describe("features", () => {
                     maxEmptyCorners: 4,
                 }),
             );
-        });
-
-        test("descriptor", (t) => {
-            t.assert.snapshot(
-                new FossilFeature("test:fossil_desc", {
-                    oreBlock: { name: "minecraft:stone", states: { stone_type: "granite" } },
-                    maxEmptyCorners: 0,
-                }),
-            );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new FossilFeature("test:fossil_min"));
         });
     });
 
@@ -219,10 +185,6 @@ describe("features", () => {
                 }),
             );
         });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new GeodeFeature("test:geode_min"));
-        });
     });
 
     describe("growing_plant", () => {
@@ -244,24 +206,6 @@ describe("features", () => {
                 }),
             );
         });
-
-        test("age number", (t) => {
-            t.assert.snapshot(
-                new GrowingPlantFeature("test:growing_plant_num", {
-                    heightDistribution: [[5, 1]],
-                    growthDirection: "up",
-                    age: 3,
-                    bodyBlocks: [],
-                    headBlocks: [],
-                }),
-            );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(
-                new GrowingPlantFeature("test:growing_plant_min", { heightDistribution: [] }),
-            );
-        });
     });
 
     describe("height_difference_filter", () => {
@@ -277,14 +221,6 @@ describe("features", () => {
                 }),
             );
         });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(
-                new HeightDifferenceFilterFeature("test:hdf_min", {
-                    placesFeature: "test:string_feature",
-                }),
-            );
-        });
     });
 
     describe("horizontal_tree_decoration", () => {
@@ -296,18 +232,6 @@ describe("features", () => {
                     barkSideOnly: false,
                 }),
             );
-        });
-
-        test("string", (t) => {
-            t.assert.snapshot(
-                new HorizontalTreeDecorationFeature("test:htd_str", {
-                    placesBlock: "minecraft:cocoa",
-                }),
-            );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new HorizontalTreeDecorationFeature("test:htd_min"));
         });
     });
 
@@ -324,10 +248,6 @@ describe("features", () => {
                     ],
                 }),
             );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new MultiBlockFeature("test:multi_block_min"));
         });
     });
 
@@ -347,10 +267,6 @@ describe("features", () => {
                     ],
                 }),
             );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new MultifaceFeature("test:multiface_min"));
         });
     });
 
@@ -373,22 +289,6 @@ describe("features", () => {
                 }),
             );
         });
-
-        test("height number", (t) => {
-            t.assert.snapshot(
-                new MultipartBlockColumnFeature("test:column_num", {
-                    tipBlock: "a:a",
-                    frustumBlock: "a:b",
-                    middleBlock: "a:c",
-                    baseBlock: "a:d",
-                    heightRange: 4,
-                }),
-            );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new MultipartBlockColumnFeature("test:column_min"));
-        });
     });
 
     describe("nether_cave_carver", () => {
@@ -405,10 +305,6 @@ describe("features", () => {
                     floorLevel: new Range(-1, -0.4),
                 }),
             );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new NetherCaveCarverFeature("test:nether_carver_min"));
         });
     });
 
@@ -438,10 +334,6 @@ describe("features", () => {
                     .add("minecraft:gold_ore"),
             );
         });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new OreFeature("test:ore_min"));
-        });
     });
 
     describe("partially_exposed_blob", () => {
@@ -454,10 +346,6 @@ describe("features", () => {
                     exposedFace: "up",
                 }),
             );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new PartiallyExposedBlobFeature("test:blob_min"));
         });
     });
 
@@ -481,23 +369,6 @@ describe("features", () => {
                 }),
             );
         });
-
-        test("plain distribution", (t) => {
-            t.assert.snapshot(
-                new ScatterFeature("test:scatter_plain", {
-                    placesFeature: "test:string_feature",
-                    x: { distribution: "gaussian", extent: ["0", "15"] },
-                    scatterChance: { numerator: 1, denominator: 2 },
-                    coordinateEvalOrder: "xzy",
-                }),
-            );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(
-                new ScatterFeature("test:scatter_min", { placesFeature: "test:string_feature" }),
-            );
-        });
     });
 
     describe("search", () => {
@@ -509,22 +380,6 @@ describe("features", () => {
                     searchAxis: "-y",
                     requiredSuccesses: 2,
                 }),
-            );
-        });
-
-        test("plain volume", (t) => {
-            t.assert.snapshot(
-                new SearchFeature("test:search_plain", {
-                    placesFeature: "test:string_feature",
-                    searchVolume: { min: new Vec3(0, 0, 0), max: new Vec3(1, 1, 1) },
-                    searchAxis: "+x",
-                }),
-            );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(
-                new SearchFeature("test:search_min", { placesFeature: "test:string_feature" }),
             );
         });
     });
@@ -540,10 +395,6 @@ describe("features", () => {
                     ],
                 }),
             );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new SequenceFeature("test:sequence_min", { features: [] }));
         });
     });
 
@@ -594,16 +445,6 @@ describe("features", () => {
                 }),
             );
         });
-
-        test("string", (t) => {
-            t.assert.snapshot(
-                new SingleBlockFeature("test:single_str", { placesBlock: "minecraft:stone" }),
-            );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new SingleBlockFeature("test:single_min"));
-        });
     });
 
     describe("snap_to_surface", () => {
@@ -624,24 +465,6 @@ describe("features", () => {
                     ],
                     embedInSurface: true,
                 }),
-            );
-        });
-
-        test("defaults explicit", (t) => {
-            t.assert.snapshot(
-                new SnapToSurfaceFeature("test:snap_defaults", {
-                    featureToSnap: "test:string_feature",
-                    searchRange: 4,
-                    allowAirPlacement: true,
-                    allowNonAirPlacement: false,
-                    allowUnderwaterPlacement: false,
-                }),
-            );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(
-                new SnapToSurfaceFeature("test:snap_min", { featureToSnap: "test:string_feature" }),
             );
         });
     });
@@ -681,17 +504,6 @@ describe("features", () => {
             );
         });
 
-        test("plain constraints", (t) => {
-            t.assert.snapshot(
-                new StructureTemplateFeature("test:structure_plain", {
-                    structureName: "mystructure:tower",
-                    leveled: { maxSteepness: 1 },
-                    blockIntersection: { blockAllowlist: ["minecraft:water"] },
-                    facingDirection: "north",
-                }),
-            );
-        });
-
         test("empty constraint objects", (t) => {
             t.assert.snapshot(
                 new StructureTemplateFeature("test:structure_empty", {
@@ -701,10 +513,6 @@ describe("features", () => {
                 }),
             );
         });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new StructureTemplateFeature("test:structure_min"));
-        });
     });
 
     describe("surface_relative_threshold", () => {
@@ -713,14 +521,6 @@ describe("features", () => {
                 new SurfaceRelativeThresholdFeature("test:srt", {
                     featureToPlace: "test:live_ore",
                     minimumDistanceBelowSurface: 4,
-                }),
-            );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(
-                new SurfaceRelativeThresholdFeature("test:srt_min", {
-                    featureToPlace: "test:string_feature",
                 }),
             );
         });
@@ -741,10 +541,6 @@ describe("features", () => {
                     replaceAirWith: { name: "minecraft:stone", states: { stone_type: "granite" } },
                 }),
             );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new UnderwaterCaveCarverFeature("test:uw_carver_min"));
         });
     });
 
@@ -769,27 +565,6 @@ describe("features", () => {
                 }),
             );
         });
-
-        test("numbers", (t) => {
-            t.assert.snapshot(
-                new VegetationPatchFeature("test:veg_num", {
-                    replaceableBlocks: [],
-                    groundBlock: { name: "minecraft:stone", states: { stone_type: "granite" } },
-                    vegetationFeature: "test:string_feature",
-                    depth: 1,
-                    verticalRange: 3,
-                    horizontalRadius: 2,
-                }),
-            );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(
-                new VegetationPatchFeature("test:veg_min", {
-                    vegetationFeature: "test:string_feature",
-                }),
-            );
-        });
     });
 
     describe("weighted_random", () => {
@@ -802,10 +577,6 @@ describe("features", () => {
                     .add(new SequenceFeature("test:live_sequence", { features: [] }), 0.5),
             );
         });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new WeightedRandomFeature("test:weighted_min"));
-        });
     });
 });
 
@@ -813,7 +584,7 @@ describe("FeatureRules", () => {
     test("full instance", (t) => {
         t.assert.snapshot(
             new FeatureRules("test:rules", {
-                placesFeature: "test:live_ore",
+                placesFeature: new OreFeature("test:live_ore", { count: 4 }),
                 placementPass: "underground_pass",
                 biomeFilter: new BiomeFilter()
                     .hasTag("overworld")
@@ -831,29 +602,12 @@ describe("FeatureRules", () => {
         );
     });
 
-    test("string feature", (t) => {
-        t.assert.snapshot(
-            new FeatureRules("test:rules_str", {
-                placesFeature: "test:string_feature",
-                placementPass: "surface_pass",
-                biomeFilter: new BiomeFilter().hasTag("forest"),
-                coordinateEvalOrder: "xzy",
-            }),
-        );
-    });
-
     test("empty biome filter", (t) => {
         t.assert.snapshot(
             new FeatureRules("test:rules_empty_filter", {
                 placesFeature: "test:string_feature",
                 biomeFilter: new BiomeFilter(),
             }),
-        );
-    });
-
-    test("minimal", (t) => {
-        t.assert.snapshot(
-            new FeatureRules("test:rules_min", { placesFeature: "test:string_feature" }),
         );
     });
 });

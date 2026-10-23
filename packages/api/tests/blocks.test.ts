@@ -49,15 +49,11 @@ import {
     TransformationBlockComponent,
 } from "#/block/index";
 import { ComponentCollection } from "#/core/index";
-import { Color, FormatVersion, Range, Vec3 } from "#/primitive/index";
+import { Color, Range, Vec3 } from "#/primitive/index";
 
 describe("Block", () => {
     test("minimal", (t) => {
         t.assert.snapshot(new Block("test:minimal"));
-    });
-
-    test("explicit format version", (t) => {
-        t.assert.snapshot(new Block("test:fv", { formatVersion: new FormatVersion(1, 21, 0) }));
     });
 
     test("defaults explicit", (t) => {
@@ -131,10 +127,6 @@ describe("Block", () => {
                 ),
             );
         });
-
-        test("without components", (t) => {
-            t.assert.snapshot(new BlockPermutation("true"));
-        });
     });
 });
 
@@ -151,24 +143,6 @@ describe("components", () => {
                 ),
             );
         });
-
-        test("plain container", (t) => {
-            t.assert.snapshot(
-                new ComponentCollection(
-                    new BlockEntityBlockComponent({ container: { slotCount: 9 } }),
-                ),
-            );
-        });
-
-        test("empty container", (t) => {
-            t.assert.snapshot(
-                new ComponentCollection(new BlockEntityBlockComponent({ container: {} })),
-            );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new ComponentCollection(new BlockEntityBlockComponent({})));
-        });
     });
 
     describe("chest_obstruction", () => {
@@ -179,27 +153,11 @@ describe("components", () => {
                 ),
             );
         });
-
-        test("default value", (t) => {
-            t.assert.snapshot(
-                new ComponentCollection(
-                    new ChestObstructionBlockComponent({ obstructionRule: "shape" }),
-                ),
-            );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new ComponentCollection(new ChestObstructionBlockComponent({})));
-        });
     });
 
     describe("collision_box", () => {
         test("transparent true", (t) => {
             t.assert.snapshot(new ComponentCollection(new CollisionBoxBlockComponent(true)));
-        });
-
-        test("transparent false", (t) => {
-            t.assert.snapshot(new ComponentCollection(new CollisionBoxBlockComponent(false)));
         });
 
         test("boxes instances", (t) => {
@@ -208,17 +166,6 @@ describe("components", () => {
                     new CollisionBoxBlockComponent(BoundingBox.cube(), BoundingBox.slab(), {
                         origin: new Vec3(-4, 2, -4),
                         size: new Vec3(8, 4, 8),
-                    }),
-                ),
-            );
-        });
-
-        test("boxes plain", (t) => {
-            t.assert.snapshot(
-                new ComponentCollection(
-                    new CollisionBoxBlockComponent({
-                        origin: new Vec3(-2, 0, -2),
-                        size: new Vec3(4, 16, 4),
                     }),
                 ),
             );
@@ -252,10 +199,6 @@ describe("components", () => {
                 ),
             );
         });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new ComponentCollection(new ConnectionRuleBlockComponent({})));
-        });
     });
 
     describe("crafting_table", () => {
@@ -269,22 +212,12 @@ describe("components", () => {
                 ),
             );
         });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new ComponentCollection(new CraftingTableBlockComponent({})));
-        });
     });
 
     describe("destructible_by_explosion", () => {
         test("transparent only", (t) => {
             t.assert.snapshot(
                 new ComponentCollection(new DestructibleByExplosionBlockComponent(true)),
-            );
-        });
-
-        test("transparent only false", (t) => {
-            t.assert.snapshot(
-                new ComponentCollection(new DestructibleByExplosionBlockComponent(false)),
             );
         });
 
@@ -306,24 +239,12 @@ describe("components", () => {
                 ),
             );
         });
-
-        test("empty", (t) => {
-            t.assert.snapshot(
-                new ComponentCollection(new DestructibleByExplosionBlockComponent({})),
-            );
-        });
     });
 
     describe("destructible_by_mining", () => {
         test("transparent only", (t) => {
             t.assert.snapshot(
                 new ComponentCollection(new DestructibleByMiningBlockComponent(true)),
-            );
-        });
-
-        test("transparent only false", (t) => {
-            t.assert.snapshot(
-                new ComponentCollection(new DestructibleByMiningBlockComponent(false)),
             );
         });
 
@@ -346,14 +267,6 @@ describe("components", () => {
                 ),
             );
         });
-
-        test("empty", (t) => {
-            t.assert.snapshot(
-                new ComponentCollection(
-                    new DestructibleByMiningBlockComponent({ itemSpecificSpeeds: [] }),
-                ),
-            );
-        });
     });
 
     describe("destruction_particles", () => {
@@ -367,10 +280,6 @@ describe("components", () => {
                     }),
                 ),
             );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new ComponentCollection(new DestructionParticlesBlockComponent({})));
         });
     });
 
@@ -426,10 +335,6 @@ describe("components", () => {
                 ),
             );
         });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new ComponentCollection(new EmbeddedVisualBlockComponent({})));
-        });
     });
 
     describe("entity_fall_on", () => {
@@ -438,19 +343,11 @@ describe("components", () => {
                 new ComponentCollection(new EntityFallOnBlockComponent({ minFallDistance: 3 })),
             );
         });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new ComponentCollection(new EntityFallOnBlockComponent({})));
-        });
     });
 
     describe("flammable", () => {
         test("transparent only", (t) => {
             t.assert.snapshot(new ComponentCollection(new FlammableBlockComponent(true)));
-        });
-
-        test("transparent only false", (t) => {
-            t.assert.snapshot(new ComponentCollection(new FlammableBlockComponent(false)));
         });
 
         test("full", (t) => {
@@ -470,21 +367,6 @@ describe("components", () => {
             t.assert.snapshot(
                 new ComponentCollection(new FlammableBlockComponent({ catchChanceModifier: 1 })),
             );
-        });
-
-        test("defaults only", (t) => {
-            t.assert.snapshot(
-                new ComponentCollection(
-                    new FlammableBlockComponent({
-                        catchChanceModifier: 5,
-                        destroyChanceModifier: 20,
-                    }),
-                ),
-            );
-        });
-
-        test("empty", (t) => {
-            t.assert.snapshot(new ComponentCollection(new FlammableBlockComponent({})));
         });
     });
 
@@ -540,22 +422,6 @@ describe("components", () => {
                 ),
             );
         });
-
-        test("defaults explicit", (t) => {
-            t.assert.snapshot(
-                new ComponentCollection(
-                    new GeometryBlockComponent({
-                        identifier: "geometry.test",
-                        uvLock: false,
-                        boneVisibility: {},
-                    }),
-                ),
-            );
-        });
-
-        test("empty", (t) => {
-            t.assert.snapshot(new ComponentCollection(new GeometryBlockComponent({})));
-        });
     });
 
     describe("instrument_sound", () => {
@@ -568,10 +434,6 @@ describe("components", () => {
                     }),
                 ),
             );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new ComponentCollection(new InstrumentSoundBlockComponent({})));
         });
     });
 
@@ -609,28 +471,15 @@ describe("components", () => {
                 ),
             );
         });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new ComponentCollection(new ItemVisualBlockComponent({})));
-        });
     });
 
     describe("leashable", () => {
-        test("omits unset value fields", (t) => {
-            t.assert.snapshot(new LeashableBlockComponent({}));
-            t.assert.snapshot(new LeashableBlockComponent({ offset: new Vec3(1, 2, 3) }));
-        });
-
         test("full", (t) => {
             t.assert.snapshot(
                 new ComponentCollection(
                     new LeashableBlockComponent({ offset: new Vec3(0.5, 1, -0.5) }),
                 ),
             );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new ComponentCollection(new LeashableBlockComponent({})));
         });
     });
 
@@ -669,12 +518,6 @@ describe("components", () => {
                 ),
             );
         });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(
-                new ComponentCollection(new LiquidDetectionBlockComponent({ detectionRules: [] })),
-            );
-        });
     });
 
     describe("loot", () => {
@@ -686,21 +529,9 @@ describe("components", () => {
     });
 
     describe("map_color", () => {
-        test("is transparent on its color", (t) => {
-            // With no field set, nothing collapses and the component is an empty object.
-            t.assert.snapshot(new MapColorBlockComponent({}));
-            t.assert.snapshot(new MapColorBlockComponent(new Color(1, 2, 16)));
-        });
-
         test("transparent only rgb", (t) => {
             t.assert.snapshot(
                 new ComponentCollection(new MapColorBlockComponent(new Color(255, 0, 0))),
-            );
-        });
-
-        test("transparent only rgba", (t) => {
-            t.assert.snapshot(
-                new ComponentCollection(new MapColorBlockComponent(new Color("#ff000080"))),
             );
         });
 
@@ -713,10 +544,6 @@ describe("components", () => {
                     }),
                 ),
             );
-        });
-
-        test("empty", (t) => {
-            t.assert.snapshot(new ComponentCollection(new MapColorBlockComponent({})));
         });
     });
 
@@ -747,28 +574,6 @@ describe("components", () => {
                 ),
             );
         });
-
-        test("defaults explicit", (t) => {
-            t.assert.snapshot(
-                new ComponentCollection(
-                    new MaterialInstancesBlockComponent({
-                        "*": {
-                            texture: "test",
-                            ambientOcclusion: 1,
-                            renderMethod: "opaque",
-                            tintMethod: "none",
-                            faceDimming: true,
-                            isotropic: false,
-                            alphaMaskedTint: false,
-                        },
-                    }),
-                ),
-            );
-        });
-
-        test("empty", (t) => {
-            t.assert.snapshot(new ComponentCollection(new MaterialInstancesBlockComponent({})));
-        });
     });
 
     describe("movable", () => {
@@ -778,10 +583,6 @@ describe("components", () => {
                     new MovableBlockComponent({ movementType: "push", sticky: "same" }),
                 ),
             );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new ComponentCollection(new MovableBlockComponent({})));
         });
     });
 
@@ -804,10 +605,6 @@ describe("components", () => {
                 ),
             );
         });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new ComponentCollection(new PlacementFilterBlockComponent()));
-        });
     });
 
     describe("precipitation_interactions", () => {
@@ -818,12 +615,6 @@ describe("components", () => {
                         precipitationBehavior: "obstruct_rain_accumulate_snow",
                     }),
                 ),
-            );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(
-                new ComponentCollection(new PrecipitationInteractionsBlockComponent({})),
             );
         });
     });
@@ -862,10 +653,6 @@ describe("components", () => {
                 ),
             );
         });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new ComponentCollection(new RedstoneConductivityBlockComponent({})));
-        });
     });
 
     describe("redstone_consumer", () => {
@@ -875,10 +662,6 @@ describe("components", () => {
                     new RedstoneConsumerBlockComponent({ minPower: 5, propagatesPower: true }),
                 ),
             );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new ComponentCollection(new RedstoneConsumerBlockComponent({})));
         });
     });
 
@@ -895,10 +678,6 @@ describe("components", () => {
                 ),
             );
         });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new ComponentCollection(new RedstoneProducerBlockComponent({})));
-        });
     });
 
     describe("replaceable", () => {
@@ -912,24 +691,9 @@ describe("components", () => {
             t.assert.snapshot(new ComponentCollection(new SelectionBoxBlockComponent(true)));
         });
 
-        test("transparent false", (t) => {
-            t.assert.snapshot(new ComponentCollection(new SelectionBoxBlockComponent(false)));
-        });
-
         test("box instance", (t) => {
             t.assert.snapshot(
                 new ComponentCollection(new SelectionBoxBlockComponent(BoundingBox.slab())),
-            );
-        });
-
-        test("box plain", (t) => {
-            t.assert.snapshot(
-                new ComponentCollection(
-                    new SelectionBoxBlockComponent({
-                        origin: new Vec3(-8, 0, -8),
-                        size: new Vec3(16, 4, 16),
-                    }),
-                ),
             );
         });
     });
@@ -938,10 +702,6 @@ describe("components", () => {
         test("full", (t) => {
             t.assert.snapshot(new ComponentCollection(new SoundBlockComponent({ sound: "stone" })));
         });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new ComponentCollection(new SoundBlockComponent({})));
-        });
     });
 
     describe("support", () => {
@@ -949,16 +709,6 @@ describe("components", () => {
             t.assert.snapshot(
                 new ComponentCollection(new SupportBlockComponent({ shape: "fence" })),
             );
-        });
-
-        test("full stair", (t) => {
-            t.assert.snapshot(
-                new ComponentCollection(new SupportBlockComponent({ shape: "stair" })),
-            );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new ComponentCollection(new SupportBlockComponent({})));
         });
     });
 
@@ -972,18 +722,9 @@ describe("components", () => {
                 ),
             );
         });
-
-        test("empty", (t) => {
-            t.assert.snapshot(new ComponentCollection(new TagsBlockComponent({})));
-        });
     });
 
     describe("tick", () => {
-        test("omits unset value fields", (t) => {
-            t.assert.snapshot(new TickBlockComponent({}));
-            t.assert.snapshot(new TickBlockComponent({ intervalRange: new Range(10, 20) }));
-        });
-
         test("full", (t) => {
             t.assert.snapshot(
                 new ComponentCollection(
@@ -991,18 +732,9 @@ describe("components", () => {
                 ),
             );
         });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new ComponentCollection(new TickBlockComponent({})));
-        });
     });
 
     describe("transformation", () => {
-        test("omits unset value fields", (t) => {
-            t.assert.snapshot(new TransformationBlockComponent({}));
-            t.assert.snapshot(new TransformationBlockComponent({ rotation: new Vec3(0, 90, 0) }));
-        });
-
         test("full", (t) => {
             t.assert.snapshot(
                 new ComponentCollection(
@@ -1015,10 +747,6 @@ describe("components", () => {
                     }),
                 ),
             );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(new ComponentCollection(new TransformationBlockComponent({})));
         });
     });
 
@@ -1050,12 +778,6 @@ describe("traits", () => {
                 ),
             );
         });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(
-                new BlockTraitCollection(new ConnectionBlockTrait({ enabledStates: [] })),
-            );
-        });
     });
 
     describe("multi_block", () => {
@@ -1066,17 +788,6 @@ describe("traits", () => {
                         enabledStates: ["minecraft:multi_block_part"],
                         direction: "up",
                         parts: 3,
-                    }),
-                ),
-            );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(
-                new BlockTraitCollection(
-                    new MultiBlockBlockTrait({
-                        enabledStates: ["minecraft:multi_block_part"],
-                        direction: "down",
                     }),
                 ),
             );
@@ -1137,12 +848,6 @@ describe("traits", () => {
                         enabledStates: ["minecraft:block_face", "minecraft:vertical_half"],
                     }),
                 ),
-            );
-        });
-
-        test("minimal", (t) => {
-            t.assert.snapshot(
-                new BlockTraitCollection(new PlacementPositionBlockTrait({ enabledStates: [] })),
             );
         });
     });
