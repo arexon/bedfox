@@ -1,7 +1,7 @@
 import type { Ctor, InstanceProps } from "#/core/props";
-import type { Filter } from "#/core/registry";
-import { setLayout, toReference } from "#/core/serialize";
 import type { BlockDescriptor, FormatVersion } from "#/primitive/index";
+import type { Filter } from "#/registry";
+import { setLayout, toReference } from "#/serialize";
 
 export type DefinitionProps<T> = Partial<InstanceProps<T, "identifier">>;
 

@@ -1,8 +1,8 @@
 import type { DefinitionProps, ReferenceTarget } from "#/core/definition";
 import { targets } from "#/core/references";
-import { serialize } from "#/core/serialize";
 import { Feature } from "#/feature/base";
 import { type BlockDescriptorRef, type Direction, FormatVersion } from "#/primitive/index";
+import { serialize } from "#/serialize";
 
 @serialize
 export class PartiallyExposedBlobFeature extends Feature.of(

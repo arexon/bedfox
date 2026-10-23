@@ -1,5 +1,5 @@
 import { Component, type ComponentProps } from "#/core/component";
-import { serialize } from "#/core/serialize";
+import { serialize } from "#/serialize";
 
 export interface ItemSpecificSpeed {
     item?: string;

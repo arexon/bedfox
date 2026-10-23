@@ -1,6 +1,6 @@
 import { Component } from "#/core/component";
-import { serialize } from "#/core/serialize";
 import type { BlockDescriptorRef, Direction } from "#/primitive/index";
+import { serialize } from "#/serialize";
 
 /** Faces and blocks a block may be placed on. */
 export interface PlacementCondition {

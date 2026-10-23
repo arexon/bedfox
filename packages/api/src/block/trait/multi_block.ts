@@ -1,6 +1,6 @@
 import { BlockTrait, type BlockTraitProps } from "#/block/trait/base";
-import { serialize } from "#/core/serialize";
 import type { Direction } from "#/primitive/index";
+import { serialize } from "#/serialize";
 
 export type MultiBlockEnabledState = "minecraft:multi_block_part";
 

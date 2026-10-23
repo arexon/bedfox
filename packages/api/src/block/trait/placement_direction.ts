@@ -1,6 +1,6 @@
 import { BlockTrait, type BlockTraitProps } from "#/block/trait/base";
-import { serialize } from "#/core/serialize";
 import type { BlockDescriptorRef, CardinalDirection } from "#/primitive/index";
+import { serialize } from "#/serialize";
 
 const Y_ROTATION_OFFSETS = {
     ["north"]: 0,

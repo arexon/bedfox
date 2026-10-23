@@ -1,5 +1,5 @@
 import type { InstanceProps } from "#/core/props";
-import { serialize } from "#/core/serialize";
+import { serialize } from "#/serialize";
 
 export type BiomeFilterTest =
     | "has_biome_tag"

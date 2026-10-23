@@ -1,5 +1,5 @@
 import { Component, type ComponentProps } from "#/core/component";
-import { serialize } from "#/core/serialize";
+import { serialize } from "#/serialize";
 
 @serialize
 export class TagsBlockComponent extends Component.of("minecraft:tags") {

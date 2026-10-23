@@ -5,12 +5,12 @@ import {
     type ReferenceTarget,
 } from "#/core/definition";
 import { targets } from "#/core/references";
-import type { Filter } from "#/core/registry";
-import { serialize } from "#/core/serialize";
 import type { FeatureReference } from "#/feature/base";
 import type { BiomeFilter } from "#/feature/biome_filter";
 import type { CoordinateEvalOrder, ScatterChance, ScatterDistribution } from "#/feature/scatter";
 import { FormatVersion, type Molang } from "#/primitive/index";
+import type { Filter } from "#/registry";
+import { serialize } from "#/serialize";
 
 export type PlacementPass =
     | "first_pass"

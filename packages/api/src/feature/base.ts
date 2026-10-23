@@ -1,5 +1,5 @@
 import { Definition, type DefinitionCtor, type ReferenceTarget } from "#/core/definition";
-import type { Filter } from "#/core/registry";
+import type { Filter } from "#/registry";
 
 /** A world generation feature; every `minecraft:*_feature` definition. */
 export abstract class Feature extends Definition {

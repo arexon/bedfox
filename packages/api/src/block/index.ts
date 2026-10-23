@@ -1,9 +1,9 @@
 import { type BlockTrait, BlockTraitCollection } from "#/block/trait/base";
 import { type Component, ComponentCollection, type ComponentCtor } from "#/core/component";
 import { Definition, type DefinitionProps } from "#/core/definition";
-import type { Filter } from "#/core/registry";
-import { serialize } from "#/core/serialize";
 import { FormatVersion, type ItemCategory, Range } from "#/primitive/index";
+import type { Filter } from "#/registry";
+import { serialize } from "#/serialize";
 
 export * from "#/block/component/index";
 export * from "#/block/trait/index";

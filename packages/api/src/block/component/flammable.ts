@@ -1,5 +1,5 @@
 import { Component, type ComponentProps } from "#/core/component";
-import { serialize } from "#/core/serialize";
+import { serialize } from "#/serialize";
 
 /** Whether lava can set the block on fire. */
 export type LavaFlammable = "always" | "never";

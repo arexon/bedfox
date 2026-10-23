@@ -2,18 +2,17 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import { Block, BlockTrait } from "#/block/index";
+import { Component, Definition } from "#/core/index";
+import { Feature, ScatterFeature } from "#/feature/index";
+import { FormatVersion } from "#/primitive/index";
 import {
-    Component,
     DecoratedNonFieldError,
-    Definition,
     MultipleTransparentFieldsError,
     NestedTransparentFieldError,
     serialize,
     toReference,
     UnsupportedJsonValueError,
-} from "#/core/index";
-import { Feature, ScatterFeature } from "#/feature/index";
-import { FormatVersion } from "#/primitive/index";
+} from "#/serialize";
 
 @serialize
 class Shared {

@@ -1,7 +1,7 @@
 import type { TintMethod } from "#/block/component/material_instances";
 import { Component, type ComponentProps } from "#/core/component";
-import { serialize } from "#/core/serialize";
 import { Color } from "#/primitive/index";
+import { serialize } from "#/serialize";
 
 @serialize
 export class MapColorBlockComponent extends Component.of("minecraft:map_color") {

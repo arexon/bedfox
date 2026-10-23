@@ -1,10 +1,10 @@
 import type { DefinitionProps, ReferenceTarget } from "#/core/definition";
 import { targets } from "#/core/references";
-import { serialize } from "#/core/serialize";
 import { Feature } from "#/feature/base";
 import type { FeatureReference } from "#/feature/base";
 import { FormatVersion } from "#/primitive/index";
 import { Vec3 } from "#/primitive/vec3";
+import { serialize } from "#/serialize";
 
 export type SearchAxis = "-x" | "+x" | "-y" | "+y" | "-z" | "+z";
 

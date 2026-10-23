@@ -1,6 +1,6 @@
 import { Component } from "#/core/component";
-import { serialize } from "#/core/serialize";
 import { Vec3 } from "#/primitive/vec3";
+import { serialize } from "#/serialize";
 
 /** A box in block-space pixels: `origin` is its minimum corner. */
 export interface BoundingBox {

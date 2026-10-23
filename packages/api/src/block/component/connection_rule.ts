@@ -1,6 +1,6 @@
 import { Component, type ComponentProps } from "#/core/component";
-import { serialize } from "#/core/serialize";
 import type { CardinalDirection } from "#/primitive/index";
+import { serialize } from "#/serialize";
 
 export type ConnectionSource = "none" | "only_fences" | "all";
 

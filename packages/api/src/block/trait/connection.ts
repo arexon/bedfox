@@ -1,5 +1,5 @@
 import { BlockTrait, type BlockTraitProps } from "#/block/trait/base";
-import { serialize } from "#/core/serialize";
+import { serialize } from "#/serialize";
 
 export type ConnectionEnabledState = "minecraft:cardinal_connections";
 

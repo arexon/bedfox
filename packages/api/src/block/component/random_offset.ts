@@ -1,6 +1,6 @@
 import { Component, type ComponentProps } from "#/core/component";
-import { serialize } from "#/core/serialize";
 import type { Range } from "#/primitive/index";
+import { serialize } from "#/serialize";
 
 /** An offset range along one axis, split into `steps` positions. */
 export interface RangeAndSteps {

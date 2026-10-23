@@ -1,6 +1,6 @@
 import type { BoundingBox } from "#/block/component/collision_box";
 import { Component } from "#/core/component";
-import { serialize } from "#/core/serialize";
+import { serialize } from "#/serialize";
 
 @serialize
 export class SelectionBoxBlockComponent extends Component.of("minecraft:selection_box") {

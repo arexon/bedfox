@@ -25,6 +25,8 @@
         "./core": "./dist/core/index.mjs",
         "./feature": "./dist/feature/index.mjs",
         "./primitive": "./dist/primitive/index.mjs",
+        "./registry": "./dist/registry.mjs",
+        "./serialize": "./dist/serialize.mjs",
         "./package.json": "./package.json"
     },
     "publishConfig": {

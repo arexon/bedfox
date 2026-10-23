@@ -1,5 +1,5 @@
 import { Component } from "#/core/component";
-import { serialize } from "#/core/serialize";
+import { serialize } from "#/serialize";
 
 @serialize
 export class DisplayNameBlockComponent extends Component.of("minecraft:display_name") {

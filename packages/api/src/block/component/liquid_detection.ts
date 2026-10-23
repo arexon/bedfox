@@ -1,6 +1,6 @@
 import { Component, type ComponentProps } from "#/core/component";
-import { serialize } from "#/core/serialize";
 import type { Direction } from "#/primitive/index";
+import { serialize } from "#/serialize";
 
 export interface DetectionRule {
     liquidType?: "water";
