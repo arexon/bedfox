@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import {
@@ -58,7 +59,19 @@ describe("BiomeFilter", () => {
     });
 
     test("not", (t) => {
-        t.assert.snapshot(new BiomeFilter().not().hasTag("ocean"));
+        t.assert.snapshot(new BiomeFilter().not.hasTag("ocean"));
+    });
+
+    test("not only negates the next test", (t) => {
+        t.assert.snapshot(new BiomeFilter().not.hasTag("ocean").hasTag("forest"));
+    });
+
+    test("not is only followed by a test", () => {
+        const filter = new BiomeFilter();
+        // @ts-expect-error groups can't be negated
+        assert.throws(() => filter.not.allOf(() => {}), TypeError);
+        // @ts-expect-error double negation
+        assert.equal(filter.not.not, undefined);
     });
 
     test("empty", (t) => {

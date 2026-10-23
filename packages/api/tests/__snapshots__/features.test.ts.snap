@@ -92,9 +92,24 @@ exports[`BiomeFilter > multiple 1`] = `
 exports[`BiomeFilter > not 1`] = `
 {
   "test": "has_biome_tag",
-  "operator": "==",
+  "operator": "!=",
   "value": "ocean"
 }
+`;
+
+exports[`BiomeFilter > not only negates the next test 1`] = `
+[
+  {
+    "test": "has_biome_tag",
+    "operator": "!=",
+    "value": "ocean"
+  },
+  {
+    "test": "has_biome_tag",
+    "operator": "==",
+    "value": "forest"
+  }
+]
 `;
 
 exports[`BiomeFilter > single 1`] = `

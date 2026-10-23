@@ -38,35 +38,47 @@ export class BiomeFilterMulti {
     }
 }
 
-export class BiomeFilter {
+export class BiomeFilterTests<R> {
+    readonly #addTest: (test: BiomeFilterTest, value: string) => R;
+
+    constructor(addTest: (test: BiomeFilterTest, value: string) => R) {
+        this.#addTest = addTest;
+    }
+
+    hasTag(value: string): R {
+        return this.#addTest("has_biome_tag", value);
+    }
+
+    isBiome(value: string): R {
+        return this.#addTest("is_biome", value);
+    }
+
+    isSnowCovered(value = true): R {
+        return this.#addTest("is_snow_covered", value.toString());
+    }
+
+    isHumid(value = true): R {
+        return this.#addTest("is_humid", value.toString());
+    }
+
+    isTemperatureType(value: string): R {
+        return this.#addTest("is_temperature_type", value);
+    }
+
+    isTemperatureValue(value: string): R {
+        return this.#addTest("is_temperature_value", value);
+    }
+}
+
+export class BiomeFilter extends BiomeFilterTests<BiomeFilter> {
     #items: (BiomeFilterSingle | BiomeFilterMulti)[] = [];
 
-    not(): this {
-        return this;
+    constructor() {
+        super((test, value) => this.#push(test, "==", value));
     }
 
-    hasTag(value: string): this {
-        return this.#eq("has_biome_tag", value);
-    }
-
-    isBiome(value: string): this {
-        return this.#eq("is_biome", value);
-    }
-
-    isSnowCovered(value = true): this {
-        return this.#eq("is_snow_covered", value.toString());
-    }
-
-    isHumid(value = true): this {
-        return this.#eq("is_humid", value.toString());
-    }
-
-    isTemperatureType(value: string): this {
-        return this.#eq("is_temperature_type", value);
-    }
-
-    isTemperatureValue(value: string): this {
-        return this.#eq("is_temperature_value", value);
+    get not(): BiomeFilterTests<BiomeFilter> {
+        return new BiomeFilterTests((test, value) => this.#push(test, "!=", value));
     }
 
     allOf(callback: (b: BiomeFilter) => void): this {
@@ -87,11 +99,12 @@ export class BiomeFilter {
         return this.#items.length === 1 ? this.#items[0] : this.#items;
     }
 
-    #eq(test: BiomeFilterTest, value: string): this {
-        this.#items.push(new BiomeFilterSingle(test, "==", value));
+    #push(test: BiomeFilterTest, operator: BiomeFilterOperator, value: string): this {
+        this.#items.push(new BiomeFilterSingle(test, operator, value));
         return this;
     }
 
+    // TODO: Check whether biome filters allow nested groups, then keep or reject them
     #singles(): BiomeFilterSingle[] {
         return this.#items.filter((item) => item instanceof BiomeFilterSingle);
     }
