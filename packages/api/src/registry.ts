@@ -4,12 +4,6 @@ import { autoIdentifier } from "#/core/references";
 import { Feature } from "#/feature/base";
 import { FeatureRules } from "#/feature/rules";
 
-const IDENTIFIER_REG = /^[a-z0-9._-]+$/;
-
-export function validateIdentifier(value: string): boolean {
-    return IDENTIFIER_REG.test(value);
-}
-
 export class Registry {
     readonly namespace: string;
 
@@ -117,6 +111,12 @@ export class Registry {
         }
         return store;
     }
+}
+
+const IDENTIFIER_REG = /^[a-z0-9._-]+$/;
+
+function validateIdentifier(value: string): boolean {
+    return IDENTIFIER_REG.test(value);
 }
 
 /** When a system runs: setup, then transform, then finalize. */
