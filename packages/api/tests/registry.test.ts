@@ -33,7 +33,7 @@ function collect<T extends [Definition, ...Definition[]]>(
     return result;
 }
 
-describe("Registry", () => {
+describe(Registry.name, () => {
     describe("add()", () => {
         test("registers definitions and chains", () => {
             const reg = new Registry(NS);
@@ -274,7 +274,7 @@ describe("Registry", () => {
     });
 });
 
-describe("Query", () => {
+describe(Query.name, () => {
     test("yields definitions of the given classes in registry order", () => {
         const reg = new Registry(NS).add(
             new FeatureRules("rules", { placesFeature: `${NS}:ore` }),

@@ -10,7 +10,7 @@ import {
     Vec3,
 } from "#/primitive/index";
 
-describe("Color", () => {
+describe(Color.name, () => {
     test("RGBA rounds channels to u8", () => {
         const color = new Color(12.4, 127.5, 254.6, 4.4);
         assert.deepStrictEqual([color.r, color.g, color.b, color.a], [12, 128, 255, 4]);
@@ -47,13 +47,13 @@ describe("Color", () => {
     }
 });
 
-describe("Vec3", () => {
+describe(Vec3.name, () => {
     test("direct", () => {
         assert.equal(JSON.stringify(new Vec3(1, 2.5, -3)), "[1,2.5,-3]");
     });
 });
 
-describe("Range", () => {
+describe(Range.name, () => {
     test("direct", () => {
         assert.equal(JSON.stringify(new Range(2, 9)), "[2,9]");
     });
@@ -70,7 +70,7 @@ describe("Range", () => {
     });
 });
 
-describe("FormatVersion", () => {
+describe(FormatVersion.name, () => {
     test("direct", () => {
         assert.equal(JSON.stringify(new FormatVersion(1, 21, 0)), '"1.21.0"');
     });

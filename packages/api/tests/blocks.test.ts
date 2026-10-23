@@ -51,7 +51,7 @@ import {
 import { ComponentCollection } from "#/core/index";
 import { Color, Range, Vec3 } from "#/primitive/index";
 
-describe("Block", () => {
+describe(Block.name, () => {
     test("minimal", (t) => {
         t.assert.snapshot(new Block("test:minimal"));
     });

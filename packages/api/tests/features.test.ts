@@ -33,7 +33,7 @@ import {
 } from "#/feature/index";
 import { Range, Vec3 } from "#/primitive/index";
 
-describe("BiomeFilter", () => {
+describe(BiomeFilter.name, () => {
     test("single", (t) => {
         t.assert.snapshot(new BiomeFilter().hasTag("forest"));
     });
@@ -580,7 +580,7 @@ describe("features", () => {
     });
 });
 
-describe("FeatureRules", () => {
+describe(FeatureRules.name, () => {
     test("full instance", (t) => {
         t.assert.snapshot(
             new FeatureRules("test:rules", {
