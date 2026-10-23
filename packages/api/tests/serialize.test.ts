@@ -37,7 +37,7 @@ describe("@serialize defaults", () => {
             assert.equal(JSON.stringify(row), '{"list":["my:feature",["my:feature",3]]}');
         });
 
-        test("toJSON results are never re-cased", () => {
+        test("toJSON() results are never re-cased", () => {
             class Override {
                 boneVisibility = { leftArm: true };
                 toJSON(): unknown {
@@ -370,7 +370,7 @@ describe("@serialize with options", () => {
     });
 
     describe("on classes", () => {
-        test("subclasses inherit its toJSON, or can repeat @serialize", () => {
+        test("subclasses inherit its toJSON(), or can repeat @serialize", () => {
             class Inherited extends Block {}
             @serialize
             class Repeated extends Block {}
@@ -383,7 +383,7 @@ describe("@serialize with options", () => {
 });
 
 describe("of() bases", () => {
-    describe("Component.of", () => {
+    describe("Component.of()", () => {
         test("sets the componentId", () => {
             @serialize
             class Light extends Component.of("minecraft:light") {}
@@ -396,7 +396,7 @@ describe("of() bases", () => {
         });
     });
 
-    describe("BlockTrait.of", () => {
+    describe("BlockTrait.of()", () => {
         test("sets the traitId", () => {
             @serialize
             class Trait extends BlockTrait.of("test:trait") {}
@@ -404,7 +404,7 @@ describe("of() bases", () => {
         });
     });
 
-    describe("Definition.of", () => {
+    describe("Definition.of()", () => {
         @serialize
         class Thing extends Definition.of("test:thing", new FormatVersion(1, 2, 3)) {
             identifier = "test:thing";

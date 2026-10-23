@@ -58,7 +58,7 @@ describe(Range.name, () => {
         assert.equal(JSON.stringify(new Range(2, 9)), "[2,9]");
     });
 
-    test("from", () => {
+    test("from()", () => {
         assert.equal(JSON.stringify(Range.from(4)), "[0,3]");
     });
 
