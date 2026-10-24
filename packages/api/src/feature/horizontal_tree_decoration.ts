@@ -1,4 +1,5 @@
-import type { DefinitionProps, ReferenceTarget } from "#/core/definition";
+import { Block } from "#/block/index";
+import type { DefinitionProps, Reference } from "#/core/definition";
 import { targets } from "#/core/references";
 import { Feature } from "#/feature/base";
 import { type BlockDescriptorRef, FormatVersion } from "#/primitive/index";
@@ -23,7 +24,7 @@ export class HorizontalTreeDecorationFeature extends Feature.of(
         Object.assign(this, props);
     }
 
-    override _placements(): ReferenceTarget[] {
-        return targets(this.placesBlock);
+    override _placements(): Reference[] {
+        return targets(Block, this.placesBlock);
     }
 }

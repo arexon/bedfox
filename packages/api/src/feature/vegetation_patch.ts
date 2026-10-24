@@ -1,4 +1,5 @@
-import type { DefinitionProps, ReferenceTarget } from "#/core/definition";
+import { Block } from "#/block/index";
+import type { DefinitionProps, Reference } from "#/core/definition";
 import { targets } from "#/core/references";
 import { Feature } from "#/feature/base";
 import type { FeatureReference } from "#/feature/base";
@@ -42,11 +43,11 @@ export class VegetationPatchFeature extends Feature.of(
         Object.assign(this, props);
     }
 
-    override _placements(): ReferenceTarget[] {
-        return targets(this.vegetationFeature, this.groundBlock);
+    override _placements(): Reference[] {
+        return [...targets(Feature, this.vegetationFeature), ...targets(Block, this.groundBlock)];
     }
 
-    override _references(): ReferenceTarget[] {
-        return targets(this._placements(), this.replaceableBlocks);
+    override _references(): Reference[] {
+        return [...this._placements(), ...targets(Block, this.replaceableBlocks)];
     }
 }

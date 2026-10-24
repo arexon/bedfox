@@ -2,10 +2,11 @@ import {
     Definition,
     type DefinitionCtor,
     type DefinitionProps,
+    type Reference,
     type ReferenceTarget,
 } from "#/core/definition";
 import { targets } from "#/core/references";
-import type { FeatureReference } from "#/feature/base";
+import { Feature, type FeatureReference } from "#/feature/base";
 import type { BiomeFilter } from "#/feature/biome_filter";
 import type { CoordinateEvalOrder, ScatterChance, ScatterDistribution } from "#/feature/scatter";
 import { FormatVersion, type Molang } from "#/primitive/index";
@@ -71,12 +72,12 @@ export class FeatureRules extends Definition.of(
         return (rule, reg) => rule._references().some((ref) => reg.matches(ref, target));
     }
 
-    _placements(): ReferenceTarget[] {
-        return [this.placesFeature];
+    _placements(): Reference[] {
+        return targets(Feature, this.placesFeature);
     }
 
     /** A rule references exactly what it places. */
-    override _references(): ReferenceTarget[] {
-        return targets(this.placesFeature);
+    override _references(): Reference[] {
+        return this._placements();
     }
 }

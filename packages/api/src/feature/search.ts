@@ -1,4 +1,4 @@
-import type { DefinitionProps, ReferenceTarget } from "#/core/definition";
+import type { DefinitionProps, Reference } from "#/core/definition";
 import { targets } from "#/core/references";
 import { Feature } from "#/feature/base";
 import type { FeatureReference } from "#/feature/base";
@@ -34,7 +34,7 @@ export class SearchFeature extends Feature.of(
         Object.assign(this, props);
     }
 
-    override _placements(): ReferenceTarget[] {
-        return targets(this.placesFeature);
+    override _placements(): Reference[] {
+        return targets(Feature, this.placesFeature);
     }
 }

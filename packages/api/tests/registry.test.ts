@@ -152,22 +152,30 @@ describe(Registry.name, () => {
         const reg = new Registry(NS).add(dirt);
 
         test("compares identifiers ignoring this registry's namespace", () => {
-            assert.ok(reg.matches(`${NS}:dirt`, "dirt"));
-            assert.ok(reg.matches("dirt", `${NS}:dirt`));
-            assert.equal(reg.matches("other:dirt", "dirt"), false);
+            assert.ok(reg.matches({ kind: Block, target: `${NS}:dirt` }, "dirt"));
+            assert.ok(reg.matches({ kind: Block, target: "dirt" }, `${NS}:dirt`));
+            assert.equal(reg.matches({ kind: Block, target: "other:dirt" }, "dirt"), false);
         });
 
         test("compares definitions and descriptors by identifier", () => {
-            assert.ok(reg.matches(dirt, `${NS}:dirt`));
-            assert.ok(reg.matches({ name: `${NS}:dirt` }, dirt));
-            assert.ok(reg.matches(new Block("dirt"), dirt));
+            assert.ok(reg.matches({ kind: Block, target: dirt }, `${NS}:dirt`));
+            assert.ok(reg.matches({ kind: Block, target: { name: `${NS}:dirt` } }, dirt));
+            assert.ok(reg.matches({ kind: Block, target: new Block("dirt") }, dirt));
         });
 
         test("checks classes against registered definitions", () => {
-            assert.ok(reg.matches(`${NS}:dirt`, Block));
-            assert.ok(reg.matches(dirt, Block));
-            assert.equal(reg.matches(`${NS}:dirt`, Feature), false);
-            assert.equal(reg.matches("minecraft:stone", Block), false);
+            assert.ok(reg.matches({ kind: Block, target: `${NS}:dirt` }, Block));
+            assert.ok(reg.matches({ kind: Block, target: dirt }, Block));
+            assert.equal(reg.matches({ kind: Block, target: `${NS}:dirt` }, Feature), false);
+            assert.equal(reg.matches({ kind: Block, target: "minecraft:stone" }, Block), false);
+        });
+
+        test("rejects definitions of another kind with the same identifier", () => {
+            const ore = new OreFeature("thing");
+            const reg = new Registry(NS).add(new Block("thing"), ore);
+            assert.equal(reg.matches({ kind: Block, target: `${NS}:thing` }, ore), false);
+            assert.equal(reg.matches({ kind: Block, target: `${NS}:thing` }, Feature), false);
+            assert.ok(reg.matches({ kind: Feature, target: `${NS}:thing` }, OreFeature));
         });
     });
 
@@ -185,6 +193,14 @@ describe(Registry.name, () => {
             assert.ok(reg.isReferenced(byInstance));
             assert.ok(reg.isReferenced(byId));
             assert.equal(reg.isReferenced(unused), false);
+        });
+
+        test("ignores references to another kind with the same identifier", () => {
+            const block = new Block("thing");
+            const ore = new OreFeature("thing").add(`${NS}:thing`, ["minecraft:stone"]);
+            const reg = new Registry(NS).add(block, ore);
+            assert.ok(reg.isReferenced(block));
+            assert.equal(reg.isReferenced(ore), false);
         });
 
         test("ignores references from other namespaces", () => {

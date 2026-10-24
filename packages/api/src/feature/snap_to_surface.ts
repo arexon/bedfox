@@ -1,4 +1,5 @@
-import type { DefinitionProps, ReferenceTarget } from "#/core/definition";
+import { Block } from "#/block/index";
+import type { DefinitionProps, Reference } from "#/core/definition";
 import { targets } from "#/core/references";
 import { Feature } from "#/feature/base";
 import type { FeatureReference } from "#/feature/base";
@@ -39,11 +40,11 @@ export class SnapToSurfaceFeature extends Feature.of(
         Object.assign(this, props);
     }
 
-    override _placements(): ReferenceTarget[] {
-        return targets(this.featureToSnap);
+    override _placements(): Reference[] {
+        return targets(Feature, this.featureToSnap);
     }
 
-    override _references(): ReferenceTarget[] {
-        return targets(this._placements(), this.allowedSurfaceBlocks);
+    override _references(): Reference[] {
+        return [...this._placements(), ...targets(Block, this.allowedSurfaceBlocks)];
     }
 }

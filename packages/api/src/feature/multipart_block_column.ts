@@ -1,4 +1,5 @@
-import type { DefinitionProps, ReferenceTarget } from "#/core/definition";
+import { Block } from "#/block/index";
+import type { DefinitionProps, Reference } from "#/core/definition";
 import { targets } from "#/core/references";
 import { Feature } from "#/feature/base";
 import {
@@ -40,11 +41,11 @@ export class MultipartBlockColumnFeature extends Feature.of(
         Object.assign(this, props);
     }
 
-    override _placements(): ReferenceTarget[] {
-        return targets(this.tipBlock, this.frustumBlock, this.middleBlock, this.baseBlock);
+    override _placements(): Reference[] {
+        return targets(Block, this.tipBlock, this.frustumBlock, this.middleBlock, this.baseBlock);
     }
 
-    override _references(): ReferenceTarget[] {
-        return targets(this._placements(), this.mayPlaceOn, this.mayReplace);
+    override _references(): Reference[] {
+        return [...this._placements(), ...targets(Block, this.mayPlaceOn, this.mayReplace)];
     }
 }

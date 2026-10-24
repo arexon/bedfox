@@ -1,4 +1,5 @@
-import type { DefinitionProps, ReferenceTarget } from "#/core/definition";
+import { Block } from "#/block/index";
+import type { DefinitionProps, Reference } from "#/core/definition";
 import { targets } from "#/core/references";
 import { Feature } from "#/feature/base";
 import { type BlockDescriptorRef, FormatVersion, type Molang, Range } from "#/primitive/index";
@@ -35,7 +36,7 @@ export class UnderwaterCaveCarverFeature extends Feature.of(
         Object.assign(this, props);
     }
 
-    override _placements(): ReferenceTarget[] {
-        return targets(this.fillWith, this.replaceAirWith);
+    override _placements(): Reference[] {
+        return targets(Block, this.fillWith, this.replaceAirWith);
     }
 }

@@ -1,4 +1,5 @@
-import type { DefinitionProps, ReferenceTarget } from "#/core/definition";
+import { Block } from "#/block/index";
+import type { DefinitionProps, Reference } from "#/core/definition";
 import { targets } from "#/core/references";
 import { Feature } from "#/feature/base";
 import { type BlockDescriptorRef, FormatVersion } from "#/primitive/index";
@@ -31,14 +32,20 @@ export class OreFeature extends Feature.of("minecraft:ore_feature", new FormatVe
         return this;
     }
 
-    override _placements(): ReferenceTarget[] {
-        return targets(this.replaceRules.map((rule) => rule.placesBlock));
+    override _placements(): Reference[] {
+        return targets(
+            Block,
+            this.replaceRules.map((rule) => rule.placesBlock),
+        );
     }
 
-    override _references(): ReferenceTarget[] {
-        return targets(
-            this._placements(),
-            this.replaceRules.flatMap((rule) => rule.mayReplace ?? []),
-        );
+    override _references(): Reference[] {
+        return [
+            ...this._placements(),
+            ...targets(
+                Block,
+                this.replaceRules.flatMap((rule) => rule.mayReplace ?? []),
+            ),
+        ];
     }
 }

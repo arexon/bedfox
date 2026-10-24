@@ -1,4 +1,9 @@
-import { Definition, type ReferenceTarget } from "#/core/definition";
+import {
+    Definition,
+    type DefinitionCtor,
+    type Reference,
+    type ReferenceTarget,
+} from "#/core/definition";
 
 /** The identifier a reference target refers to. */
 export function autoIdentifier(target: ReferenceTarget): string {
@@ -6,8 +11,13 @@ export function autoIdentifier(target: ReferenceTarget): string {
     return target instanceof Definition ? target.identifier : target.name;
 }
 
+/** References to definitions of `kind`, skipping unset values. */
 export function targets(
+    kind: DefinitionCtor,
     ...values: (ReferenceTarget | ReferenceTarget[] | undefined)[]
-): ReferenceTarget[] {
-    return values.flat().filter((value) => value !== undefined);
+): Reference[] {
+    return values
+        .flat()
+        .filter((value) => value !== undefined)
+        .map((target) => ({ kind, target }));
 }

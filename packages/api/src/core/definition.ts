@@ -52,13 +52,15 @@ export abstract class Definition {
     }
 
     /** Internal. Everything this definition directly references. */
-    _references(): ReferenceTarget[] {
+    _references(): Reference[] {
         return [];
     }
 
     /** Internal. Directly nested definition instances. */
     _referencedInstances(): Definition[] {
-        return this._references().filter((ref) => ref instanceof Definition);
+        return this._references()
+            .map((ref) => ref.target)
+            .filter((target) => target instanceof Definition);
     }
 
     /** Matches definitions nothing else in the registry references. */
@@ -73,3 +75,9 @@ export type DefinitionCtor<T extends Definition = Definition> = abstract new (
 ) => T;
 
 export type ReferenceTarget = Definition | BlockDescriptor | string;
+
+/** A reference to a definition of a given kind. */
+export interface Reference {
+    kind: DefinitionCtor;
+    target: ReferenceTarget;
+}

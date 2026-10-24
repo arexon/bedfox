@@ -1,5 +1,10 @@
 import { Block } from "#/block/index";
-import type { Definition, DefinitionCtor, ReferenceTarget } from "#/core/definition";
+import {
+    Definition,
+    type DefinitionCtor,
+    type Reference,
+    type ReferenceTarget,
+} from "#/core/definition";
 import { autoIdentifier } from "#/core/references";
 import { Feature } from "#/feature/base";
 import { FeatureRules } from "#/feature/rules";
@@ -13,7 +18,7 @@ export class Registry {
 
     #stores = [this.#blocks, this.#features, this.#featureRules];
     #systems = new Map<Schedule, System[]>();
-    #referenced?: Set<string>;
+    #referenced?: Map<string, Reference[]>;
 
     constructor(namespace: string) {
         this.namespace = namespace;
@@ -78,14 +83,16 @@ export class Registry {
     }
 
     /**
-     * Whether a reference target refers to {@link target}: a registered instance of the given class,
-     * or the same identifier ignoring this registry's namespace.
+     * Whether a reference refers to {@link target}: a registered instance of the given class, or the
+     * same identifier ignoring this registry's namespace. Definitions must also be of
+     * {@link Reference.kind}.
      */
-    matches(ref: ReferenceTarget, target: DefinitionCtor | ReferenceTarget): boolean {
-        const id = autoIdentifier(ref);
+    matches(ref: Reference, target: DefinitionCtor | ReferenceTarget): boolean {
+        const id = autoIdentifier(ref.target);
         if (typeof target === "function") {
-            return this.resolve(target, id) !== undefined;
+            return this.resolve(ref.kind, id) instanceof target;
         }
+        if (target instanceof Definition && !(target instanceof ref.kind)) return false;
         return this.#stripNamespace(id) === this.#stripNamespace(autoIdentifier(target));
     }
 
@@ -96,12 +103,12 @@ export class Registry {
 
     /** Whether any registered definition references {@link def}. */
     isReferenced(def: Definition): boolean {
-        this.#referenced ??= new Set(
-            Iterator.from(this.all()).flatMap((def) =>
-                def._references().map((ref) => this.#stripNamespace(autoIdentifier(ref))),
-            ),
+        this.#referenced ??= Map.groupBy(
+            Iterator.from(this.all()).flatMap((def) => def._references()),
+            (ref) => this.#stripNamespace(autoIdentifier(ref.target)),
         );
-        return this.#referenced.has(def.identifier);
+        const refs = this.#referenced.get(def.identifier) ?? [];
+        return refs.some((ref) => def instanceof ref.kind);
     }
 
     #storeFor(def: Definition): DefinitionStore {

@@ -1,4 +1,4 @@
-import type { DefinitionProps, ReferenceTarget } from "#/core/definition";
+import type { DefinitionProps, Reference } from "#/core/definition";
 import { targets } from "#/core/references";
 import { Feature } from "#/feature/base";
 import type { FeatureReference } from "#/feature/base";
@@ -25,7 +25,10 @@ export class WeightedRandomFeature extends Feature.of(
         return this;
     }
 
-    override _placements(): ReferenceTarget[] {
-        return targets(this.features.map(([feature]) => feature));
+    override _placements(): Reference[] {
+        return targets(
+            Feature,
+            this.features.map(([feature]) => feature),
+        );
     }
 }

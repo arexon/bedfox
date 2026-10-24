@@ -1,4 +1,5 @@
-import type { DefinitionProps, ReferenceTarget } from "#/core/definition";
+import { Block } from "#/block/index";
+import type { DefinitionProps, Reference } from "#/core/definition";
 import { targets } from "#/core/references";
 import { Feature } from "#/feature/base";
 import { type BlockDescriptorRef, FormatVersion } from "#/primitive/index";
@@ -60,21 +61,25 @@ export class SingleBlockFeature extends Feature.of(
         Object.assign(this, props);
     }
 
-    override _placements(): ReferenceTarget[] {
+    override _placements(): Reference[] {
         return targets(
+            Block,
             Array.isArray(this.placesBlock)
                 ? this.placesBlock.map((weighted) => weighted.block)
                 : this.placesBlock,
         );
     }
 
-    override _references(): ReferenceTarget[] {
-        return targets(
-            this._placements(),
-            this.mayReplace,
-            attachmentTargets(this.mayAttachTo),
-            attachmentTargets(this.mayNotAttachTo),
-        );
+    override _references(): Reference[] {
+        return [
+            ...this._placements(),
+            ...targets(
+                Block,
+                this.mayReplace,
+                attachmentTargets(this.mayAttachTo),
+                attachmentTargets(this.mayNotAttachTo),
+            ),
+        ];
     }
 }
 

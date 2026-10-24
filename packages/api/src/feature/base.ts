@@ -1,4 +1,9 @@
-import { Definition, type DefinitionCtor, type ReferenceTarget } from "#/core/definition";
+import {
+    Definition,
+    type DefinitionCtor,
+    type Reference,
+    type ReferenceTarget,
+} from "#/core/definition";
 import type { Filter } from "#/registry";
 
 export abstract class Feature extends Definition {
@@ -8,12 +13,12 @@ export abstract class Feature extends Definition {
     }
 
     /** Internal. Everything this feature places in the world. */
-    _placements(): ReferenceTarget[] {
+    _placements(): Reference[] {
         return [];
     }
 
     /** Internal. Placements plus anything else referenced (e.g. replaceable blocks). */
-    override _references(): ReferenceTarget[] {
+    override _references(): Reference[] {
         return this._placements();
     }
 }
