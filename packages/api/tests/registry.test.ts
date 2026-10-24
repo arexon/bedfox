@@ -12,12 +12,13 @@ import { Feature, FeatureRules, OreFeature, ScatterFeature } from "#/feature/ind
 import { FormatVersion } from "#/primitive/index";
 import {
     DuplicateDefinitionIdError,
+    DuplicateScheduleError,
     InvalidIdentifierError,
     type Query,
     query,
     Registry,
     UnknownDefinitionError,
-    type Schedule,
+    UnknownScheduleError,
 } from "#/registry";
 
 const NS = "test";
@@ -34,6 +35,16 @@ function collect<T extends Definition>(reg: Registry, q: Query<T>): string[] {
     let result: string[] = [];
     reg.addSystem(q.intoSystem((_, defs) => (result = ids(defs)))).run();
     return result;
+}
+
+/** Adds a system to each schedule, runs them, and returns the schedules in the order they ran. */
+function runOrder(reg: Registry<string>, schedules: string[]): string[] {
+    const order: string[] = [];
+    for (const schedule of schedules) {
+        reg.addSystem(schedule, () => order.push(schedule));
+    }
+    reg.run();
+    return order;
 }
 
 describe(Registry.name, () => {
@@ -254,8 +265,8 @@ describe(Registry.name, () => {
     describe("systems", () => {
         test("run setup, then transform, then finalize, each in insertion order", () => {
             const order: string[] = [];
-            const push = (name: string) => () => void order.push(name);
-            const schedules: Schedule[] = ["finalize", "transform", "setup"];
+            const push = (name: string) => () => order.push(name);
+            const schedules = ["finalize", "transform", "setup"] as const;
             const reg = new Registry(NS);
             for (const schedule of schedules) {
                 reg.addSystem(schedule, push(`${schedule} 1`), push(`${schedule} 2`));
@@ -290,12 +301,97 @@ describe(Registry.name, () => {
             assert.equal(found?.identifier, "dirt");
         });
 
+        test("receive the schedule they run on", () => {
+            const seen: string[] = [];
+            new Registry(NS)
+                .add(new Block("dirt"))
+                .addSystem("setup", (_, schedule) => seen.push(schedule))
+                .addSystem((_, schedule) => seen.push(schedule))
+                .addSystem(
+                    "finalize",
+                    query(Block).intoSystem((_, __, schedule) => seen.push(schedule)),
+                )
+                .run();
+            assert.deepEqual(seen, ["setup", "transform", "finalize"]);
+        });
+
         test("rerun on every run", () => {
             let count = 0;
             const reg = new Registry(NS).addSystem(() => count++);
             reg.run();
             reg.run();
             assert.equal(count, 2);
+        });
+
+        test("reject unknown schedules", () => {
+            const reg = new Registry(NS);
+            // @ts-expect-error not a schedule of this registry
+            assert.throws(() => reg.addSystem("generate", () => {}), UnknownScheduleError);
+        });
+    });
+
+    describe("schedules", () => {
+        test("run in the given order", () => {
+            const reg = new Registry(NS, { schedules: ["setup", "generate", "transform"] });
+            assert.deepEqual(runOrder(reg, ["transform", "generate", "setup"]), [
+                "setup",
+                "generate",
+                "transform",
+            ]);
+        });
+
+        test("default to setup, transform and finalize", () => {
+            assert.deepEqual(runOrder(new Registry(NS), ["finalize", "transform", "setup"]), [
+                "setup",
+                "transform",
+                "finalize",
+            ]);
+        });
+
+        test("reject duplicates", () => {
+            assert.throws(
+                () => new Registry(NS, { schedules: ["setup", "transform", "setup"] }),
+                DuplicateScheduleError,
+            );
+        });
+
+        test("ignore changes to the given list", () => {
+            const schedules = ["setup", "transform"];
+            const reg = new Registry(NS, { schedules });
+            schedules.push("finalize");
+            assert.throws(() => runOrder(reg, ["finalize"]), UnknownScheduleError);
+        });
+
+        test("run systems without a schedule on the default schedule", () => {
+            const order: string[] = [];
+            new Registry(NS, { schedules: ["setup", "generate"], defaultSchedule: "generate" })
+                .addSystem(() => order.push("default"))
+                .addSystem("setup", () => order.push("setup"))
+                .run();
+            assert.deepEqual(order, ["setup", "default"]);
+        });
+
+        test("take a default schedule from the defaults", () => {
+            const order: string[] = [];
+            new Registry(NS, { defaultSchedule: "finalize" })
+                .addSystem(() => order.push("default"))
+                .addSystem("transform", () => order.push("transform"))
+                .run();
+            assert.deepEqual(order, ["transform", "default"]);
+        });
+
+        test("reject a default schedule that isn't a schedule", () => {
+            assert.throws(
+                // @ts-expect-error not one of the schedules
+                () => new Registry(NS, { schedules: ["setup"], defaultSchedule: "transform" }),
+                UnknownScheduleError,
+            );
+        });
+
+        test("reject systems without a schedule when there's no transform", () => {
+            const reg = new Registry(NS, { schedules: ["setup"] });
+            // @ts-expect-error no transform schedule
+            assert.throws(() => reg.addSystem(() => {}), UnknownScheduleError);
         });
     });
 });
@@ -319,6 +415,53 @@ describe(query.name, () => {
         );
         assert.deepEqual(collect(reg, query(Feature)), ["ore", "scatter"]);
         assert.deepEqual(collect(reg, query(ScatterFeature)), ["scatter"]);
+    });
+
+    describe("intoSystem()", () => {
+        test("skips the callback when nothing matches", () => {
+            let calls = 0;
+            new Registry(NS)
+                .add(new OreFeature("ore"))
+                .addSystem(query(Block).intoSystem(() => calls++))
+                .run();
+            assert.equal(calls, 0);
+        });
+
+        test("rechecks the first match when the callback reads it", () => {
+            const a = new OreFeature("a");
+            const b = new OreFeature("b");
+            let orphans: string[] = [];
+            new Registry(NS)
+                .add(a, b)
+                .addSystem(
+                    query(Feature)
+                        .orphan()
+                        .intoSystem((reg, features) => {
+                            reg.add(
+                                new FeatureRules("rules_a", { placesFeature: a }),
+                                new FeatureRules("rules_b", { placesFeature: b }),
+                            );
+                            orphans = ids(features);
+                        }),
+                )
+                .run();
+            assert.deepEqual(orphans, []);
+        });
+
+        test("drops the first match if the callback removes it", () => {
+            const a = new OreFeature("a");
+            let features: string[] = [];
+            new Registry(NS)
+                .add(a, new OreFeature("b"))
+                .addSystem(
+                    query(Feature).intoSystem((reg, defs) => {
+                        reg.remove(a);
+                        features = ids(defs);
+                    }),
+                )
+                .run();
+            assert.deepEqual(features, ["b"]);
+        });
     });
 
     test("filter returns a new query", () => {

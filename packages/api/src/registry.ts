@@ -11,6 +11,24 @@ import { Feature, type FeatureReference } from "#/feature/base";
 import { FeatureRules } from "#/feature/rules";
 import type { BlockDescriptorRef } from "#/primitive/index";
 
+/** The schedules a registry has unless it's given its own, in run order. */
+export const DEFAULT_SCHEDULES = ["setup", "transform", "finalize"] as const;
+
+export interface RegistryOptions<S extends string, D extends S = never> {
+    /**
+     * The schedules systems can run on, in run order.
+     *
+     * @default ["setup", "transform", "finalize"]
+     */
+    schedules?: readonly S[];
+    /**
+     * The schedule for systems added without one.
+     *
+     * @default "transform"
+     */
+    defaultSchedule?: D;
+}
+
 /**
  * Holds a project's definitions and the systems that transform them.
  *
@@ -28,7 +46,7 @@ import type { BlockDescriptorRef } from "#/primitive/index";
  *     );
  *     reg.run();
  */
-export class Registry {
+export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D extends S = never> {
     /** The namespace of this registry's definitions, e.g. `example` in `example:dirt`. */
     readonly namespace: string;
 
@@ -37,11 +55,33 @@ export class Registry {
     #features = new DefinitionStore(Feature);
 
     #stores = [this.#blocks, this.#features, this.#featureRules];
-    #systems = new Map<Schedule, System[]>();
+    #schedules: ReadonlySet<string>;
+    #defaultSchedule: string;
+    #systems = new Map<string, System[]>();
     #referenced?: Map<string, Reference[]>;
 
-    constructor(namespace: string) {
+    /**
+     * Creates a registry for definitions in `namespace`.
+     *
+     * @example
+     *     const reg = new Registry("example");
+     *     reg.addSystem("setup", (reg) => reg.add(new Block("dirt")));
+     *
+     * @throws - {@link DuplicateScheduleError} if a schedule is listed more than once.
+     * @throws - {@link UnknownScheduleError} if `defaultSchedule` isn't one of the schedules.
+     */
+    constructor(namespace: string, options: RegistryOptions<S, D> = {}) {
         this.namespace = namespace;
+        const schedules = new Set<string>();
+        for (const schedule of options.schedules ?? DEFAULT_SCHEDULES) {
+            if (schedules.has(schedule)) throw new DuplicateScheduleError(schedule);
+            schedules.add(schedule);
+        }
+        this.#schedules = schedules;
+        this.#defaultSchedule = options.defaultSchedule ?? "transform";
+        if (options.defaultSchedule !== undefined && !schedules.has(options.defaultSchedule)) {
+            throw new UnknownScheduleError(options.defaultSchedule);
+        }
     }
 
     /**
@@ -90,22 +130,28 @@ export class Registry {
      *
      * @example
      *     reg.addSystem("setup", (reg) => reg.add(new Block("dirt")));
+     *
+     * @throws - {@link UnknownScheduleError} if no schedule is called `schedule`.
      */
-    addSystem(schedule: Schedule, ...systems: System[]): this;
+    addSystem(schedule: S, ...systems: System[]): this;
     /**
-     * Adds systems to run on the `transform` schedule.
+     * Adds systems to run on the default schedule, `transform` unless the registry was given
+     * another.
      *
      * @example
      *     reg.addSystem((reg) => {
      *         reg.resolve(Block, "dirt")?.setComponent(new FrictionBlockComponent(0.4));
      *     });
      */
-    addSystem(...systems: System[]): this;
-    addSystem(firstArg: Schedule | System, ...restArgs: System[]): this {
-        const [schedule, systems]: [Schedule, System[]] =
-            typeof firstArg === "string"
-                ? [firstArg, restArgs]
-                : ["transform", [firstArg, ...restArgs]];
+    addSystem(
+        ...systems: [D] extends [never] ? ("transform" extends S ? System[] : never[]) : System[]
+    ): this;
+    addSystem(...args: unknown[]): this {
+        const [schedule, systems] =
+            typeof args[0] === "string"
+                ? [args[0], args.slice(1) as System[]]
+                : [this.#defaultSchedule, args as System[]];
+        if (!this.#schedules.has(schedule)) throw new UnknownScheduleError(schedule);
         const list = this.#systems.get(schedule) ?? [];
         list.push(...systems);
         this.#systems.set(schedule, list);
@@ -114,12 +160,12 @@ export class Registry {
 
     /** Runs every system, schedule by schedule, in the order they were added. */
     run(): void {
-        for (const schedule of SCHEDULES) {
+        for (const schedule of this.#schedules) {
             for (const system of this.#systems.get(schedule) ?? []) {
                 // A system may change what references what, so drop the cached references
                 // before each one and rebuild them on demand.
                 this.#referenced = undefined;
-                system(this);
+                system(this, schedule);
             }
         }
     }
@@ -189,21 +235,17 @@ function validateIdentifier(value: string): boolean {
     return IDENTIFIER_REG.test(value);
 }
 
-/** When a system runs: `setup`, then `transform`, then `finalize`. */
-export type Schedule = "setup" | "transform" | "finalize";
-
-const SCHEDULES: readonly Schedule[] = ["setup", "transform", "finalize"];
-
 /** Whether a query keeps `def`. */
-export type Filter<T extends Definition = Definition> = (def: T, reg: Registry) => boolean;
+export type Filter<T extends Definition = Definition> = (def: T, reg: Registry<string>) => boolean;
 
-/** A function that {@link Registry.run()} calls with the registry. */
-export type System = (reg: Registry) => void;
+/** A function that {@link Registry.run()} calls. */
+export type System = (reg: Registry<string>, schedule: string) => void;
 
 /** A system that receives the definitions its query matched. */
 export type SystemCallback<T extends Definition> = (
-    reg: Registry,
+    reg: Registry<string>,
     defs: Generator<T, void, unknown>,
+    schedule: string,
 ) => void;
 
 /** Whether a query over `T` could yield a `K`: some member of `T` is a `K`, or `K` extends `T`. */
@@ -223,7 +265,7 @@ interface BaseQuery<T extends Definition> {
 
     /**
      * Turns the query into a system that calls `callback` with the definitions matched when it
-     * runs.
+     * runs. If nothing matches, `callback` isn't called.
      *
      * @example
      *     reg.addSystem(
@@ -319,18 +361,41 @@ class QueryImpl {
     }
 
     intoSystem(callback: SystemCallback<Definition>): System {
-        return (reg) => callback(reg, this.#run(reg));
+        return (reg, schedule) => {
+            const defs = this.#run(reg);
+            const first = defs.next();
+            if (first.done) return;
+            callback(reg, this.#withFirst(reg, first.value, defs), schedule);
+        };
     }
 
-    *#run(reg: Registry): Generator<Definition, void, unknown> {
-        for (const def of reg.all()) {
-            if (
-                this.#ctors.some((ctor) => def instanceof ctor) &&
-                this.#filters.every((filter) => filter(def, reg))
-            ) {
-                yield def;
-            }
+    /**
+     * @yields `first` if it still matches once iteration starts, then everything in `rest`. The
+     *   callback may have changed the registry since `first` was matched.
+     */
+    *#withFirst(
+        reg: Registry<string>,
+        first: Definition,
+        rest: Iterable<Definition>,
+    ): Generator<Definition, void, unknown> {
+        const ctor = first.constructor as DefinitionCtor;
+        if (reg.resolve(ctor, first.identifier) === first && this.#matches(first, reg)) {
+            yield first;
         }
+        yield* rest;
+    }
+
+    *#run(reg: Registry<string>): Generator<Definition, void, unknown> {
+        for (const def of reg.all()) {
+            if (this.#matches(def, reg)) yield def;
+        }
+    }
+
+    #matches(def: Definition, reg: Registry<string>): boolean {
+        return (
+            this.#ctors.some((ctor) => def instanceof ctor) &&
+            this.#filters.every((filter) => filter(def, reg))
+        );
     }
 }
 
@@ -406,6 +471,22 @@ export class DuplicateDefinitionIdError extends TypeError {
     constructor(id: string) {
         super(`Found duplicate definition identifier: ${id}`);
         this.name = "DuplicateDefinitionIdError";
+    }
+}
+
+/** An error caused by a schedule listed more than once. */
+export class DuplicateScheduleError extends TypeError {
+    constructor(name: string) {
+        super(`Found duplicate schedule: ${name}`);
+        this.name = "DuplicateScheduleError";
+    }
+}
+
+/** An error caused by a schedule name the registry doesn't have. */
+export class UnknownScheduleError extends TypeError {
+    constructor(name: string) {
+        super(`Unknown schedule: ${name}`);
+        this.name = "UnknownScheduleError";
     }
 }
 
