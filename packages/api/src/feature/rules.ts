@@ -1,16 +1,9 @@
-import {
-    Definition,
-    type DefinitionCtor,
-    type DefinitionProps,
-    type Reference,
-    type ReferenceTarget,
-} from "#/core/definition";
+import { Definition, type DefinitionProps, type Reference } from "#/core/definition";
 import { targets } from "#/core/references";
 import { Feature, type FeatureReference } from "#/feature/base";
 import type { BiomeFilter } from "#/feature/biome_filter";
 import type { CoordinateEvalOrder, ScatterChance, ScatterDistribution } from "#/feature/scatter";
 import { FormatVersion, type Molang } from "#/primitive/index";
-import type { Filter } from "#/registry";
 import { serialize } from "#/serialize";
 
 export type PlacementPass =
@@ -65,11 +58,6 @@ export class FeatureRules extends Definition.of(
         super();
         this.identifier = identifier;
         Object.assign(this, props);
-    }
-
-    /** Matches feature rules that place `target`. */
-    static placing(target: DefinitionCtor | ReferenceTarget): Filter<FeatureRules> {
-        return (rule, reg) => rule._references().some((ref) => reg.matches(ref, target));
     }
 
     _placements(): Reference[] {

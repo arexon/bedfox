@@ -1,6 +1,5 @@
 import type { Ctor, InstanceProps } from "#/core/props";
 import type { BlockDescriptor, FormatVersion } from "#/primitive/index";
-import type { Filter } from "#/registry";
 import { setLayout, toReference } from "#/serialize";
 
 export type DefinitionProps<T> = Partial<InstanceProps<T, "identifier">>;
@@ -12,7 +11,11 @@ export type DefinitionProps<T> = Partial<InstanceProps<T, "identifier">>;
  */
 export abstract class Definition {
     /** A base for a definition class written under `root`, e.g. `minecraft:block`. */
-    static of<C extends Ctor<Definition>>(this: C, root: string, formatVersion: FormatVersion): C {
+    static of<C extends Ctor<Definition>, R extends string>(
+        this: C,
+        root: R,
+        formatVersion: FormatVersion,
+    ): C & Ctor<{ readonly _root: R }> {
         abstract class Base extends this {}
         // A definition file nests every field under the root key, except the format version, with
         // the identifier first in `description`.
@@ -29,7 +32,7 @@ export abstract class Definition {
                 },
             };
         });
-        return Base;
+        return Base as C & Ctor<{ readonly _root: R }>;
     }
 
     /** The format version of this definition. */
@@ -61,11 +64,6 @@ export abstract class Definition {
         return this._references()
             .map((ref) => ref.target)
             .filter((target) => target instanceof Definition);
-    }
-
-    /** Matches definitions nothing else in the registry references. */
-    static orphan(): Filter {
-        return (def, reg) => !reg.isReferenced(def);
     }
 }
 

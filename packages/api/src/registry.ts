@@ -1,4 +1,5 @@
 import { Block } from "#/block/index";
+import type { ComponentCtor } from "#/core/component";
 import {
     Definition,
     type DefinitionCtor,
@@ -6,8 +7,9 @@ import {
     type ReferenceTarget,
 } from "#/core/definition";
 import { autoIdentifier } from "#/core/references";
-import { Feature } from "#/feature/base";
+import { Feature, type FeatureReference } from "#/feature/base";
 import { FeatureRules } from "#/feature/rules";
+import type { BlockDescriptorRef } from "#/primitive/index";
 
 export class Registry {
     readonly namespace: string;
@@ -137,38 +139,106 @@ export type Filter<T extends Definition = Definition> = (def: T, reg: Registry) 
 
 export type System = (reg: Registry) => void;
 
-export type SystemCallback<T extends Defs> = (
+export type SystemCallback<T extends Definition> = (
     reg: Registry,
-    defs: Generator<T[number], void, unknown>,
+    defs: Generator<T, void, unknown>,
 ) => void;
 
-export class Query<T extends Defs> {
-    #ctors: DefinitionCtor<T[number]>[];
-    #filters: Filter<T[number]>[] = [];
+/** Whether a query over `T` could yield a `K`, either as a subclass or as one of its bases. */
+type Overlaps<T, K> = [Extract<T, K>] extends [never] ? (K extends T ? true : false) : true;
 
-    constructor(...ctors: { [K in keyof T]: DefinitionCtor<T[K]> }) {
+interface BaseQuery<T extends Definition> {
+    filter(...filters: Filter<T>[]): Query<T>;
+
+    /** Matches definitions nothing else in the registry references. */
+    orphan(): Query<T>;
+
+    intoSystem(callback: SystemCallback<T>): System;
+}
+
+// Kind filters only apply to their kind and let other kinds through, so they can be mixed.
+
+interface BlockQuery<T extends Definition> {
+    /** Matches blocks that have every given component. */
+    withComponent(first: ComponentCtor, ...rest: ComponentCtor[]): Query<T>;
+
+    /** Matches blocks that have none of the given components. */
+    withoutComponent(first: ComponentCtor, ...rest: ComponentCtor[]): Query<T>;
+}
+
+interface FeatureQuery<T extends Definition> {
+    /** Matches features and feature rules that place `target`. */
+    placing(
+        target: DefinitionCtor<Block | Feature> | Block | FeatureReference | BlockDescriptorRef,
+    ): Query<T>;
+}
+
+interface FeatureRulesQuery<T extends Definition> {
+    /** Matches feature rules that place `target`. */
+    placing(target: DefinitionCtor<Feature> | FeatureReference): Query<T>;
+}
+
+/** A query over `T`, with the filters of every kind it could yield. */
+export type Query<T extends Definition> = BaseQuery<T> &
+    (Overlaps<T, Block> extends true ? BlockQuery<T> : unknown) &
+    (Overlaps<T, Feature> extends true
+        ? FeatureQuery<T>
+        : Overlaps<T, FeatureRules> extends true
+          ? FeatureRulesQuery<T>
+          : unknown);
+
+/** Queries registered definitions of the given classes. */
+export function query<T extends Defs>(
+    ...ctors: { [K in keyof T]: DefinitionCtor<T[K]> }
+): Query<T[number]> {
+    return new QueryImpl(ctors, []);
+}
+
+class QueryImpl {
+    #ctors: DefinitionCtor[];
+    #filters: Filter[];
+
+    constructor(ctors: DefinitionCtor[], filters: Filter[]) {
         this.#ctors = ctors;
+        this.#filters = filters;
     }
 
-    static where<T extends Definition>(predicate: Filter<T>): Filter<T> {
-        return predicate;
+    filter(...filters: Filter[]): QueryImpl {
+        return new QueryImpl(this.#ctors, [...this.#filters, ...filters]);
     }
 
-    filter(...filters: Filter<T[number]>[]): Query<T> {
-        const query = new Query<T>(...(this.#ctors as never));
-        query.#filters = [...this.#filters, ...filters];
-        return query;
+    orphan(): QueryImpl {
+        return this.filter((def, reg) => !reg.isReferenced(def));
     }
 
-    system(callback: SystemCallback<T>): System {
+    withComponent(first: ComponentCtor, ...rest: ComponentCtor[]): QueryImpl {
+        return this.filter((def) => !(def instanceof Block) || def.components.has(first, ...rest));
+    }
+
+    withoutComponent(first: ComponentCtor, ...rest: ComponentCtor[]): QueryImpl {
+        const ctors = [first, ...rest];
+        return this.filter(
+            (def) => !(def instanceof Block) || !ctors.some((ctor) => def.components.has(ctor)),
+        );
+    }
+
+    placing(target: DefinitionCtor | ReferenceTarget): QueryImpl {
+        return this.filter(
+            (def, reg) =>
+                !(def instanceof Feature || def instanceof FeatureRules) ||
+                def._placements().some((ref) => reg.matches(ref, target)),
+        );
+    }
+
+    intoSystem(callback: SystemCallback<Definition>): System {
         return (reg) => callback(reg, this.#run(reg));
     }
 
-    *#run(reg: Registry): Generator<T[number], void, unknown> {
+    *#run(reg: Registry): Generator<Definition, void, unknown> {
         for (const def of reg.all()) {
             if (
                 this.#ctors.some((ctor) => def instanceof ctor) &&
-                this.#filters.every((filter) => filter(def as T[number], reg))
+                this.#filters.every((filter) => filter(def, reg))
             ) {
                 yield def;
             }

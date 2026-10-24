@@ -1,14 +1,20 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { Block, FrictionBlockComponent, LightEmissionBlockComponent } from "#/block/index";
+import {
+    Block,
+    FrictionBlockComponent,
+    GeometryBlockComponent,
+    LightEmissionBlockComponent,
+} from "#/block/index";
 import { Definition } from "#/core/index";
 import { Feature, FeatureRules, OreFeature, ScatterFeature } from "#/feature/index";
 import { FormatVersion } from "#/primitive/index";
 import {
     DuplicateDefinitionIdError,
     InvalidIdentifierError,
-    Query,
+    type Query,
+    query,
     Registry,
     UnknownDefinitionError,
     type Schedule,
@@ -24,12 +30,9 @@ function ids(defs: Iterable<Definition>): string[] {
     return Array.from(defs, (def) => def.identifier);
 }
 
-function collect<T extends [Definition, ...Definition[]]>(
-    reg: Registry,
-    query: Query<T>,
-): string[] {
+function collect<T extends Definition>(reg: Registry, q: Query<T>): string[] {
     let result: string[] = [];
-    reg.addSystem(query.system((_, defs) => (result = ids(defs)))).run();
+    reg.addSystem(q.intoSystem((_, defs) => (result = ids(defs)))).run();
     return result;
 }
 
@@ -290,16 +293,16 @@ describe(Registry.name, () => {
     });
 });
 
-describe(Query.name, () => {
+describe(query.name, () => {
     test("yields definitions of the given classes in registry order", () => {
         const reg = new Registry(NS).add(
             new FeatureRules("rules", { placesFeature: `${NS}:ore` }),
             new OreFeature("ore"),
             new Block("dirt"),
         );
-        assert.deepEqual(collect(reg, new Query(Block)), ["dirt"]);
-        assert.deepEqual(collect(reg, new Query(FeatureRules, Block)), ["dirt", "rules"]);
-        assert.deepEqual(collect(reg, new Query(Definition)), ["dirt", "ore", "rules"]);
+        assert.deepEqual(collect(reg, query(Block)), ["dirt"]);
+        assert.deepEqual(collect(reg, query(FeatureRules, Block)), ["dirt", "rules"]);
+        assert.deepEqual(collect(reg, query(Definition)), ["dirt", "ore", "rules"]);
     });
 
     test("matches subclasses", () => {
@@ -307,13 +310,13 @@ describe(Query.name, () => {
             new OreFeature("ore"),
             new ScatterFeature("scatter", { placesFeature: `${NS}:ore` }),
         );
-        assert.deepEqual(collect(reg, new Query(Feature)), ["ore", "scatter"]);
-        assert.deepEqual(collect(reg, new Query(ScatterFeature)), ["scatter"]);
+        assert.deepEqual(collect(reg, query(Feature)), ["ore", "scatter"]);
+        assert.deepEqual(collect(reg, query(ScatterFeature)), ["scatter"]);
     });
 
     test("filter returns a new query", () => {
         const reg = new Registry(NS).add(new Block("dirt"), new Block("stone"));
-        const base = new Query(Block);
+        const base = query(Block);
         const dirt = base.filter((block) => block.identifier === "dirt");
         const none = dirt.filter((block) => block.identifier === "stone");
         assert.deepEqual(collect(reg, base), ["dirt", "stone"]);
@@ -324,15 +327,24 @@ describe(Query.name, () => {
     test("allows removing definitions while iterating", () => {
         const reg = new Registry(NS).add(new Block("a"), new Block("b"), new Block("c"));
         reg.addSystem(
-            new Query(Block).system((r, blocks) => {
+            query(Block).intoSystem((r, blocks) => {
                 for (const block of blocks) r.remove(block);
             }),
         ).run();
         assert.deepEqual([...reg.all()], []);
     });
 
+    test("only exposes filters for the kinds it could yield", () => {
+        // @ts-expect-error blocks don't place anything
+        assert.equal(typeof query(Block).placing, "function");
+        // @ts-expect-error features don't have components
+        assert.equal(typeof query(OreFeature).withComponent, "function");
+        assert.equal(typeof query(Definition).withComponent, "function");
+        assert.equal(typeof query(Definition).placing, "function");
+    });
+
     describe("filters", () => {
-        test("Definition.orphan()", () => {
+        test("orphan()", () => {
             const reg = new Registry(NS).add(
                 new FeatureRules("rules", {
                     placesFeature: new ScatterFeature("scatter", {
@@ -341,16 +353,11 @@ describe(Query.name, () => {
                 }),
                 new OreFeature("unused"),
             );
-            assert.deepEqual(collect(reg, new Query(Feature).filter(Definition.orphan())), [
-                "unused",
-            ]);
-            assert.deepEqual(collect(reg, new Query(Definition).filter(Definition.orphan())), [
-                "unused",
-                "rules",
-            ]);
+            assert.deepEqual(collect(reg, query(Feature).orphan()), ["unused"]);
+            assert.deepEqual(collect(reg, query(Definition).orphan()), ["unused", "rules"]);
         });
 
-        test("Block.withComponent() and Block.withoutComponent()", () => {
+        test("withComponent() and withoutComponent()", () => {
             const plain = new Block("plain");
             const slippery = new Block("slippery");
             slippery.components.set(new FrictionBlockComponent(0.1));
@@ -361,36 +368,48 @@ describe(Query.name, () => {
             );
             const reg = new Registry(NS).add(plain, slippery, glowing);
 
-            const query = new Query(Block);
-            assert.deepEqual(
-                collect(reg, query.filter(Block.withComponent(FrictionBlockComponent))),
-                ["slippery", "glowing"],
-            );
+            const blocks = query(Block);
+            assert.deepEqual(collect(reg, blocks.withComponent(FrictionBlockComponent)), [
+                "slippery",
+                "glowing",
+            ]);
             assert.deepEqual(
                 collect(
                     reg,
-                    query.filter(
-                        Block.withComponent(FrictionBlockComponent, LightEmissionBlockComponent),
-                    ),
+                    blocks.withComponent(FrictionBlockComponent, LightEmissionBlockComponent),
                 ),
                 ["glowing"],
             );
-            assert.deepEqual(
-                collect(reg, query.filter(Block.withoutComponent(LightEmissionBlockComponent))),
-                ["plain", "slippery"],
-            );
+            assert.deepEqual(collect(reg, blocks.withoutComponent(LightEmissionBlockComponent)), [
+                "plain",
+                "slippery",
+            ]);
             assert.deepEqual(
                 collect(
                     reg,
-                    query.filter(
-                        Block.withoutComponent(FrictionBlockComponent, LightEmissionBlockComponent),
-                    ),
+                    blocks.withoutComponent(FrictionBlockComponent, LightEmissionBlockComponent),
                 ),
                 ["plain"],
             );
         });
 
-        test("Feature.placing()", () => {
+        test("withComponent() and withoutComponent() only filter blocks", () => {
+            const slippery = new Block("slippery");
+            slippery.components.set(new FrictionBlockComponent(0.1));
+            const reg = new Registry(NS).add(slippery, new Block("plain"), new OreFeature("ore"));
+
+            const defs = query(Definition);
+            assert.deepEqual(collect(reg, defs.withComponent(FrictionBlockComponent)), [
+                "slippery",
+                "ore",
+            ]);
+            assert.deepEqual(collect(reg, defs.withoutComponent(FrictionBlockComponent)), [
+                "plain",
+                "ore",
+            ]);
+        });
+
+        test("placing() on features", () => {
             const dirt = new Block("dirt");
             const reg = new Registry(NS).add(
                 dirt,
@@ -398,29 +417,66 @@ describe(Query.name, () => {
                 new OreFeature("vanilla_ore").add("minecraft:stone", ["minecraft:deepslate"]),
                 new ScatterFeature("scatter", { placesFeature: `${NS}:dirt_ore` }),
             );
-            const query = new Query(Feature);
-            assert.deepEqual(collect(reg, query.filter(Feature.placing(dirt))), ["dirt_ore"]);
-            assert.deepEqual(collect(reg, query.filter(Feature.placing("minecraft:stone"))), [
-                "vanilla_ore",
-            ]);
-            assert.deepEqual(collect(reg, query.filter(Feature.placing(Block))), ["dirt_ore"]);
-            assert.deepEqual(collect(reg, query.filter(Feature.placing(OreFeature))), ["scatter"]);
+            const features = query(Feature);
+            assert.deepEqual(collect(reg, features.placing(dirt)), ["dirt_ore"]);
+            assert.deepEqual(collect(reg, features.placing("minecraft:stone")), ["vanilla_ore"]);
+            assert.deepEqual(collect(reg, features.placing(Block)), ["dirt_ore"]);
+            assert.deepEqual(collect(reg, features.placing(OreFeature)), ["scatter"]);
         });
 
-        test("FeatureRules.placing()", () => {
+        test("placing() on feature rules", () => {
             const ore = new OreFeature("ore");
             const reg = new Registry(NS).add(
                 new FeatureRules("ore_rules", { placesFeature: ore }),
                 new FeatureRules("vanilla_rules", { placesFeature: "minecraft:ore" }),
             );
-            const query = new Query(FeatureRules);
-            assert.deepEqual(collect(reg, query.filter(FeatureRules.placing(ore))), ["ore_rules"]);
-            assert.deepEqual(collect(reg, query.filter(FeatureRules.placing(`${NS}:ore`))), [
-                "ore_rules",
+            const rules = query(FeatureRules);
+            assert.deepEqual(collect(reg, rules.placing(ore)), ["ore_rules"]);
+            assert.deepEqual(collect(reg, rules.placing(`${NS}:ore`)), ["ore_rules"]);
+            assert.deepEqual(collect(reg, rules.placing(OreFeature)), ["ore_rules"]);
+        });
+
+        test("placing() only filters features and feature rules", () => {
+            const ore = new OreFeature("ore");
+            const reg = new Registry(NS).add(
+                new Block("dirt"),
+                new ScatterFeature("scatter", { placesFeature: ore }),
+                new ScatterFeature("elsewhere", { placesFeature: `${NS}:elsewhere` }),
+                new FeatureRules("rules", { placesFeature: ore }),
+            );
+            assert.deepEqual(collect(reg, query(Definition).placing(ore)), [
+                "dirt",
+                "scatter",
+                "rules",
             ]);
-            assert.deepEqual(collect(reg, query.filter(FeatureRules.placing(OreFeature))), [
-                "ore_rules",
-            ]);
+        });
+
+        test("kind filters can be mixed", () => {
+            const geometry = new Block("geometry");
+            geometry.components.set(new GeometryBlockComponent("minecraft:geometry.full_block"));
+            const reg = new Registry(NS).add(
+                geometry,
+                new Block("plain"),
+                new ScatterFeature("scatter", { placesFeature: `${NS}:ore` }),
+                new ScatterFeature("elsewhere", { placesFeature: `${NS}:elsewhere` }),
+            );
+            const mixed = query(ScatterFeature, Block)
+                .placing(`${NS}:ore`)
+                .withComponent(GeometryBlockComponent);
+            assert.deepEqual(collect(reg, mixed), ["geometry", "scatter"]);
+        });
+
+        test("placing() only accepts what the kind can place", () => {
+            const features = query(Feature);
+            const rules = query(FeatureRules);
+            // @ts-expect-error rules only place features
+            rules.placing(Block);
+            // @ts-expect-error rules only place features
+            rules.placing({ name: "minecraft:stone" });
+            assert.ok(query(Definition).placing(Block));
+            assert.ok(features.placing("minecraft:stone"));
+            assert.ok(rules.placing(OreFeature));
+            assert.ok(rules.placing("minecraft:ore"));
         });
     });
 });

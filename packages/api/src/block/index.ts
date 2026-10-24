@@ -1,8 +1,7 @@
 import { type BlockTrait, BlockTraitCollection } from "#/block/trait/base";
-import { type Component, ComponentCollection, type ComponentCtor } from "#/core/component";
+import { type Component, ComponentCollection } from "#/core/component";
 import { Definition, type DefinitionProps } from "#/core/definition";
 import { FormatVersion, type ItemCategory, Range } from "#/primitive/index";
-import type { Filter } from "#/registry";
 import { serialize } from "#/serialize";
 
 export * from "#/block/component/index";
@@ -35,17 +34,6 @@ export class Block extends Definition.of("minecraft:block", new FormatVersion(1,
         super();
         this.identifier = identifier;
         Object.assign(this, props);
-    }
-
-    /** Matches blocks that have every given component. */
-    static withComponent(first: ComponentCtor, ...rest: ComponentCtor[]): Filter<Block> {
-        return (block) => block.components.has(first, ...rest);
-    }
-
-    /** Matches blocks that have none of the given components. */
-    static withoutComponent(first: ComponentCtor, ...rest: ComponentCtor[]): Filter<Block> {
-        const ctors = [first, ...rest];
-        return (block) => !ctors.some((ctor) => block.components.has(ctor));
     }
 
     setState(name: string, ...number: number[]): this;

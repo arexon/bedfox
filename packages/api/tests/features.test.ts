@@ -8,6 +8,7 @@ import {
     BiomeFilterSingle,
     CaveCarverFeature,
     ConditionalListFeature,
+    Feature,
     FeatureRules,
     FossilFeature,
     GeodeFeature,
@@ -93,6 +94,20 @@ describe(BiomeFilter.name, () => {
 });
 
 describe("features", () => {
+    test("definitions are nominal", () => {
+        const ore: Feature = new OreFeature("test:ore");
+        // @ts-expect-error feature rules aren't features
+        const rules: Feature = new FeatureRules("test:rules", { placesFeature: ore });
+        // @ts-expect-error features aren't feature rules
+        const scatter: FeatureRules = new ScatterFeature("test:scatter", { placesFeature: ore });
+        // @ts-expect-error features with the same fields stay distinct
+        const sequence: AggregateFeature = new SequenceFeature("test:sequence", { features: [] });
+        assert.ok(ore instanceof Feature);
+        assert.equal(rules instanceof Feature, false);
+        assert.equal(scatter instanceof FeatureRules, false);
+        assert.equal(sequence instanceof AggregateFeature, false);
+    });
+
     describe("aggregate", () => {
         test("full", (t) => {
             t.assert.snapshot(
