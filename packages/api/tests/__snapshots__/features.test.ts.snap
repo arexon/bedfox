@@ -31,11 +31,7 @@ exports[`BiomeFilter > all of any of 1`] = `
 ]
 `;
 
-exports[`BiomeFilter > empty 1`] = `
-[]
-`;
-
-exports[`BiomeFilter > multi direct 1`] = `
+exports[`BiomeFilter > direct > multi 1`] = `
 {
   "any_of": [
     {
@@ -52,6 +48,18 @@ exports[`BiomeFilter > multi direct 1`] = `
     }
   ]
 }
+`;
+
+exports[`BiomeFilter > direct > single 1`] = `
+{
+  "test": "is_biome",
+  "operator": "!=",
+  "value": "minecraft:desert"
+}
+`;
+
+exports[`BiomeFilter > empty 1`] = `
+[]
 `;
 
 exports[`BiomeFilter > multiple 1`] = `
@@ -89,7 +97,7 @@ exports[`BiomeFilter > multiple 1`] = `
 ]
 `;
 
-exports[`BiomeFilter > not 1`] = `
+exports[`BiomeFilter > not > negates a test 1`] = `
 {
   "test": "has_biome_tag",
   "operator": "!=",
@@ -97,7 +105,7 @@ exports[`BiomeFilter > not 1`] = `
 }
 `;
 
-exports[`BiomeFilter > not only negates the next test 1`] = `
+exports[`BiomeFilter > not > only negates the next test 1`] = `
 [
   {
     "test": "has_biome_tag",
@@ -117,14 +125,6 @@ exports[`BiomeFilter > single 1`] = `
   "test": "has_biome_tag",
   "operator": "==",
   "value": "forest"
-}
-`;
-
-exports[`BiomeFilter > single direct 1`] = `
-{
-  "test": "is_biome",
-  "operator": "!=",
-  "value": "minecraft:desert"
 }
 `;
 

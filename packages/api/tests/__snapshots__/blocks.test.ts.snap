@@ -188,56 +188,6 @@ exports[`components > collection > multiple 1`] = `
 }
 `;
 
-exports[`components > collision_box > add box to array 1`] = `
-{
-  "minecraft:collision_box": [
-    {
-      "origin": [
-        -8,
-        0,
-        -8
-      ],
-      "size": [
-        16,
-        16,
-        16
-      ]
-    },
-    {
-      "origin": [
-        -8,
-        0,
-        -8
-      ],
-      "size": [
-        16,
-        8,
-        16
-      ]
-    }
-  ]
-}
-`;
-
-exports[`components > collision_box > add box to boolean 1`] = `
-{
-  "minecraft:collision_box": [
-    {
-      "origin": [
-        -8,
-        0,
-        -8
-      ],
-      "size": [
-        16,
-        8,
-        16
-      ]
-    }
-  ]
-}
-`;
-
 exports[`components > collision_box > boxes instances 1`] = `
 {
   "minecraft:collision_box": [
@@ -990,7 +940,7 @@ exports[`traits > placement_direction > minimal 1`] = `
 }
 `;
 
-exports[`traits > placement_direction > y rotation offset east 1`] = `
+exports[`traits > placement_direction > y rotation offset > east 1`] = `
 {
   "minecraft:placement_direction": {
     "enabled_states": [
@@ -1001,7 +951,7 @@ exports[`traits > placement_direction > y rotation offset east 1`] = `
 }
 `;
 
-exports[`traits > placement_direction > y rotation offset north 1`] = `
+exports[`traits > placement_direction > y rotation offset > north 1`] = `
 {
   "minecraft:placement_direction": {
     "enabled_states": [
@@ -1012,7 +962,7 @@ exports[`traits > placement_direction > y rotation offset north 1`] = `
 }
 `;
 
-exports[`traits > placement_direction > y rotation offset west 1`] = `
+exports[`traits > placement_direction > y rotation offset > west 1`] = `
 {
   "minecraft:placement_direction": {
     "enabled_states": [

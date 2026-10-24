@@ -59,37 +59,41 @@ describe(BiomeFilter.name, () => {
         );
     });
 
-    test("not", (t) => {
-        t.assert.snapshot(new BiomeFilter().not.hasTag("ocean"));
-    });
+    describe("not", () => {
+        test("negates a test", (t) => {
+            t.assert.snapshot(new BiomeFilter().not.hasTag("ocean"));
+        });
 
-    test("not only negates the next test", (t) => {
-        t.assert.snapshot(new BiomeFilter().not.hasTag("ocean").hasTag("forest"));
-    });
+        test("only negates the next test", (t) => {
+            t.assert.snapshot(new BiomeFilter().not.hasTag("ocean").hasTag("forest"));
+        });
 
-    test("not is only followed by a test", () => {
-        const filter = new BiomeFilter();
-        // @ts-expect-error groups can't be negated
-        assert.throws(() => filter.not.allOf(() => {}), TypeError);
-        // @ts-expect-error double negation
-        assert.equal(filter.not.not, undefined);
+        test("is only followed by a test", () => {
+            const filter = new BiomeFilter();
+            // @ts-expect-error groups can't be negated
+            assert.throws(() => filter.not.allOf(() => {}), TypeError);
+            // @ts-expect-error double negation
+            assert.equal(filter.not.not, undefined);
+        });
     });
 
     test("empty", (t) => {
         t.assert.snapshot(new BiomeFilter());
     });
 
-    test("single direct", (t) => {
-        t.assert.snapshot(new BiomeFilterSingle("is_biome", "!=", "minecraft:desert"));
-    });
+    describe("direct", () => {
+        test("single", (t) => {
+            t.assert.snapshot(new BiomeFilterSingle("is_biome", "!=", "minecraft:desert"));
+        });
 
-    test("multi direct", (t) => {
-        t.assert.snapshot(
-            new BiomeFilterMulti({
-                anyOf: [new BiomeFilterSingle("has_biome_tag", "==", "hills")],
-                allOf: [new BiomeFilterSingle("is_humid", "!=", "true")],
-            }),
-        );
+        test("multi", (t) => {
+            t.assert.snapshot(
+                new BiomeFilterMulti({
+                    anyOf: [new BiomeFilterSingle("has_biome_tag", "==", "hills")],
+                    allOf: [new BiomeFilterSingle("is_humid", "!=", "true")],
+                }),
+            );
+        });
     });
 });
 

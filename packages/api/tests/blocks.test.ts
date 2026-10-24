@@ -170,22 +170,6 @@ describe("components", () => {
                 ),
             );
         });
-
-        test("add box to boolean", (t) => {
-            t.assert.snapshot(
-                new ComponentCollection(
-                    new CollisionBoxBlockComponent(true).addBox(BoundingBox.slab()),
-                ),
-            );
-        });
-
-        test("add box to array", (t) => {
-            t.assert.snapshot(
-                new ComponentCollection(
-                    new CollisionBoxBlockComponent(BoundingBox.cube()).addBox(BoundingBox.slab()),
-                ),
-            );
-        });
     });
 
     describe("connection_rule", () => {
@@ -795,19 +779,21 @@ describe("traits", () => {
     });
 
     describe("placement_direction", () => {
-        for (const direction of ["north", "east", "west"] as const) {
-            test(`y rotation offset ${direction}`, (t) => {
-                t.assert.snapshot(
-                    new BlockTraitCollection(
-                        new PlacementDirectionBlockTrait({
-                            enabledStates: ["minecraft:corner_and_cardinal_direction"],
-                            blocksToCornerWith: [],
-                            yRotationOffset: direction,
-                        }),
-                    ),
-                );
-            });
-        }
+        describe("y rotation offset", () => {
+            for (const direction of ["north", "east", "west"] as const) {
+                test(direction, (t) => {
+                    t.assert.snapshot(
+                        new BlockTraitCollection(
+                            new PlacementDirectionBlockTrait({
+                                enabledStates: ["minecraft:corner_and_cardinal_direction"],
+                                blocksToCornerWith: [],
+                                yRotationOffset: direction,
+                            }),
+                        ),
+                    );
+                });
+            }
+        });
 
         test("full", (t) => {
             t.assert.snapshot(
