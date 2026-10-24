@@ -106,6 +106,13 @@ describe(Registry.name, () => {
             reg.add(old).remove(old);
             assert.doesNotThrow(() => reg.add(new Block("dirt")));
         });
+
+        test("ignores another instance with the same identifier", () => {
+            const dirt = new Block("dirt");
+            const reg = new Registry(NS).add(dirt);
+            reg.remove(new Block("dirt"));
+            assert.deepEqual([...reg.all()], [dirt]);
+        });
     });
 
     describe("all()", () => {

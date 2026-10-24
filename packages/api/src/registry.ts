@@ -282,7 +282,8 @@ class DefinitionStore {
     }
 
     delete(def: Definition): void {
-        this.#inner.delete(this.#idFor(def));
+        const id = this.#idFor(def);
+        if (this.#inner.get(id) === def) this.#inner.delete(id);
     }
 
     clear(): void {
