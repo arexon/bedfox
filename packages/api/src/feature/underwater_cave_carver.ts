@@ -1,0 +1,42 @@
+import { Block } from "#/block/index";
+import type { DefinitionProps, Reference } from "#/core/definition";
+import { targets } from "#/core/references";
+import { Feature } from "#/feature/base";
+import { type BlockDescriptorRef, FormatVersion, type Molang, Range } from "#/primitive/index";
+import { serialize } from "#/serialize";
+
+@serialize
+export class UnderwaterCaveCarverFeature extends Feature.of(
+    "minecraft:underwater_cave_carver_feature",
+    new FormatVersion(1, 26, 50),
+) {
+    override identifier: string;
+
+    replaceAirWith?: BlockDescriptorRef;
+
+    fillWith?: BlockDescriptorRef;
+
+    widthModifier?: Molang;
+
+    skipCarveChance?: number;
+
+    heightLimit?: number;
+
+    yScale?: number | Range;
+
+    horizontalRadiusMultiplier?: number | Range;
+
+    verticalRadiusMultiplier?: number | Range;
+
+    floorLevel?: number | Range;
+
+    constructor(identifier: string, props?: DefinitionProps<UnderwaterCaveCarverFeature>) {
+        super();
+        this.identifier = identifier;
+        Object.assign(this, props);
+    }
+
+    override _placements(): Reference[] {
+        return targets(Block, this.fillWith, this.replaceAirWith);
+    }
+}

@@ -1,0 +1,979 @@
+exports[`BiomeFilter > all of any of 1`] = `
+[
+  {
+    "all_of": [
+      {
+        "test": "has_biome_tag",
+        "operator": "==",
+        "value": "overworld"
+      },
+      {
+        "test": "is_snow_covered",
+        "operator": "==",
+        "value": "false"
+      }
+    ]
+  },
+  {
+    "any_of": [
+      {
+        "test": "has_biome_tag",
+        "operator": "==",
+        "value": "forest"
+      },
+      {
+        "test": "has_biome_tag",
+        "operator": "==",
+        "value": "taiga"
+      }
+    ]
+  }
+]
+`;
+
+exports[`BiomeFilter > empty 1`] = `
+[]
+`;
+
+exports[`BiomeFilter > multi direct 1`] = `
+{
+  "any_of": [
+    {
+      "test": "has_biome_tag",
+      "operator": "==",
+      "value": "hills"
+    }
+  ],
+  "all_of": [
+    {
+      "test": "is_humid",
+      "operator": "!=",
+      "value": "true"
+    }
+  ]
+}
+`;
+
+exports[`BiomeFilter > multiple 1`] = `
+[
+  {
+    "test": "has_biome_tag",
+    "operator": "==",
+    "value": "overworld"
+  },
+  {
+    "test": "is_biome",
+    "operator": "==",
+    "value": "minecraft:plains"
+  },
+  {
+    "test": "is_snow_covered",
+    "operator": "==",
+    "value": "true"
+  },
+  {
+    "test": "is_humid",
+    "operator": "==",
+    "value": "false"
+  },
+  {
+    "test": "is_temperature_type",
+    "operator": "==",
+    "value": "cold"
+  },
+  {
+    "test": "is_temperature_value",
+    "operator": "==",
+    "value": "0.5"
+  }
+]
+`;
+
+exports[`BiomeFilter > not 1`] = `
+{
+  "test": "has_biome_tag",
+  "operator": "!=",
+  "value": "ocean"
+}
+`;
+
+exports[`BiomeFilter > not only negates the next test 1`] = `
+[
+  {
+    "test": "has_biome_tag",
+    "operator": "!=",
+    "value": "ocean"
+  },
+  {
+    "test": "has_biome_tag",
+    "operator": "==",
+    "value": "forest"
+  }
+]
+`;
+
+exports[`BiomeFilter > single 1`] = `
+{
+  "test": "has_biome_tag",
+  "operator": "==",
+  "value": "forest"
+}
+`;
+
+exports[`BiomeFilter > single direct 1`] = `
+{
+  "test": "is_biome",
+  "operator": "!=",
+  "value": "minecraft:desert"
+}
+`;
+
+exports[`FeatureRules > empty biome filter 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:feature_rules": {
+    "description": {
+      "identifier": "test:rules_empty_filter",
+      "places_feature": "test:string_feature"
+    }
+  }
+}
+`;
+
+exports[`FeatureRules > full instance 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:feature_rules": {
+    "description": {
+      "identifier": "test:rules",
+      "places_feature": "test:live_ore"
+    },
+    "conditions": {
+      "placement_pass": "underground_pass",
+      "minecraft:biome_filter": [
+        {
+          "test": "has_biome_tag",
+          "operator": "==",
+          "value": "overworld"
+        },
+        {
+          "any_of": [
+            {
+              "test": "has_biome_tag",
+              "operator": "==",
+              "value": "hills"
+            },
+            {
+              "test": "is_biome",
+              "operator": "==",
+              "value": "minecraft:plains"
+            }
+          ]
+        }
+      ]
+    },
+    "distribution": {
+      "iterations": "4",
+      "x": {
+        "distribution": "uniform",
+        "extent": [
+          "0",
+          "16"
+        ]
+      },
+      "y": {
+        "distribution": "triangle",
+        "extent": [
+          "0",
+          "q.heightmap(v.worldx, v.worldz)"
+        ]
+      },
+      "z": "v.worldz",
+      "coordinate_eval_order": "yxz",
+      "scatter_chance": {
+        "numerator": 1,
+        "denominator": 3
+      }
+    }
+  }
+}
+`;
+
+exports[`features > aggregate > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:aggregate_feature": {
+    "description": {
+      "identifier": "test:aggregate"
+    },
+    "features": [
+      "test:live_ore",
+      "test:string_feature",
+      "test:live_sequence"
+    ],
+    "early_out": "first_success"
+  }
+}
+`;
+
+exports[`features > cave_carver > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:cave_carver_feature": {
+    "description": {
+      "identifier": "test:cave_carver"
+    },
+    "fill_with": "minecraft:air",
+    "width_modifier": "q.noise(1, 2)",
+    "skip_carve_chance": 15,
+    "height_limit": 64,
+    "y_scale": [
+      0.1,
+      0.9
+    ],
+    "horizontal_radius_multiplier": [
+      0.7,
+      1.4
+    ],
+    "vertical_radius_multiplier": 1.2,
+    "floor_level": [
+      -1,
+      -0.4
+    ]
+  }
+}
+`;
+
+exports[`features > conditional_list > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:conditional_list": {
+    "description": {
+      "identifier": "test:conditional"
+    },
+    "conditional_features": [
+      {
+        "places_feature": "test:live_ore",
+        "condition": "q.is_snow_covered"
+      },
+      {
+        "places_feature": "test:string_feature"
+      },
+      {
+        "places_feature": "test:live_sequence",
+        "condition": "v.x > 0"
+      }
+    ],
+    "early_out_scheme": "placement_success"
+  }
+}
+`;
+
+exports[`features > fossil > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:fossil_feature": {
+    "description": {
+      "identifier": "test:fossil"
+    },
+    "ore_block": "minecraft:coal_ore",
+    "max_empty_corners": 4
+  }
+}
+`;
+
+exports[`features > geode > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:geode_feature": {
+    "description": {
+      "identifier": "test:geode"
+    },
+    "filler": "minecraft:air",
+    "inner_layer": "minecraft:amethyst_block",
+    "alternate_inner_layer": "minecraft:budding_amethyst",
+    "middle_layer": "minecraft:calcite",
+    "outer_layer": {
+      "name": "minecraft:stone",
+      "states": {
+        "stone_type": "granite"
+      }
+    },
+    "inner_placements": [
+      "minecraft:amethyst_cluster",
+      {
+        "name": "minecraft:small_amethyst_bud",
+        "states": {
+          "facing": "up"
+        }
+      }
+    ],
+    "min_outer_wall_distance": 4,
+    "max_outer_wall_distance": 7,
+    "min_distribution_points": 3,
+    "max_distribution_points": 5,
+    "min_point_offset": 1,
+    "max_point_offset": 3,
+    "max_radius": 16,
+    "crack_point_offset": 2,
+    "generate_crack_chance": 0.95,
+    "base_crack_size": 2,
+    "noise_multiplier": 0.025,
+    "use_potential_placements_chance": 0.35,
+    "use_alternate_layer0_chance": 0.083,
+    "placements_require_layer0_alternate": true,
+    "invalid_blocks_threshold": 1
+  }
+}
+`;
+
+exports[`features > growing_plant > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:growing_plant_feature": {
+    "description": {
+      "identifier": "test:growing_plant"
+    },
+    "height_distribution": [
+      [
+        [
+          1,
+          13
+        ],
+        2
+      ],
+      [
+        3,
+        1
+      ]
+    ],
+    "growth_direction": "down",
+    "age": [
+      17,
+      26
+    ],
+    "body_blocks": [
+      [
+        "minecraft:cave_vines",
+        4
+      ],
+      [
+        {
+          "name": "minecraft:stone",
+          "states": {
+            "stone_type": "granite"
+          }
+        },
+        1
+      ]
+    ],
+    "head_blocks": [
+      [
+        "minecraft:cave_vines_head_with_berries",
+        1
+      ]
+    ],
+    "allow_water": true
+  }
+}
+`;
+
+exports[`features > height_difference_filter > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:height_difference_filter_feature": {
+    "description": {
+      "identifier": "test:hdf"
+    },
+    "places_feature": "test:live_ore",
+    "search_radius": 3,
+    "min_required_upward_height_diff": 1,
+    "min_required_downward_height_diff": 2,
+    "max_allowed_upward_height_diff": 5,
+    "max_allowed_downward_height_diff": 6
+  }
+}
+`;
+
+exports[`features > horizontal_tree_decoration > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:horizontal_tree_decoration_feature": {
+    "description": {
+      "identifier": "test:htd"
+    },
+    "places_block": {
+      "name": "minecraft:stone",
+      "states": {
+        "stone_type": "granite"
+      }
+    },
+    "allow_adjacent": true,
+    "bark_side_only": false
+  }
+}
+`;
+
+exports[`features > multi_block > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:multi_block_feature": {
+    "description": {
+      "identifier": "test:multi_block"
+    },
+    "places_block": "minecraft:tall_grass",
+    "enforce_placement_rules": true,
+    "randomize_rotation": false,
+    "may_replace": [
+      "minecraft:air",
+      {
+        "name": "minecraft:stone",
+        "states": {
+          "stone_type": "granite"
+        }
+      }
+    ]
+  }
+}
+`;
+
+exports[`features > multiface > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:multiface_feature": {
+    "description": {
+      "identifier": "test:multiface"
+    },
+    "places_block": "minecraft:glow_lichen",
+    "search_range": 20,
+    "can_place_on_floor": true,
+    "can_place_on_ceiling": true,
+    "can_place_on_wall": false,
+    "chance_of_spreading": 0.5,
+    "can_place_on": [
+      "minecraft:stone",
+      {
+        "name": "minecraft:stone",
+        "states": {
+          "stone_type": "granite"
+        }
+      }
+    ]
+  }
+}
+`;
+
+exports[`features > multipart_block_column > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:multipart_block_column_feature": {
+    "description": {
+      "identifier": "test:column"
+    },
+    "tip_block": "minecraft:pointed_dripstone",
+    "frustum_block": {
+      "name": "minecraft:stone",
+      "states": {
+        "stone_type": "granite"
+      }
+    },
+    "middle_block": "minecraft:dripstone_block",
+    "base_block": "minecraft:dripstone_block",
+    "height_range": [
+      2,
+      6
+    ],
+    "weighted_heights": [
+      1,
+      2,
+      3
+    ],
+    "direction": "up",
+    "may_place_on": [
+      "minecraft:stone"
+    ],
+    "may_replace": [
+      "minecraft:air",
+      {
+        "name": "minecraft:stone",
+        "states": {
+          "stone_type": "granite"
+        }
+      }
+    ]
+  }
+}
+`;
+
+exports[`features > nether_cave_carver > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:nether_cave_carver_feature": {
+    "description": {
+      "identifier": "test:nether_carver"
+    },
+    "fill_with": "minecraft:air",
+    "width_modifier": "q.noise(1, 2)",
+    "skip_carve_chance": 15,
+    "height_limit": 64,
+    "y_scale": [
+      0.1,
+      0.9
+    ],
+    "horizontal_radius_multiplier": [
+      0.7,
+      1.4
+    ],
+    "vertical_radius_multiplier": 1.2,
+    "floor_level": [
+      -1,
+      -0.4
+    ]
+  }
+}
+`;
+
+exports[`features > ore > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:ore_feature": {
+    "description": {
+      "identifier": "test:ore"
+    },
+    "count": 8,
+    "discard_chance_on_air_exposure": 0.5,
+    "replace_rules": [
+      {
+        "places_block": "minecraft:iron_ore",
+        "may_replace": [
+          "minecraft:stone",
+          {
+            "name": "minecraft:stone",
+            "states": {
+              "stone_type": "granite"
+            }
+          }
+        ]
+      },
+      {
+        "places_block": {
+          "name": "minecraft:stone",
+          "states": {
+            "stone_type": "granite"
+          }
+        }
+      },
+      {
+        "places_block": "minecraft:deepslate_iron_ore",
+        "may_replace": [
+          "minecraft:deepslate"
+        ]
+      },
+      {
+        "places_block": "minecraft:gold_ore"
+      }
+    ]
+  }
+}
+`;
+
+exports[`features > partially_exposed_blob > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:partially_exposed_blob_feature": {
+    "description": {
+      "identifier": "test:blob"
+    },
+    "places_block": {
+      "name": "minecraft:stone",
+      "states": {
+        "stone_type": "granite"
+      }
+    },
+    "placement_radius_around_floor": 2,
+    "placement_probability_per_valid_position": 0.5,
+    "exposed_face": "up"
+  }
+}
+`;
+
+exports[`features > scatter > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:scatter_feature": {
+    "description": {
+      "identifier": "test:scatter"
+    },
+    "places_feature": "test:live_ore",
+    "distribution": {
+      "iterations": "math.random_integer(1, 4)",
+      "x": {
+        "distribution": "uniform",
+        "extent": [
+          "0",
+          "16"
+        ]
+      },
+      "y": "q.heightmap(v.worldx, v.worldz)",
+      "z": {
+        "distribution": "fixed_grid",
+        "extent": [
+          "0",
+          "15"
+        ],
+        "grid_offset": 1,
+        "step_size": 2
+      },
+      "coordinate_eval_order": "zyx",
+      "scatter_chance": {
+        "numerator": 1,
+        "denominator": 4
+      }
+    },
+    "project_input_to_floor": true
+  }
+}
+`;
+
+exports[`features > search > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:search_feature": {
+    "description": {
+      "identifier": "test:search"
+    },
+    "places_feature": "test:live_ore",
+    "search_volume": {
+      "min": [
+        -3,
+        -3,
+        -3
+      ],
+      "max": [
+        3,
+        3,
+        3
+      ]
+    },
+    "search_axis": "-y",
+    "required_successes": 2
+  }
+}
+`;
+
+exports[`features > sequence > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:sequence_feature": {
+    "description": {
+      "identifier": "test:sequence"
+    },
+    "features": [
+      "test:live_ore",
+      "test:string_feature",
+      "test:live_aggregate"
+    ]
+  }
+}
+`;
+
+exports[`features > single_block > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:single_block_feature": {
+    "description": {
+      "identifier": "test:single"
+    },
+    "places_block": {
+      "name": "minecraft:stone",
+      "states": {
+        "stone_type": "granite"
+      }
+    },
+    "enforce_placement_rules": true,
+    "enforce_survivability_rules": false,
+    "randomize_rotation": true,
+    "may_attach_to": {
+      "min_sides_must_attach": 1,
+      "auto_rotate": true,
+      "top": "minecraft:stone",
+      "bottom": [
+        "minecraft:dirt",
+        {
+          "name": "minecraft:stone",
+          "states": {
+            "stone_type": "granite"
+          }
+        }
+      ],
+      "north": "a:n",
+      "east": "a:e",
+      "south": "a:s",
+      "west": "a:w",
+      "all": [
+        "minecraft:air"
+      ],
+      "sides": {
+        "name": "minecraft:stone",
+        "states": {
+          "stone_type": "granite"
+        }
+      },
+      "diagonal": "a:d"
+    },
+    "may_not_attach_to": {
+      "top": "minecraft:bedrock"
+    },
+    "may_replace": [
+      "minecraft:air",
+      {
+        "name": "minecraft:stone",
+        "states": {
+          "stone_type": "granite"
+        }
+      }
+    ]
+  }
+}
+`;
+
+exports[`features > single_block > weighted 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:single_block_feature": {
+    "description": {
+      "identifier": "test:single_weighted"
+    },
+    "places_block": [
+      {
+        "weight": 2,
+        "block": "minecraft:poppy"
+      },
+      {
+        "weight": 1,
+        "block": {
+          "name": "minecraft:stone",
+          "states": {
+            "stone_type": "granite"
+          }
+        }
+      },
+      {
+        "block": "minecraft:dandelion",
+        "weight": 3
+      }
+    ]
+  }
+}
+`;
+
+exports[`features > snap_to_surface > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:snap_to_surface_feature": {
+    "description": {
+      "identifier": "test:snap"
+    },
+    "feature_to_snap": "test:live_ore",
+    "search_range": 12,
+    "surface": "ceiling",
+    "allow_air_placement": false,
+    "allow_non_air_placement": true,
+    "allow_underwater_placement": true,
+    "allowed_surface_blocks": [
+      "minecraft:stone",
+      {
+        "name": "minecraft:stone",
+        "states": {
+          "stone_type": "granite"
+        }
+      },
+      {
+        "name": "minecraft:grass_block",
+        "states": {}
+      },
+      {
+        "name": "minecraft:log",
+        "tags": "q.any_tag('wood')"
+      }
+    ],
+    "embed_in_surface": true
+  }
+}
+`;
+
+exports[`features > structure_template > boolean constraints 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:structure_template_feature": {
+    "description": {
+      "identifier": "test:structure_bool"
+    },
+    "structure_name": "mystructure:hut",
+    "constraints": {
+      "unburied": {},
+      "leveled": {},
+      "block_intersection": {}
+    }
+  }
+}
+`;
+
+exports[`features > structure_template > empty constraint objects 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:structure_template_feature": {
+    "description": {
+      "identifier": "test:structure_empty"
+    },
+    "structure_name": "mystructure:tower",
+    "constraints": {
+      "leveled": {},
+      "block_intersection": {}
+    }
+  }
+}
+`;
+
+exports[`features > structure_template > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:structure_template_feature": {
+    "description": {
+      "identifier": "test:structure"
+    },
+    "structure_name": "mystructure:house",
+    "constraints": {
+      "grounded": {},
+      "unburied": {},
+      "leveled": {
+        "max_steepness": 2
+      },
+      "block_intersection": {
+        "only_check_intersection_for_motion_blocking_blocks": true,
+        "block_allowlist": [
+          "minecraft:air",
+          {
+            "name": "minecraft:stone",
+            "states": {
+              "stone_type": "granite"
+            }
+          }
+        ]
+      }
+    },
+    "adjustment_radius": 4,
+    "facing_direction": "random",
+    "rotate_around_center": true,
+    "ground_level": 1
+  }
+}
+`;
+
+exports[`features > surface_relative_threshold > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:surface_relative_threshold_feature": {
+    "description": {
+      "identifier": "test:srt"
+    },
+    "feature_to_place": "test:live_ore",
+    "minimum_distance_below_surface": 4
+  }
+}
+`;
+
+exports[`features > underwater_cave_carver > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:underwater_cave_carver_feature": {
+    "description": {
+      "identifier": "test:uw_carver"
+    },
+    "replace_air_with": {
+      "name": "minecraft:stone",
+      "states": {
+        "stone_type": "granite"
+      }
+    },
+    "fill_with": "minecraft:air",
+    "width_modifier": "q.noise(1, 2)",
+    "skip_carve_chance": 15,
+    "height_limit": 64,
+    "y_scale": [
+      0.1,
+      0.9
+    ],
+    "horizontal_radius_multiplier": [
+      0.7,
+      1.4
+    ],
+    "vertical_radius_multiplier": 1.2,
+    "floor_level": [
+      -1,
+      -0.4
+    ]
+  }
+}
+`;
+
+exports[`features > vegetation_patch > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:vegetation_patch_feature": {
+    "description": {
+      "identifier": "test:veg"
+    },
+    "replaceable_blocks": [
+      "minecraft:stone",
+      {
+        "name": "minecraft:stone",
+        "states": {
+          "stone_type": "granite"
+        }
+      }
+    ],
+    "ground_block": "minecraft:moss_block",
+    "vegetation_feature": "test:live_ore",
+    "surface": "ceiling",
+    "depth": [
+      1,
+      2
+    ],
+    "extra_deep_block_chance": 0.2,
+    "vertical_range": 5,
+    "vegetation_chance": 0.8,
+    "horizontal_radius": [
+      4,
+      7
+    ],
+    "extra_edge_column_chance": 0.3,
+    "waterlogged": true
+  }
+}
+`;
+
+exports[`features > weighted_random > full 1`] = `
+{
+  "format_version": "1.26.50",
+  "minecraft:weighted_random_feature": {
+    "description": {
+      "identifier": "test:weighted"
+    },
+    "features": [
+      [
+        "test:live_ore",
+        3
+      ],
+      [
+        "test:string_feature",
+        1
+      ],
+      [
+        "test:live_sequence",
+        0.5
+      ]
+    ]
+  }
+}
+`;
