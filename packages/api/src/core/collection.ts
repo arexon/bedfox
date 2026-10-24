@@ -47,7 +47,6 @@ export class KeyedCollection<T extends object> {
         yield* this.#inner;
     }
 
-    /** The values, keyed by their keys. */
     toJSON(): Record<string, T> {
         return Object.fromEntries(this.#inner);
     }

@@ -8,14 +8,14 @@ export abstract class Component {
     /** This component class's identifier, e.g. `minecraft:tick`. */
     declare static readonly componentId: string;
 
-    /** A base for a component class identified by `componentId`, e.g. `minecraft:tick`. */
+    /** A base for a component class identified by `componentId`. */
     static of<C extends Ctor<Component>>(this: C, componentId: string): C {
         abstract class Base extends this {}
         Object.defineProperty(Base, "componentId", { value: componentId });
         return Base;
     }
 
-    /** The identifier of this component. E.g. `minecraft:tick`. */
+    /** This component's identifier. */
     get componentId(): string {
         return (this.constructor as typeof Component).componentId;
     }

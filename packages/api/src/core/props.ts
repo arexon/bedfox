@@ -3,7 +3,7 @@ type IfEquals<X, Y, A, B> =
     // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
     (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2 ? A : B;
 
-/** Keys of `T` that can be assigned: not `readonly`, which also excludes getter-only accessors. */
+/** Keys of `T` that aren't `readonly`. Getter-only accessors count as `readonly`. */
 type WritableKeys<T> = {
     [K in keyof T]-?: IfEquals<{ [Q in K]: T[K] }, { -readonly [Q in K]: T[K] }, K, never>;
 }[keyof T];

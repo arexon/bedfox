@@ -1,13 +1,16 @@
-/** Layouts that bases registered for the serialized fields of the classes extending them. */
+/** Layouts registered with {@link setLayout}, keyed by base class. */
 const LAYOUTS = new WeakMap<object, (json: unknown) => unknown>();
 
-/** Options for each set of fields that are keyed by the base prototype. */
+/** Options of each decorated field, keyed by the prototype that declares it. */
 const OPTIONS = new WeakMap<object, Map<string, FieldOptions>>();
 
-/** Every class's schema, built on first use, once its decorators have all run. */
+/** Each class's schema, built on first use so that every decorator has already run. */
 const SCHEMAS = new WeakMap<object, Schema>();
 
-/** Values that serialize as a reference when nested inside another value, e.g. definitions. */
+/**
+ * Method key for values that serialize as a reference when nested in another value, e.g. a
+ * definition as its identifier.
+ */
 export const toReference: unique symbol = Symbol("bedfox.toReference");
 
 export type FieldDecorator = (prototype: object, name: string) => void;
@@ -17,20 +20,23 @@ export interface FieldOptions<T = unknown> {
     /** The JSON key, instead of the snake_cased field name. */
     rename?: string;
     /**
-     * Nested objects to place the field inside, e.g. `["description", "menu_category"]`. Not
-     * compatible with {@link transparent}.
+     * Nested objects to place the field inside, e.g. `["description", "menu_category"]`. Can't be
+     * combined with {@link transparent}.
      */
     within?: string | readonly string[];
-    /** Keeps the own keys of the field's record as written, e.g. user-chosen names. */
+    /**
+     * Keeps the keys of the field's record as written instead of snake_casing them, e.g. for
+     * user-chosen names. Keys of records nested deeper are still snake_cased.
+     */
     keepKeys?: boolean;
     /**
-     * Makes the field's value replace the whole object when it's the only field set. Not compatible
-     * with {@link within}.
+     * Makes the field's value replace the whole object when it's the only field set. Can't be
+     * combined with {@link within}.
      */
     transparent?: boolean;
     /**
-     * Serializes the field as the overridden value, which if `undefined`, omits the field from the
-     * result.
+     * Maps the field's value before it's serialized. Returning `undefined` omits the field. Unlike
+     * other fields, an empty array or object returned here is kept.
      */
     override?: (value: T | undefined) => unknown;
 }
@@ -79,10 +85,10 @@ export class UnsupportedJsonValueError extends TypeError {
 }
 
 /**
- * Configures serialization for a class.
+ * Configures how a class serializes to JSON.
  *
- * When annotated on a class, it installs `toJSON()`, and when annotated on a field, it adjusts how
- * that field serializes.
+ * On a class, it installs a `toJSON()` that serializes every instance field, decorated or not. On a
+ * field, it sets that field's {@link FieldOptions}.
  */
 export function serialize(target: abstract new (...args: never[]) => object): void;
 export function serialize<T>(options: FieldOptions<T>): FieldDecorator;
@@ -104,8 +110,8 @@ export function serialize(
     }
 
     return (prototype, name) => {
-        // A static field's decorator gets the class, and methods and accessors live on the
-        // prototype, unlike fields.
+        // Decorators on static members receive the class itself. Methods and accessors are own
+        // properties of the prototype, which instance fields never are.
         if (typeof prototype === "function" || Object.hasOwn(prototype, name)) {
             throw new DecoratedNonFieldError(name);
         }
@@ -119,14 +125,15 @@ export function serialize(
 }
 
 /**
- * Makes {@link serialize()} pass the serialized fields of classes extending `base` through `layout`,
- * e.g. into a definition file's layout.
+ * Passes the serialized fields of `base` and its subclasses through `layout`, e.g. to wrap them in
+ * a definition file's structure. Subclasses pick up the layout when {@link serialize()} decorates
+ * them, so call this first.
  */
 export function setLayout(base: object, layout: (json: unknown) => unknown): void {
     LAYOUTS.set(base, layout);
 }
 
-/** The layout registered on the nearest base of `ctor`, if any. */
+/** The layout registered on `ctor` or its nearest base, if any. */
 function layoutOf(ctor: object): ((json: unknown) => unknown) | undefined {
     for (let c: object | null = ctor; c !== null; c = Object.getPrototypeOf(c) as object | null) {
         const layout = LAYOUTS.get(c);
@@ -147,7 +154,10 @@ interface FieldSchema {
 class Schema {
     readonly #className: string;
     readonly #fields = new Map<string, FieldSchema>();
-    /** Every key path taken, joined with `/`, split into nested objects and values. */
+    /**
+     * Key paths already taken, each segment followed by `/`, used to catch collisions. `#objects`
+     * holds the nested objects made by `within`, and `#values` holds the fields themselves.
+     */
     readonly #objects = new Set<string>();
     readonly #values = new Set<string>();
     readonly transparentKey: string | undefined;
@@ -254,7 +264,7 @@ function serializeInstance(obj: object): unknown {
  * Converts a value to JSON:
  *
  * - A value with a {@link toReference} method becomes that reference.
- * - A value with its own `toJSON` becomes its result, which is already final.
+ * - A value with a `toJSON()` method becomes its result, which isn't converted further.
  * - Arrays are converted item by item, and plain objects key by key, snake_casing keys and dropping
  *   `undefined` values and functions.
  * - A `Map` or `Set` throws {@link UnsupportedJsonValueError}.

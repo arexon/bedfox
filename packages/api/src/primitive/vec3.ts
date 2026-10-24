@@ -9,7 +9,6 @@ export class Vec3 {
         this.z = z;
     }
 
-    /** Serializes as an `[x, y, z]` tuple. */
     toJSON(): [number, number, number] {
         return this.toTuple();
     }

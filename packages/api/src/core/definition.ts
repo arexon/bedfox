@@ -5,9 +5,8 @@ import { setLayout, toReference } from "#/serialize";
 export type DefinitionProps<T> = Partial<InstanceProps<T, "identifier">>;
 
 /**
- * A definition is a top-level JSON file in the RP or BP, usually containing data under a
- * `minecraft:<definition>` property. This includes definitions such as blocks, items, entities,
- * features, etc.
+ * A top-level JSON file in a resource or behavior pack, such as a block, item, entity or feature.
+ * Its data sits under a `minecraft:<kind>` key.
  */
 export abstract class Definition {
     /** A base for a definition class written under `root`, e.g. `minecraft:block`. */
@@ -35,7 +34,7 @@ export abstract class Definition {
         return Base as C & Ctor<{ readonly _root: R }>;
     }
 
-    /** The format version of this definition. */
+    /** Overrides the format version given to {@link Definition.of}. */
     formatVersion?: FormatVersion;
 
     abstract identifier: string;
@@ -59,7 +58,7 @@ export abstract class Definition {
         return [];
     }
 
-    /** Internal. Directly nested definition instances. */
+    /** Internal. The definition instances among {@link _references}, registered along with this. */
     _referencedInstances(): Definition[] {
         return this._references()
             .map((ref) => ref.target)

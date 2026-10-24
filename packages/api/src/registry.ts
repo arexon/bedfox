@@ -11,7 +11,25 @@ import { Feature, type FeatureReference } from "#/feature/base";
 import { FeatureRules } from "#/feature/rules";
 import type { BlockDescriptorRef } from "#/primitive/index";
 
+/**
+ * Holds a project's definitions and the systems that transform them.
+ *
+ * Definitions are registered by identifier without a namespace, e.g. `dirt`. References to them may
+ * use either form, e.g. `dirt` or `example:dirt`.
+ *
+ * @example
+ *     const reg = new Registry("example").add(new Block("dirt"));
+ *     // Remove features that nothing places.
+ *     reg.addSystem(
+ *         "finalize",
+ *         query(Feature)
+ *             .orphan()
+ *             .intoSystem((reg, features) => reg.remove(...features)),
+ *     );
+ *     reg.run();
+ */
 export class Registry {
+    /** The namespace of this registry's definitions, e.g. `example` in `example:dirt`. */
     readonly namespace: string;
 
     #blocks = new DefinitionStore(Block);
@@ -26,6 +44,21 @@ export class Registry {
         this.namespace = namespace;
     }
 
+    /**
+     * Registers definitions, along with any definition instances they reference. Adding an instance
+     * that's already registered does nothing.
+     *
+     * @example
+     *     const ore = new OreFeature("dirt_ore").add("example:dirt", ["minecraft:stone"]);
+     *     // Registers `dirt_ore` too, since `scatter` holds the instance.
+     *     reg.add(new ScatterFeature("scatter", { placesFeature: ore }));
+     *
+     * @throws - {@link InvalidIdentifierError} if an identifier has a namespace or characters other
+     *   than `a-z`, `0-9`, `.`, `_` and `-`.
+     * @throws - {@link DuplicateDefinitionIdError} if another instance of the same kind has the
+     *   same identifier.
+     * @throws - {@link UnknownDefinitionError} if a definition's kind can't be registered.
+     */
     add(...defs: Definition[]): this {
         for (const def of defs) {
             if (!validateIdentifier(def.identifier)) {
@@ -39,6 +72,12 @@ export class Registry {
         return this;
     }
 
+    /**
+     * Unregisters definitions. Removing an instance that isn't registered does nothing, even if
+     * another instance has its identifier. Definitions they reference stay registered.
+     *
+     * @throws - {@link UnknownDefinitionError} if a definition's kind can't be registered.
+     */
     remove(...defs: Definition[]): void {
         for (const def of defs) {
             this.#storeFor(def).delete(def);
@@ -46,7 +85,21 @@ export class Registry {
         this.#referenced = undefined;
     }
 
+    /**
+     * Adds systems to run on `schedule`.
+     *
+     * @example
+     *     reg.addSystem("setup", (reg) => reg.add(new Block("dirt")));
+     */
     addSystem(schedule: Schedule, ...systems: System[]): this;
+    /**
+     * Adds systems to run on the `transform` schedule.
+     *
+     * @example
+     *     reg.addSystem((reg) => {
+     *         reg.resolve(Block, "dirt")?.setComponent(new FrictionBlockComponent(0.4));
+     *     });
+     */
     addSystem(...systems: System[]): this;
     addSystem(firstArg: Schedule | System, ...restArgs: System[]): this {
         const [schedule, systems]: [Schedule, System[]] =
@@ -59,10 +112,12 @@ export class Registry {
         return this;
     }
 
+    /** Runs every system, schedule by schedule, in the order they were added. */
     run(): void {
         for (const schedule of SCHEDULES) {
             for (const system of this.#systems.get(schedule) ?? []) {
-                // Systems may mutate references, so we recompute lazily per-system.
+                // A system may change what references what, so drop the cached references
+                // before each one and rebuild them on demand.
                 this.#referenced = undefined;
                 system(this);
             }
@@ -74,7 +129,13 @@ export class Registry {
         for (const store of this.#stores) yield* store.values();
     }
 
-    /** Looks up a definition by class and identifier, with or without this registry's namespace. */
+    /**
+     * Looks up a definition by class and identifier, with or without this registry's namespace.
+     *
+     * @example
+     *     reg.resolve(Block, "dirt");
+     *     reg.resolve(Block, "example:dirt"); // Same block.
+     */
     resolve<T extends Definition>(ctor: DefinitionCtor<T>, id: string): T | undefined {
         const localId = this.#stripNamespace(id);
         for (const store of this.#stores) {
@@ -85,9 +146,9 @@ export class Registry {
     }
 
     /**
-     * Whether a reference refers to {@link target}: a registered instance of the given class, or the
-     * same identifier ignoring this registry's namespace. Definitions must also be of
-     * {@link Reference.kind}.
+     * Whether `ref` points at `target`. A class matches when `ref` resolves to a registered
+     * instance of it. Anything else matches by identifier, ignoring this registry's namespace, and
+     * a definition must also be an instance of {@link Reference.kind}.
      */
     matches(ref: Reference, target: DefinitionCtor | ReferenceTarget): boolean {
         const id = autoIdentifier(ref.target);
@@ -103,7 +164,7 @@ export class Registry {
         return id.startsWith(prefix) ? id.slice(prefix.length) : id;
     }
 
-    /** Whether any registered definition references {@link def}. */
+    /** Whether any registered definition references `def`. */
     isReferenced(def: Definition): boolean {
         this.#referenced ??= Map.groupBy(
             Iterator.from(this.all()).flatMap((def) => def._references()),
@@ -128,35 +189,55 @@ function validateIdentifier(value: string): boolean {
     return IDENTIFIER_REG.test(value);
 }
 
-/** When a system runs: setup, then transform, then finalize. */
+/** When a system runs: `setup`, then `transform`, then `finalize`. */
 export type Schedule = "setup" | "transform" | "finalize";
 
 const SCHEDULES: readonly Schedule[] = ["setup", "transform", "finalize"];
 
-export type Defs = [Definition, ...Definition[]];
-
+/** Whether a query keeps `def`. */
 export type Filter<T extends Definition = Definition> = (def: T, reg: Registry) => boolean;
 
+/** A function that {@link Registry.run()} calls with the registry. */
 export type System = (reg: Registry) => void;
 
+/** A system that receives the definitions its query matched. */
 export type SystemCallback<T extends Definition> = (
     reg: Registry,
     defs: Generator<T, void, unknown>,
 ) => void;
 
-/** Whether a query over `T` could yield a `K`, either as a subclass or as one of its bases. */
+/** Whether a query over `T` could yield a `K`: some member of `T` is a `K`, or `K` extends `T`. */
 type Overlaps<T, K> = [Extract<T, K>] extends [never] ? (K extends T ? true : false) : true;
 
 interface BaseQuery<T extends Definition> {
+    /**
+     * Matches definitions that pass every filter.
+     *
+     * @example
+     *     query(Block).filter((block) => block.identifier.endsWith("_ore"));
+     */
     filter(...filters: Filter<T>[]): Query<T>;
 
     /** Matches definitions nothing else in the registry references. */
     orphan(): Query<T>;
 
+    /**
+     * Turns the query into a system that calls `callback` with the definitions matched when it
+     * runs.
+     *
+     * @example
+     *     reg.addSystem(
+     *         query(Block).intoSystem((reg, blocks) => {
+     *             for (const block of blocks) {
+     *                 block.setComponent(new LightEmissionBlockComponent(15));
+     *             }
+     *         }),
+     *     );
+     */
     intoSystem(callback: SystemCallback<T>): System;
 }
 
-// Kind filters only apply to their kind and let other kinds through, so they can be mixed.
+// Each kind's filters let definitions of other kinds through, so one query can mix kinds.
 
 interface BlockQuery<T extends Definition> {
     /** Matches blocks that have every given component. */
@@ -187,8 +268,15 @@ export type Query<T extends Definition> = BaseQuery<T> &
           ? FeatureRulesQuery<T>
           : unknown);
 
-/** Queries registered definitions of the given classes. */
-export function query<T extends Defs>(
+/**
+ * Queries registered definitions of the given classes. Filters only become available for the kinds
+ * the query can yield.
+ *
+ * @example
+ *     query(Block).withComponent(LightEmissionBlockComponent);
+ *     query(Feature, FeatureRules).placing(Block);
+ */
+export function query<T extends [Definition, ...Definition[]]>(
     ...ctors: { [K in keyof T]: DefinitionCtor<T[K]> }
 ): Query<T[number]> {
     return new QueryImpl(ctors, []);
@@ -272,7 +360,7 @@ class DefinitionStore {
     add(def: Definition): this {
         const id = this.#idFor(def);
 
-        // Skip already registered objects.
+        // Adding the same instance again is a no-op.
         const existing = this.#inner.get(id);
         if (existing === def) return this;
         if (existing !== undefined) throw new DuplicateDefinitionIdError(id);
@@ -298,6 +386,7 @@ class DefinitionStore {
     }
 }
 
+/** An error caused by a definition of a kind the registry can't hold. */
 export class UnknownDefinitionError extends TypeError {
     constructor(defName: string, defCtors?: DefinitionCtor[]) {
         let msg = `Unknown definition: got ${defName}`;
@@ -312,6 +401,7 @@ export class UnknownDefinitionError extends TypeError {
     }
 }
 
+/** An error caused by two instances of the same kind with the same identifier. */
 export class DuplicateDefinitionIdError extends TypeError {
     constructor(id: string) {
         super(`Found duplicate definition identifier: ${id}`);
@@ -319,6 +409,7 @@ export class DuplicateDefinitionIdError extends TypeError {
     }
 }
 
+/** An error caused by an identifier the registry doesn't accept. */
 export class InvalidIdentifierError extends TypeError {
     constructor(id: string) {
         super(`Invalid registry identifier: ${id}`);

@@ -1,7 +1,10 @@
 import { Definition, type Reference } from "#/core/definition";
 
 export abstract class Feature extends Definition {
-    /** Internal. Every feature root, e.g. `minecraft:ore_feature`, but not feature rules. */
+    /**
+     * Internal. The root key of every feature, e.g. `minecraft:ore_feature`. Feature rules have a
+     * different root, which keeps them from being structurally equivalent to features.
+     */
     declare readonly _root: `minecraft:${string}_feature` | "minecraft:conditional_list";
 
     /** Internal. Everything this feature places in the world. */
@@ -9,7 +12,7 @@ export abstract class Feature extends Definition {
         return [];
     }
 
-    /** Internal. Placements plus anything else referenced (e.g. replaceable blocks). */
+    /** Internal. Placements plus anything else referenced, e.g. blocks a feature may replace. */
     override _references(): Reference[] {
         return this._placements();
     }
