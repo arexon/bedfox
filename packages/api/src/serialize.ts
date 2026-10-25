@@ -1,5 +1,5 @@
 /** Layouts registered with {@link setLayout}, keyed by base class. */
-const LAYOUTS = new WeakMap<object, (json: unknown) => unknown>();
+const LAYOUTS = new WeakMap<object, Layout>();
 
 /** Options of each decorated field, keyed by the prototype that declares it. */
 const OPTIONS = new WeakMap<object, Map<string, FieldOptions>>();
@@ -102,7 +102,7 @@ export function serialize(
             writable: true,
             value(this: object): unknown {
                 return layout !== undefined
-                    ? layout(serializeInstance(this))
+                    ? layout(serializeInstance(this), this)
                     : serializeInstance(this);
             },
         });
@@ -125,16 +125,22 @@ export function serialize(
 }
 
 /**
+ * Rearranges an instance's serialized fields. It also receives the instance, for anything the
+ * fields don't carry.
+ */
+export type Layout = (json: unknown, instance: object) => unknown;
+
+/**
  * Passes the serialized fields of `base` and its subclasses through `layout`, e.g. to wrap them in
  * a definition file's structure. Subclasses pick up the layout when {@link serialize()} decorates
  * them, so call this first.
  */
-export function setLayout(base: object, layout: (json: unknown) => unknown): void {
+export function setLayout(base: object, layout: Layout): void {
     LAYOUTS.set(base, layout);
 }
 
 /** The layout registered on `ctor` or its nearest base, if any. */
-function layoutOf(ctor: object): ((json: unknown) => unknown) | undefined {
+function layoutOf(ctor: object): Layout | undefined {
     for (let c: object | null = ctor; c !== null; c = Object.getPrototypeOf(c) as object | null) {
         const layout = LAYOUTS.get(c);
         if (layout !== undefined) return layout;

@@ -3,6 +3,7 @@ import type { ComponentCtor } from "#/core/component";
 import {
     Definition,
     type DefinitionCtor,
+    NAMESPACE,
     type Reference,
     type ReferenceTarget,
 } from "#/core/definition";
@@ -86,7 +87,8 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
 
     /**
      * Registers definitions, along with any definition instances they reference. Adding an instance
-     * that's already registered does nothing.
+     * that's already registered does nothing. Registered definitions serialize with this registry's
+     * namespace, e.g. `example:dirt`.
      *
      * @example
      *     const ore = new OreFeature("dirt_ore").add("example:dirt", ["minecraft:stone"]);
@@ -98,29 +100,37 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
      * @throws - {@link DuplicateDefinitionIdError} if another instance of the same kind has the
      *   same identifier.
      * @throws - {@link UnknownDefinitionError} if a definition's kind can't be registered.
+     * @throws - {@link NamespaceConflictError} if a definition is registered under another
+     *   namespace.
      */
     add(...defs: Definition[]): this {
         for (const def of defs) {
             if (!validateIdentifier(def.identifier)) {
                 throw new InvalidIdentifierError(def.identifier);
             }
+            const namespace = def[NAMESPACE];
+            if (namespace !== undefined && namespace !== this.namespace) {
+                throw new NamespaceConflictError(def.identifier, namespace, this.namespace);
+            }
 
             this.add(...def._referencedInstances());
             this.#storeFor(def).add(def);
+            def[NAMESPACE] = this.namespace;
         }
         this.#referenced = undefined;
         return this;
     }
 
     /**
-     * Unregisters definitions. Removing an instance that isn't registered does nothing, even if
-     * another instance has its identifier. Definitions they reference stay registered.
+     * Unregisters definitions, which then serialize without a namespace again. Removing an instance
+     * that isn't registered does nothing, even if another instance has its identifier. Definitions
+     * they reference stay registered.
      *
      * @throws - {@link UnknownDefinitionError} if a definition's kind can't be registered.
      */
     remove(...defs: Definition[]): void {
         for (const def of defs) {
-            this.#storeFor(def).delete(def);
+            if (this.#storeFor(def).delete(def)) delete def[NAMESPACE];
         }
         this.#referenced = undefined;
     }
@@ -434,9 +444,9 @@ class DefinitionStore {
         return this;
     }
 
-    delete(def: Definition): void {
+    delete(def: Definition): boolean {
         const id = this.#idFor(def);
-        if (this.#inner.get(id) === def) this.#inner.delete(id);
+        return this.#inner.get(id) === def && this.#inner.delete(id);
     }
 
     clear(): void {
@@ -487,6 +497,14 @@ export class UnknownScheduleError extends TypeError {
     constructor(name: string) {
         super(`Unknown schedule: ${name}`);
         this.name = "UnknownScheduleError";
+    }
+}
+
+/** An error caused by adding a definition that another registry's namespace already claims. */
+export class NamespaceConflictError extends TypeError {
+    constructor(id: string, existing: string, namespace: string) {
+        super(`Definition ${id} is registered under ${existing}, can't add it under ${namespace}`);
+        this.name = "NamespaceConflictError";
     }
 }
 

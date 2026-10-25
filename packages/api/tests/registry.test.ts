@@ -14,12 +14,14 @@ import {
     DuplicateDefinitionIdError,
     DuplicateScheduleError,
     InvalidIdentifierError,
+    NamespaceConflictError,
     type Query,
     query,
     Registry,
     UnknownDefinitionError,
     UnknownScheduleError,
 } from "#/registry";
+import { toReference } from "#/serialize";
 
 const NS = "test";
 
@@ -123,6 +125,72 @@ describe(Registry.name, () => {
             const reg = new Registry(NS).add(dirt);
             reg.remove(new Block("dirt"));
             assert.deepEqual([...reg.all()], [dirt]);
+        });
+    });
+
+    describe("namespaces", () => {
+        test("qualify registered definitions", () => {
+            const dirt = new Block("dirt");
+            new Registry(NS).add(dirt);
+            assert.equal(dirt.qualifiedIdentifier, `${NS}:dirt`);
+            assert.equal(
+                JSON.stringify(dirt),
+                `{"format_version":"1.26.40","minecraft:block":{"description":{"identifier":"${NS}:dirt"}}}`,
+            );
+        });
+
+        test("qualify references to instances registered through them", () => {
+            const ore = new OreFeature("ore");
+            new Registry(NS).add(new ScatterFeature("scatter", { placesFeature: ore }));
+            const scatter = new ScatterFeature("other", { placesFeature: ore });
+            assert.equal(ore.qualifiedIdentifier, `${NS}:ore`);
+            assert.equal(
+                JSON.stringify(scatter),
+                `{"format_version":"1.26.50","minecraft:scatter_feature":{"description":{"identifier":"other"},"places_feature":"${NS}:ore"}}`,
+            );
+        });
+
+        test("leave string references as written", () => {
+            const scatter = new ScatterFeature("scatter", { placesFeature: "other:ore" });
+            new Registry(NS).add(scatter);
+            assert.equal(
+                JSON.stringify(scatter),
+                `{"format_version":"1.26.50","minecraft:scatter_feature":{"description":{"identifier":"${NS}:scatter"},"places_feature":"other:ore"}}`,
+            );
+        });
+
+        test("leave unregistered definitions as written", () => {
+            const dirt = new Block("dirt");
+            assert.equal(dirt.qualifiedIdentifier, "dirt");
+            assert.equal(dirt[toReference](), "dirt");
+        });
+
+        test("reject a definition registered under another namespace", () => {
+            const dirt = new Block("dirt");
+            new Registry(NS).add(dirt);
+            assert.throws(() => new Registry("other").add(dirt), NamespaceConflictError);
+        });
+
+        test("accept the same namespace from another registry", () => {
+            const dirt = new Block("dirt");
+            new Registry(NS).add(dirt);
+            assert.doesNotThrow(() => new Registry(NS).add(dirt));
+        });
+
+        test("are cleared by remove()", () => {
+            const dirt = new Block("dirt");
+            new Registry(NS).add(dirt).remove(dirt);
+            assert.equal(dirt.qualifiedIdentifier, "dirt");
+            assert.doesNotThrow(() => new Registry("other").add(dirt));
+        });
+
+        test("stay when remove() ignores another instance", () => {
+            const dirt = new Block("dirt");
+            const reg = new Registry(NS).add(dirt);
+            const other = new Block("dirt");
+            new Registry("other").add(other);
+            reg.remove(other);
+            assert.equal(other.qualifiedIdentifier, "other:dirt");
         });
     });
 

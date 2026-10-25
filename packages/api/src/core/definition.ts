@@ -2,7 +2,10 @@ import type { Ctor, InstanceProps } from "#/core/props";
 import type { BlockDescriptor, FormatVersion } from "#/primitive/index";
 import { setLayout, toReference } from "#/serialize";
 
-export type DefinitionProps<T> = Partial<InstanceProps<T, "identifier">>;
+/** Keys the namespace of the registry a definition is registered in. */
+export const NAMESPACE: unique symbol = Symbol("namespace");
+
+export type DefinitionProps<T> = Partial<InstanceProps<T, "identifier" | typeof NAMESPACE>>;
 
 /**
  * A top-level JSON file in a resource or behavior pack, such as a block, item, entity or feature.
@@ -18,15 +21,20 @@ export abstract class Definition {
         abstract class Base extends this {}
         // A definition file nests every field under the root key, except the format version, with
         // the identifier first in `description`.
-        setLayout(Base, (json) => {
-            const { format_version, identifier, description, ...body } = json as Record<
-                string,
-                unknown
-            >;
+        setLayout(Base, (json, def) => {
+            const {
+                format_version,
+                identifier: _,
+                description,
+                ...body
+            } = json as Record<string, unknown>;
             return {
                 format_version: format_version ?? formatVersion,
                 [root]: {
-                    description: { identifier, ...(description as object | undefined) },
+                    description: {
+                        identifier: (def as Definition).qualifiedIdentifier,
+                        ...(description as object | undefined),
+                    },
                     ...body,
                 },
             };
@@ -39,8 +47,20 @@ export abstract class Definition {
 
     abstract identifier: string;
 
+    /** Internal. Set by the registry this is registered in. */
+    declare [NAMESPACE]?: string;
+
+    /**
+     * The identifier with the namespace of the registry this is registered in, e.g. `example:dirt`
+     * for `dirt`. An unregistered definition's identifier is returned as is.
+     */
+    get qualifiedIdentifier(): string {
+        const namespace = this[NAMESPACE];
+        return namespace === undefined ? this.identifier : `${namespace}:${this.identifier}`;
+    }
+
     [toReference](): string {
-        return this.identifier;
+        return this.qualifiedIdentifier;
     }
 
     if(condition: boolean, callback: (def: this) => void): this {

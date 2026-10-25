@@ -10,6 +10,7 @@ import {
     MultipleTransparentFieldsError,
     NestedTransparentFieldError,
     serialize,
+    setLayout,
     toReference,
 } from "#/serialize";
 
@@ -378,6 +379,22 @@ describe("@serialize with options", () => {
                 '{"format_version":"1.26.40","minecraft:block":{"description":{"identifier":"t:b"}}}';
             assert.equal(JSON.stringify(new Inherited("t:b")), expected);
             assert.equal(JSON.stringify(new Repeated("t:b")), expected);
+        });
+
+        test("a layout receives the serialized fields and the instance", () => {
+            abstract class Base {
+                value = 1;
+            }
+            let seen: object | undefined;
+            setLayout(Base, (json, instance) => {
+                seen = instance;
+                return { wrapped: json };
+            });
+            @serialize
+            class Leaf extends Base {}
+            const leaf = new Leaf();
+            assert.equal(JSON.stringify(leaf), '{"wrapped":{"value":1}}');
+            assert.equal(seen, leaf);
         });
     });
 });
