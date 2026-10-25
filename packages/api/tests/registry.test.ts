@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 
 import {
     Block,
@@ -33,19 +34,19 @@ function ids(defs: Iterable<Definition>): string[] {
     return Array.from(defs, (def) => def.identifier);
 }
 
-function collect<T extends Definition>(reg: Registry, q: Query<T>): string[] {
+async function collect<T extends Definition>(reg: Registry, q: Query<T>): Promise<string[]> {
     let result: string[] = [];
-    reg.addSystem(q.intoSystem((_, defs) => (result = ids(defs)))).run();
+    await reg.addSystem(q.intoSystem((_, defs) => (result = ids(defs)))).run();
     return result;
 }
 
 /** Adds a system to each schedule, runs them, and returns the schedules in the order they ran. */
-function runOrder(reg: Registry<string>, schedules: string[]): string[] {
+async function runOrder(reg: Registry<string>, schedules: string[]): Promise<string[]> {
     const order: string[] = [];
     for (const schedule of schedules) {
         reg.addSystem(schedule, () => order.push(schedule));
     }
-    reg.run();
+    await reg.run();
     return order;
 }
 
@@ -312,11 +313,11 @@ describe(Registry.name, () => {
             assert.equal(reg.isReferenced(ore), false);
         });
 
-        test("updates between systems that mutate definitions", () => {
+        test("updates between systems that mutate definitions", async () => {
             const ore = new OreFeature("ore");
             const rules = new FeatureRules("rules", { placesFeature: `${NS}:ore` });
             const seen: boolean[] = [];
-            new Registry(NS)
+            await new Registry(NS)
                 .add(ore, rules)
                 .addSystem(
                     (reg) => {
@@ -331,7 +332,7 @@ describe(Registry.name, () => {
     });
 
     describe("systems", () => {
-        test("run setup, then transform, then finalize, each in insertion order", () => {
+        test("run setup, then transform, then finalize, each in insertion order", async () => {
             const order: string[] = [];
             const push = (name: string) => () => order.push(name);
             const schedules = ["finalize", "transform", "setup"] as const;
@@ -339,7 +340,7 @@ describe(Registry.name, () => {
             for (const schedule of schedules) {
                 reg.addSystem(schedule, push(`${schedule} 1`), push(`${schedule} 2`));
             }
-            reg.run();
+            await reg.run();
             assert.deepEqual(order, [
                 "setup 1",
                 "setup 2",
@@ -350,9 +351,9 @@ describe(Registry.name, () => {
             ]);
         });
 
-        test("default to transform", () => {
+        test("default to transform", async () => {
             const order: string[] = [];
-            new Registry(NS)
+            await new Registry(NS)
                 .addSystem("finalize", () => order.push("finalize"))
                 .addSystem(() => order.push("default"))
                 .addSystem("setup", () => order.push("setup"))
@@ -360,18 +361,18 @@ describe(Registry.name, () => {
             assert.deepEqual(order, ["setup", "default", "finalize"]);
         });
 
-        test("see definitions added by earlier systems", () => {
+        test("see definitions added by earlier systems", async () => {
             let found: Block | undefined;
-            new Registry(NS)
+            await new Registry(NS)
                 .addSystem("setup", (reg) => reg.add(new Block("dirt")))
                 .addSystem((reg) => (found = reg.resolve(Block, "dirt")))
                 .run();
             assert.equal(found?.identifier, "dirt");
         });
 
-        test("receive the schedule they run on", () => {
+        test("receive the schedule they run on", async () => {
             const seen: string[] = [];
-            new Registry(NS)
+            await new Registry(NS)
                 .add(new Block("dirt"))
                 .addSystem("setup", (_, schedule) => seen.push(schedule))
                 .addSystem((_, schedule) => seen.push(schedule))
@@ -383,11 +384,23 @@ describe(Registry.name, () => {
             assert.deepEqual(seen, ["setup", "transform", "finalize"]);
         });
 
-        test("rerun on every run", () => {
+        test("wait for async systems before running the next", async () => {
+            const order: string[] = [];
+            await new Registry(NS)
+                .addSystem("setup", async () => {
+                    await delay(5);
+                    order.push("slow");
+                })
+                .addSystem("setup", () => order.push("next"))
+                .run();
+            assert.deepEqual(order, ["slow", "next"]);
+        });
+
+        test("rerun on every run", async () => {
             let count = 0;
             const reg = new Registry(NS).addSystem(() => count++);
-            reg.run();
-            reg.run();
+            await reg.run();
+            await reg.run();
             assert.equal(count, 2);
         });
 
@@ -399,17 +412,17 @@ describe(Registry.name, () => {
     });
 
     describe("schedules", () => {
-        test("run in the given order", () => {
+        test("run in the given order", async () => {
             const reg = new Registry(NS, { schedules: ["setup", "generate", "transform"] });
-            assert.deepEqual(runOrder(reg, ["transform", "generate", "setup"]), [
+            assert.deepEqual(await runOrder(reg, ["transform", "generate", "setup"]), [
                 "setup",
                 "generate",
                 "transform",
             ]);
         });
 
-        test("default to setup, transform and finalize", () => {
-            assert.deepEqual(runOrder(new Registry(NS), ["finalize", "transform", "setup"]), [
+        test("default to setup, transform and finalize", async () => {
+            assert.deepEqual(await runOrder(new Registry(NS), ["finalize", "transform", "setup"]), [
                 "setup",
                 "transform",
                 "finalize",
@@ -423,25 +436,28 @@ describe(Registry.name, () => {
             );
         });
 
-        test("ignore changes to the given list", () => {
+        test("ignore changes to the given list", async () => {
             const schedules = ["setup", "transform"];
             const reg = new Registry(NS, { schedules });
             schedules.push("finalize");
-            assert.throws(() => runOrder(reg, ["finalize"]), UnknownScheduleError);
+            await assert.rejects(runOrder(reg, ["finalize"]), UnknownScheduleError);
         });
 
-        test("run systems without a schedule on the default schedule", () => {
+        test("run systems without a schedule on the default schedule", async () => {
             const order: string[] = [];
-            new Registry(NS, { schedules: ["setup", "generate"], defaultSchedule: "generate" })
+            await new Registry(NS, {
+                schedules: ["setup", "generate"],
+                defaultSchedule: "generate",
+            })
                 .addSystem(() => order.push("default"))
                 .addSystem("setup", () => order.push("setup"))
                 .run();
             assert.deepEqual(order, ["setup", "default"]);
         });
 
-        test("take a default schedule from the defaults", () => {
+        test("take a default schedule from the defaults", async () => {
             const order: string[] = [];
-            new Registry(NS, { defaultSchedule: "finalize" })
+            await new Registry(NS, { defaultSchedule: "finalize" })
                 .addSystem(() => order.push("default"))
                 .addSystem("transform", () => order.push("transform"))
                 .run();
@@ -465,41 +481,41 @@ describe(Registry.name, () => {
 });
 
 describe(query.name, () => {
-    test("yields definitions of the given classes in registry order", () => {
+    test("yields definitions of the given classes in registry order", async () => {
         const reg = new Registry(NS).add(
             new FeatureRules("rules", { placesFeature: `${NS}:ore` }),
             new OreFeature("ore"),
             new Block("dirt"),
         );
-        assert.deepEqual(collect(reg, query(Block)), ["dirt"]);
-        assert.deepEqual(collect(reg, query(FeatureRules, Block)), ["dirt", "rules"]);
-        assert.deepEqual(collect(reg, query(Definition)), ["dirt", "ore", "rules"]);
+        assert.deepEqual(await collect(reg, query(Block)), ["dirt"]);
+        assert.deepEqual(await collect(reg, query(FeatureRules, Block)), ["dirt", "rules"]);
+        assert.deepEqual(await collect(reg, query(Definition)), ["dirt", "ore", "rules"]);
     });
 
-    test("matches subclasses", () => {
+    test("matches subclasses", async () => {
         const reg = new Registry(NS).add(
             new OreFeature("ore"),
             new ScatterFeature("scatter", { placesFeature: `${NS}:ore` }),
         );
-        assert.deepEqual(collect(reg, query(Feature)), ["ore", "scatter"]);
-        assert.deepEqual(collect(reg, query(ScatterFeature)), ["scatter"]);
+        assert.deepEqual(await collect(reg, query(Feature)), ["ore", "scatter"]);
+        assert.deepEqual(await collect(reg, query(ScatterFeature)), ["scatter"]);
     });
 
     describe("intoSystem()", () => {
-        test("skips the callback when nothing matches", () => {
+        test("skips the callback when nothing matches", async () => {
             let calls = 0;
-            new Registry(NS)
+            await new Registry(NS)
                 .add(new OreFeature("ore"))
                 .addSystem(query(Block).intoSystem(() => calls++))
                 .run();
             assert.equal(calls, 0);
         });
 
-        test("rechecks the first match when the callback reads it", () => {
+        test("rechecks the first match when the callback reads it", async () => {
             const a = new OreFeature("a");
             const b = new OreFeature("b");
             let orphans: string[] = [];
-            new Registry(NS)
+            await new Registry(NS)
                 .add(a, b)
                 .addSystem(
                     query(Feature)
@@ -516,10 +532,10 @@ describe(query.name, () => {
             assert.deepEqual(orphans, []);
         });
 
-        test("drops the first match if the callback removes it", () => {
+        test("drops the first match if the callback removes it", async () => {
             const a = new OreFeature("a");
             let features: string[] = [];
-            new Registry(NS)
+            await new Registry(NS)
                 .add(a, new OreFeature("b"))
                 .addSystem(
                     query(Feature).intoSystem((reg, defs) => {
@@ -531,29 +547,31 @@ describe(query.name, () => {
             assert.deepEqual(features, ["b"]);
         });
 
-        test("allows removing definitions while iterating", () => {
+        test("allows removing definitions while iterating", async () => {
             const reg = new Registry(NS).add(new Block("a"), new Block("b"), new Block("c"));
-            reg.addSystem(
-                query(Block).intoSystem((r, blocks) => {
-                    for (const block of blocks) r.remove(block);
-                }),
-            ).run();
+            await reg
+                .addSystem(
+                    query(Block).intoSystem((r, blocks) => {
+                        for (const block of blocks) r.remove(block);
+                    }),
+                )
+                .run();
             assert.deepEqual([...reg.all()], []);
         });
     });
 
     describe("filters", () => {
-        test("filter() returns a new query", () => {
+        test("filter() returns a new query", async () => {
             const reg = new Registry(NS).add(new Block("dirt"), new Block("stone"));
             const base = query(Block);
             const dirt = base.filter((block) => block.identifier === "dirt");
             const none = dirt.filter((block) => block.identifier === "stone");
-            assert.deepEqual(collect(reg, base), ["dirt", "stone"]);
-            assert.deepEqual(collect(reg, dirt), ["dirt"]);
-            assert.deepEqual(collect(reg, none), []);
+            assert.deepEqual(await collect(reg, base), ["dirt", "stone"]);
+            assert.deepEqual(await collect(reg, dirt), ["dirt"]);
+            assert.deepEqual(await collect(reg, none), []);
         });
 
-        test("orphan()", () => {
+        test("orphan()", async () => {
             const reg = new Registry(NS).add(
                 new FeatureRules("rules", {
                     placesFeature: new ScatterFeature("scatter", {
@@ -562,12 +580,12 @@ describe(query.name, () => {
                 }),
                 new OreFeature("unused"),
             );
-            assert.deepEqual(collect(reg, query(Feature).orphan()), ["unused"]);
-            assert.deepEqual(collect(reg, query(Definition).orphan()), ["unused", "rules"]);
+            assert.deepEqual(await collect(reg, query(Feature).orphan()), ["unused"]);
+            assert.deepEqual(await collect(reg, query(Definition).orphan()), ["unused", "rules"]);
         });
 
         describe("withComponent() and withoutComponent()", () => {
-            test("match blocks by their components", () => {
+            test("match blocks by their components", async () => {
                 const plain = new Block("plain");
                 const slippery = new Block("slippery");
                 slippery.components.set(new FrictionBlockComponent(0.1));
@@ -579,23 +597,23 @@ describe(query.name, () => {
                 const reg = new Registry(NS).add(plain, slippery, glowing);
 
                 const blocks = query(Block);
-                assert.deepEqual(collect(reg, blocks.withComponent(FrictionBlockComponent)), [
+                assert.deepEqual(await collect(reg, blocks.withComponent(FrictionBlockComponent)), [
                     "slippery",
                     "glowing",
                 ]);
                 assert.deepEqual(
-                    collect(
+                    await collect(
                         reg,
                         blocks.withComponent(FrictionBlockComponent, LightEmissionBlockComponent),
                     ),
                     ["glowing"],
                 );
                 assert.deepEqual(
-                    collect(reg, blocks.withoutComponent(LightEmissionBlockComponent)),
+                    await collect(reg, blocks.withoutComponent(LightEmissionBlockComponent)),
                     ["plain", "slippery"],
                 );
                 assert.deepEqual(
-                    collect(
+                    await collect(
                         reg,
                         blocks.withoutComponent(
                             FrictionBlockComponent,
@@ -606,7 +624,7 @@ describe(query.name, () => {
                 );
             });
 
-            test("only filter blocks", () => {
+            test("only filter blocks", async () => {
                 const slippery = new Block("slippery");
                 slippery.components.set(new FrictionBlockComponent(0.1));
                 const reg = new Registry(NS).add(
@@ -616,19 +634,19 @@ describe(query.name, () => {
                 );
 
                 const defs = query(Definition);
-                assert.deepEqual(collect(reg, defs.withComponent(FrictionBlockComponent)), [
+                assert.deepEqual(await collect(reg, defs.withComponent(FrictionBlockComponent)), [
                     "slippery",
                     "ore",
                 ]);
-                assert.deepEqual(collect(reg, defs.withoutComponent(FrictionBlockComponent)), [
-                    "plain",
-                    "ore",
-                ]);
+                assert.deepEqual(
+                    await collect(reg, defs.withoutComponent(FrictionBlockComponent)),
+                    ["plain", "ore"],
+                );
             });
         });
 
         describe("placing()", () => {
-            test("on features", () => {
+            test("on features", async () => {
                 const dirt = new Block("dirt");
                 const reg = new Registry(NS).add(
                     dirt,
@@ -637,27 +655,27 @@ describe(query.name, () => {
                     new ScatterFeature("scatter", { placesFeature: `${NS}:dirt_ore` }),
                 );
                 const features = query(Feature);
-                assert.deepEqual(collect(reg, features.placing(dirt)), ["dirt_ore"]);
-                assert.deepEqual(collect(reg, features.placing("minecraft:stone")), [
+                assert.deepEqual(await collect(reg, features.placing(dirt)), ["dirt_ore"]);
+                assert.deepEqual(await collect(reg, features.placing("minecraft:stone")), [
                     "vanilla_ore",
                 ]);
-                assert.deepEqual(collect(reg, features.placing(Block)), ["dirt_ore"]);
-                assert.deepEqual(collect(reg, features.placing(OreFeature)), ["scatter"]);
+                assert.deepEqual(await collect(reg, features.placing(Block)), ["dirt_ore"]);
+                assert.deepEqual(await collect(reg, features.placing(OreFeature)), ["scatter"]);
             });
 
-            test("on feature rules", () => {
+            test("on feature rules", async () => {
                 const ore = new OreFeature("ore");
                 const reg = new Registry(NS).add(
                     new FeatureRules("ore_rules", { placesFeature: ore }),
                     new FeatureRules("vanilla_rules", { placesFeature: "minecraft:ore" }),
                 );
                 const rules = query(FeatureRules);
-                assert.deepEqual(collect(reg, rules.placing(ore)), ["ore_rules"]);
-                assert.deepEqual(collect(reg, rules.placing(`${NS}:ore`)), ["ore_rules"]);
-                assert.deepEqual(collect(reg, rules.placing(OreFeature)), ["ore_rules"]);
+                assert.deepEqual(await collect(reg, rules.placing(ore)), ["ore_rules"]);
+                assert.deepEqual(await collect(reg, rules.placing(`${NS}:ore`)), ["ore_rules"]);
+                assert.deepEqual(await collect(reg, rules.placing(OreFeature)), ["ore_rules"]);
             });
 
-            test("only filters features and feature rules", () => {
+            test("only filters features and feature rules", async () => {
                 const ore = new OreFeature("ore");
                 const reg = new Registry(NS).add(
                     new Block("dirt"),
@@ -665,7 +683,7 @@ describe(query.name, () => {
                     new ScatterFeature("elsewhere", { placesFeature: `${NS}:elsewhere` }),
                     new FeatureRules("rules", { placesFeature: ore }),
                 );
-                assert.deepEqual(collect(reg, query(Definition).placing(ore)), [
+                assert.deepEqual(await collect(reg, query(Definition).placing(ore)), [
                     "dirt",
                     "scatter",
                     "rules",
@@ -686,7 +704,7 @@ describe(query.name, () => {
             });
         });
 
-        test("kind filters can be mixed", () => {
+        test("kind filters can be mixed", async () => {
             const geometry = new Block("geometry");
             geometry.components.set(new GeometryBlockComponent("minecraft:geometry.full_block"));
             const reg = new Registry(NS).add(
@@ -698,7 +716,7 @@ describe(query.name, () => {
             const mixed = query(ScatterFeature, Block)
                 .placing(`${NS}:ore`)
                 .withComponent(GeometryBlockComponent);
-            assert.deepEqual(collect(reg, mixed), ["geometry", "scatter"]);
+            assert.deepEqual(await collect(reg, mixed), ["geometry", "scatter"]);
         });
 
         test("only exposes the filters for the kinds a query could yield", () => {

@@ -45,7 +45,7 @@ export interface RegistryOptions<S extends string, D extends S = never> {
  *             .orphan()
  *             .intoSystem((reg, features) => reg.remove(...features)),
  *     );
- *     reg.run();
+ *     await reg.run();
  */
 export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D extends S = never> {
     /** The namespace of this registry's definitions, e.g. `example` in `example:dirt`. */
@@ -168,14 +168,19 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
         return this;
     }
 
-    /** Runs every system, schedule by schedule, in the order they were added. */
-    run(): void {
+    /**
+     * Runs every system, schedule by schedule, in the order they were added. Each system finishes,
+     * including any promise it returns, before the next one starts.
+     */
+    async run(): Promise<void> {
         for (const schedule of this.#schedules) {
             for (const system of this.#systems.get(schedule) ?? []) {
                 // A system may change what references what, so drop the cached references
                 // before each one and rebuild them on demand.
                 this.#referenced = undefined;
-                system(this, schedule);
+                // Systems run one at a time, since each may depend on what earlier ones changed.
+                // oxlint-disable-next-line no-await-in-loop
+                await system(this, schedule);
             }
         }
     }
@@ -248,15 +253,18 @@ function validateIdentifier(value: string): boolean {
 /** Whether a query keeps `def`. */
 export type Filter<T extends Definition = Definition> = (def: T, reg: Registry<string>) => boolean;
 
-/** A function that {@link Registry.run()} calls. */
-export type System = (reg: Registry<string>, schedule: string) => void;
+/**
+ * A function that {@link Registry.run()} calls. If it returns a promise, the run waits for it before
+ * starting the next system. Any other return value is ignored.
+ */
+export type System = (reg: Registry<string>, schedule: string) => unknown;
 
 /** A system that receives the definitions its query matched. */
 export type SystemCallback<T extends Definition> = (
     reg: Registry<string>,
     defs: Generator<T, void, unknown>,
     schedule: string,
-) => void;
+) => unknown;
 
 /** Whether a query over `T` could yield a `K`: some member of `T` is a `K`, or `K` extends `T`. */
 type Overlaps<T, K> = [Extract<T, K>] extends [never] ? (K extends T ? true : false) : true;
@@ -374,8 +382,8 @@ class QueryImpl {
         return (reg, schedule) => {
             const defs = this.#run(reg);
             const first = defs.next();
-            if (first.done) return;
-            callback(reg, this.#withFirst(reg, first.value, defs), schedule);
+            if (first.done) return undefined;
+            return callback(reg, this.#withFirst(reg, first.value, defs), schedule);
         };
     }
 
