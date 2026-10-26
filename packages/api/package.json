@@ -18,12 +18,14 @@
     ],
     "type": "module",
     "imports": {
+        "#package.json": "./package.json",
         "#/*": "./src/*.ts"
     },
     "exports": {
         "./block": "./dist/block/index.mjs",
         "./core": "./dist/core/index.mjs",
         "./feature": "./dist/feature/index.mjs",
+        "./manifest": "./dist/manifest/index.mjs",
         "./primitive": "./dist/primitive/index.mjs",
         "./registry": "./dist/registry.mjs",
         "./serialize": "./dist/serialize.mjs",

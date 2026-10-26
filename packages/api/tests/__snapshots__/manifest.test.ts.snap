@@ -1,0 +1,724 @@
+exports[`DataModule > can set its own uuid, version and description 1`] = `
+{
+  "format_version": 3,
+  "header": {
+    "name": "test BP",
+    "uuid": "293b30c7-f6b1-4ab8-8990-3cb047c030c3",
+    "version": "1.0.0",
+    "min_engine_version": "1.26.50"
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "aae5d295-37dc-4709-8b9b-1605be17a40b",
+      "version": "2.0.0",
+      "description": "Logic"
+    }
+  ],
+  "metadata": {
+    "authors": [
+      "test"
+    ],
+    "generated_with": {
+      "bedfox": [
+        "1.0.0"
+      ]
+    }
+  }
+}
+`;
+
+exports[`Manifest > authors() > adds to the constructor's 1`] = `
+{
+  "format_version": 3,
+  "header": {
+    "name": "test BP",
+    "uuid": "bcd6188d-467b-56e7-a79d-1cfd2dca7dc2",
+    "version": "1.0.0",
+    "min_engine_version": "1.26.50"
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "820c330d-fc15-5a5c-a3d6-a84a35ccd916",
+      "version": "1.0.0"
+    }
+  ],
+  "metadata": {
+    "authors": [
+      "test",
+      "other"
+    ],
+    "generated_with": {
+      "bedfox": [
+        "1.0.0"
+      ]
+    }
+  }
+}
+`;
+
+exports[`Manifest > dependsOn() > ignores the same pack twice 1`] = `
+{
+  "format_version": 3,
+  "header": {
+    "name": "test BP",
+    "uuid": "bcd6188d-467b-56e7-a79d-1cfd2dca7dc2",
+    "version": "1.0.0",
+    "min_engine_version": "1.26.50"
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "820c330d-fc15-5a5c-a3d6-a84a35ccd916",
+      "version": "1.0.0"
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "220a205f-0cf8-57cd-8ca3-b3a714e93a44",
+      "version": "1.0.0"
+    }
+  ],
+  "metadata": {
+    "authors": [
+      "test"
+    ],
+    "generated_with": {
+      "bedfox": [
+        "1.0.0"
+      ]
+    }
+  }
+}
+`;
+
+exports[`Manifest > dependsOn() > reads the pack's uuid and version when serialized 1`] = `
+{
+  "format_version": 3,
+  "header": {
+    "name": "test BP",
+    "uuid": "bcd6188d-467b-56e7-a79d-1cfd2dca7dc2",
+    "version": "1.0.0",
+    "min_engine_version": "1.26.50"
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "820c330d-fc15-5a5c-a3d6-a84a35ccd916",
+      "version": "1.0.0"
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "e9632745-30e8-4cf4-a8d8-5ad2f44605ea",
+      "version": "2.0.0"
+    }
+  ],
+  "metadata": {
+    "authors": [
+      "test"
+    ],
+    "generated_with": {
+      "bedfox": [
+        "1.0.0"
+      ]
+    }
+  }
+}
+`;
+
+exports[`Manifest > full 1`] = `
+{
+  "format_version": 3,
+  "header": {
+    "name": "Test BP",
+    "description": "Everything at once",
+    "uuid": "293b30c7-f6b1-4ab8-8990-3cb047c030c3",
+    "version": "1.2.3-beta.1",
+    "min_engine_version": "1.26.50",
+    "pack_scope": "world"
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "aae5d295-37dc-4709-8b9b-1605be17a40b",
+      "version": "1.2.3-beta.1"
+    },
+    {
+      "type": "script",
+      "uuid": "92acdfd8-3470-5771-aafc-2f87a23ecc79",
+      "version": "1.2.3-beta.1",
+      "language": "javascript",
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "220a205f-0cf8-57cd-8ca3-b3a714e93a44",
+      "version": "2.0.0"
+    },
+    {
+      "module_name": "@minecraft/server",
+      "version": "2.1.0"
+    },
+    {
+      "module_name": "@minecraft/server-ui",
+      "version": "beta",
+      "optional": true
+    }
+  ],
+  "settings": [
+    {
+      "type": "toggle",
+      "name": "test:enabled",
+      "text": "Enabled",
+      "default": true
+    }
+  ],
+  "subpacks": [
+    {
+      "name": "HD",
+      "folder_name": "hd",
+      "memory_performance_tier": 3
+    }
+  ],
+  "capabilities": [
+    "editorExtension"
+  ],
+  "metadata": {
+    "authors": [
+      "arexon"
+    ],
+    "url": "https://github.com/arexon/bedfox",
+    "license": "Apache-2.0",
+    "product_type": "addon",
+    "generated_with": {
+      "bedfox": [
+        "1.0.0"
+      ],
+      "mctools": [
+        "0.12.0"
+      ]
+    }
+  }
+}
+`;
+
+exports[`Manifest > generatedWith() > can't replace bedfox's own entry 1`] = `
+{
+  "format_version": 3,
+  "header": {
+    "name": "test BP",
+    "uuid": "bcd6188d-467b-56e7-a79d-1cfd2dca7dc2",
+    "version": "1.0.0",
+    "min_engine_version": "1.26.50"
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "820c330d-fc15-5a5c-a3d6-a84a35ccd916",
+      "version": "1.0.0"
+    }
+  ],
+  "metadata": {
+    "authors": [
+      "test"
+    ],
+    "generated_with": {
+      "bedfox": [
+        "1.0.0"
+      ]
+    }
+  }
+}
+`;
+
+exports[`Manifest > generatedWith() > keeps tool names as written 1`] = `
+{
+  "format_version": 3,
+  "header": {
+    "name": "test BP",
+    "uuid": "bcd6188d-467b-56e7-a79d-1cfd2dca7dc2",
+    "version": "1.0.0",
+    "min_engine_version": "1.26.50"
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "820c330d-fc15-5a5c-a3d6-a84a35ccd916",
+      "version": "1.0.0"
+    }
+  ],
+  "metadata": {
+    "authors": [
+      "test"
+    ],
+    "generated_with": {
+      "bedfox": [
+        "1.0.0"
+      ],
+      "myTool": [
+        "1"
+      ]
+    }
+  }
+}
+`;
+
+exports[`Manifest > module() > ignores a module added twice 1`] = `
+{
+  "format_version": 3,
+  "header": {
+    "name": "test BP",
+    "uuid": "bcd6188d-467b-56e7-a79d-1cfd2dca7dc2",
+    "version": "1.0.0",
+    "min_engine_version": "1.26.50"
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "820c330d-fc15-5a5c-a3d6-a84a35ccd916",
+      "version": "1.0.0"
+    }
+  ],
+  "metadata": {
+    "authors": [
+      "test"
+    ],
+    "generated_with": {
+      "bedfox": [
+        "1.0.0"
+      ]
+    }
+  }
+}
+`;
+
+exports[`Manifest > setting() > default sliders to steps of 1 from min, and dropdowns to their first option 1`] = `
+{
+  "format_version": 3,
+  "header": {
+    "name": "test BP",
+    "uuid": "bcd6188d-467b-56e7-a79d-1cfd2dca7dc2",
+    "version": "1.0.0",
+    "min_engine_version": "1.26.50"
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "820c330d-fc15-5a5c-a3d6-a84a35ccd916",
+      "version": "1.0.0"
+    }
+  ],
+  "settings": [
+    {
+      "type": "slider",
+      "name": "test:power",
+      "text": "Power",
+      "min": 2,
+      "max": 8,
+      "step": 1,
+      "default": 2
+    },
+    {
+      "type": "dropdown",
+      "name": "test:level",
+      "text": "Level",
+      "options": [
+        {
+          "name": "low",
+          "text": "Low"
+        },
+        {
+          "name": "high",
+          "text": "High"
+        }
+      ],
+      "default": "low"
+    }
+  ],
+  "metadata": {
+    "authors": [
+      "test"
+    ],
+    "generated_with": {
+      "bedfox": [
+        "1.0.0"
+      ]
+    }
+  }
+}
+`;
+
+exports[`Manifest > setting() > default toggles to off and multiselects to nothing 1`] = `
+{
+  "format_version": 3,
+  "header": {
+    "name": "test BP",
+    "uuid": "bcd6188d-467b-56e7-a79d-1cfd2dca7dc2",
+    "version": "1.0.0",
+    "min_engine_version": "1.26.50"
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "820c330d-fc15-5a5c-a3d6-a84a35ccd916",
+      "version": "1.0.0"
+    }
+  ],
+  "settings": [
+    {
+      "type": "toggle",
+      "name": "test:on",
+      "text": "On",
+      "default": false
+    },
+    {
+      "type": "multiselect",
+      "name": "test:extras",
+      "text": "Extras",
+      "options": [
+        {
+          "name": "low",
+          "text": "Low"
+        },
+        {
+          "name": "high",
+          "text": "High"
+        }
+      ],
+      "defaults": []
+    }
+  ],
+  "metadata": {
+    "authors": [
+      "test"
+    ],
+    "generated_with": {
+      "bedfox": [
+        "1.0.0"
+      ]
+    }
+  }
+}
+`;
+
+exports[`Manifest > setting() > every kind 1`] = `
+{
+  "format_version": 3,
+  "header": {
+    "name": "test BP",
+    "uuid": "bcd6188d-467b-56e7-a79d-1cfd2dca7dc2",
+    "version": "1.0.0",
+    "min_engine_version": "1.26.50"
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "820c330d-fc15-5a5c-a3d6-a84a35ccd916",
+      "version": "1.0.0"
+    }
+  ],
+  "settings": [
+    {
+      "type": "label",
+      "text": "Tune it"
+    },
+    {
+      "type": "toggle",
+      "name": "test:enabled",
+      "text": "Enabled",
+      "default": true
+    },
+    {
+      "type": "slider",
+      "name": "test:power",
+      "text": "Power",
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "default": 3
+    },
+    {
+      "type": "dropdown",
+      "name": "test:level",
+      "text": "Level",
+      "options": [
+        {
+          "name": "low",
+          "text": "Low"
+        },
+        {
+          "name": "high",
+          "text": "High"
+        }
+      ],
+      "default": "high"
+    },
+    {
+      "type": "multiselect",
+      "name": "test:extras",
+      "text": "Extras",
+      "options": [
+        {
+          "name": "low",
+          "text": "Low"
+        },
+        {
+          "name": "high",
+          "text": "High"
+        }
+      ],
+      "defaults": [
+        "low"
+      ],
+      "selection_text": "Extras picked"
+    }
+  ],
+  "metadata": {
+    "authors": [
+      "test"
+    ],
+    "generated_with": {
+      "bedfox": [
+        "1.0.0"
+      ]
+    }
+  }
+}
+`;
+
+exports[`Manifest > setting() > ignores a setting added twice 1`] = `
+{
+  "format_version": 3,
+  "header": {
+    "name": "test BP",
+    "uuid": "bcd6188d-467b-56e7-a79d-1cfd2dca7dc2",
+    "version": "1.0.0",
+    "min_engine_version": "1.26.50"
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "820c330d-fc15-5a5c-a3d6-a84a35ccd916",
+      "version": "1.0.0"
+    }
+  ],
+  "settings": [
+    {
+      "type": "label",
+      "text": "once"
+    }
+  ],
+  "metadata": {
+    "authors": [
+      "test"
+    ],
+    "generated_with": {
+      "bedfox": [
+        "1.0.0"
+      ]
+    }
+  }
+}
+`;
+
+exports[`Manifest > setting() > keep their order across calls 1`] = `
+{
+  "format_version": 3,
+  "header": {
+    "name": "test BP",
+    "uuid": "bcd6188d-467b-56e7-a79d-1cfd2dca7dc2",
+    "version": "1.0.0",
+    "min_engine_version": "1.26.50"
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "820c330d-fc15-5a5c-a3d6-a84a35ccd916",
+      "version": "1.0.0"
+    }
+  ],
+  "settings": [
+    {
+      "type": "label",
+      "text": "first"
+    },
+    {
+      "type": "label",
+      "text": "second"
+    }
+  ],
+  "metadata": {
+    "authors": [
+      "test"
+    ],
+    "generated_with": {
+      "bedfox": [
+        "1.0.0"
+      ]
+    }
+  }
+}
+`;
+
+exports[`Manifest > toJSON() > derives what isn't set from the namespace 1`] = `
+{
+  "format_version": 3,
+  "header": {
+    "name": "test RP",
+    "uuid": "220a205f-0cf8-57cd-8ca3-b3a714e93a44",
+    "version": "1.0.0",
+    "min_engine_version": "1.26.50"
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "804ee873-8c54-5f00-9f8a-96b855a22a24",
+      "version": "1.0.0"
+    }
+  ],
+  "metadata": {
+    "authors": [
+      "test"
+    ],
+    "generated_with": {
+      "bedfox": [
+        "1.0.0"
+      ]
+    }
+  }
+}
+`;
+
+exports[`ScriptModule > dependsOn() > is written in the manifest's dependencies, after packs and once per module 1`] = `
+{
+  "format_version": 3,
+  "header": {
+    "name": "test BP",
+    "uuid": "bcd6188d-467b-56e7-a79d-1cfd2dca7dc2",
+    "version": "1.0.0",
+    "min_engine_version": "1.26.50"
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "820c330d-fc15-5a5c-a3d6-a84a35ccd916",
+      "version": "1.0.0"
+    },
+    {
+      "type": "script",
+      "uuid": "067980a3-862d-5143-a529-bdb966673bc6",
+      "version": "1.0.0",
+      "language": "javascript",
+      "entry": "a.js"
+    },
+    {
+      "type": "script",
+      "uuid": "f4a291db-b71f-509e-9825-96d3738a266f",
+      "version": "1.0.0",
+      "language": "javascript",
+      "entry": "b.js"
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "220a205f-0cf8-57cd-8ca3-b3a714e93a44",
+      "version": "1.0.0"
+    },
+    {
+      "module_name": "@minecraft/server",
+      "version": "2.1.0"
+    }
+  ],
+  "metadata": {
+    "authors": [
+      "test"
+    ],
+    "generated_with": {
+      "bedfox": [
+        "1.0.0"
+      ]
+    }
+  }
+}
+`;
+
+exports[`ScriptModule > dependsOn() > replaces the version of a module depended on again 1`] = `
+{
+  "format_version": 3,
+  "header": {
+    "name": "test BP",
+    "uuid": "bcd6188d-467b-56e7-a79d-1cfd2dca7dc2",
+    "version": "1.0.0",
+    "min_engine_version": "1.26.50"
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "820c330d-fc15-5a5c-a3d6-a84a35ccd916",
+      "version": "1.0.0"
+    },
+    {
+      "type": "script",
+      "uuid": "607dee5f-8e9d-5a88-959f-9aeb03e91950",
+      "version": "1.0.0",
+      "language": "javascript",
+      "entry": "main.js"
+    }
+  ],
+  "dependencies": [
+    {
+      "module_name": "@minecraft/server",
+      "version": "2.1.0"
+    }
+  ],
+  "metadata": {
+    "authors": [
+      "test"
+    ],
+    "generated_with": {
+      "bedfox": [
+        "1.0.0"
+      ]
+    }
+  }
+}
+`;
+
+exports[`ScriptModule > derives its uuid from the header uuid and its entry 1`] = `
+{
+  "format_version": 3,
+  "header": {
+    "name": "test BP",
+    "uuid": "bcd6188d-467b-56e7-a79d-1cfd2dca7dc2",
+    "version": "1.0.0",
+    "min_engine_version": "1.26.50"
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "820c330d-fc15-5a5c-a3d6-a84a35ccd916",
+      "version": "1.0.0"
+    },
+    {
+      "type": "script",
+      "uuid": "607dee5f-8e9d-5a88-959f-9aeb03e91950",
+      "version": "1.0.0",
+      "language": "javascript",
+      "entry": "main.js"
+    }
+  ],
+  "metadata": {
+    "authors": [
+      "test"
+    ],
+    "generated_with": {
+      "bedfox": [
+        "1.0.0"
+      ]
+    }
+  }
+}
+`;

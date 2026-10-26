@@ -10,6 +10,7 @@ import {
 } from "#/block/index";
 import { Definition } from "#/core/index";
 import { Feature, FeatureRules, OreFeature, ScatterFeature } from "#/feature/index";
+import { ScriptModule } from "#/manifest/index";
 import { FormatVersion } from "#/primitive/index";
 import {
     DuplicateDefinitionIdError,
@@ -25,6 +26,8 @@ import {
 import { toReference } from "#/serialize";
 
 const NS = "test";
+
+const OPTIONS = { namespace: NS } as const;
 
 class Unregistrable extends Definition.of("test:unregistrable", new FormatVersion(1, 0, 0)) {
     override identifier = "unregistrable";
@@ -53,7 +56,7 @@ async function runOrder(reg: Registry<string>, schedules: string[]): Promise<str
 describe(Registry.name, () => {
     describe("add()", () => {
         test("registers definitions and chains", () => {
-            const reg = new Registry(NS);
+            const reg = new Registry(OPTIONS);
             const block = new Block("dirt");
             assert.equal(reg.add(block), reg);
             assert.deepEqual([...reg.all()], [block]);
@@ -61,17 +64,17 @@ describe(Registry.name, () => {
 
         test("ignores the same instance added twice", () => {
             const block = new Block("dirt");
-            const reg = new Registry(NS).add(block).add(block);
+            const reg = new Registry(OPTIONS).add(block).add(block);
             assert.deepEqual([...reg.all()], [block]);
         });
 
         test("rejects another instance with the same identifier", () => {
-            const reg = new Registry(NS).add(new Block("dirt"));
+            const reg = new Registry(OPTIONS).add(new Block("dirt"));
             assert.throws(() => reg.add(new Block("dirt")), DuplicateDefinitionIdError);
         });
 
         test("allows the same identifier across kinds", () => {
-            const reg = new Registry(NS).add(
+            const reg = new Registry(OPTIONS).add(
                 new Block("thing"),
                 new OreFeature("thing"),
                 new FeatureRules("thing", { placesFeature: `${NS}:thing` }),
@@ -80,12 +83,12 @@ describe(Registry.name, () => {
         });
 
         test("rejects invalid identifiers", () => {
-            const reg = new Registry(NS);
+            const reg = new Registry(OPTIONS);
             assert.throws(() => reg.add(new Block(`${NS}:dirt`)), InvalidIdentifierError);
         });
 
         test("rejects unknown definition kinds", () => {
-            const reg = new Registry(NS);
+            const reg = new Registry(OPTIONS);
             assert.throws(() => reg.add(new Unregistrable()), UnknownDefinitionError);
         });
 
@@ -93,12 +96,12 @@ describe(Registry.name, () => {
             const ore = new OreFeature("ore");
             const scatter = new ScatterFeature("scatter", { placesFeature: ore });
             const rules = new FeatureRules("rules", { placesFeature: scatter });
-            const reg = new Registry(NS).add(rules);
+            const reg = new Registry(OPTIONS).add(rules);
             assert.deepEqual(ids(reg.all()), ["ore", "scatter", "rules"]);
         });
 
         test("does not register string references", () => {
-            const reg = new Registry(NS).add(
+            const reg = new Registry(OPTIONS).add(
                 new ScatterFeature("scatter", { placesFeature: `${NS}:ore` }),
             );
             assert.deepEqual(ids(reg.all()), ["scatter"]);
@@ -109,13 +112,13 @@ describe(Registry.name, () => {
         test("unregisters definitions", () => {
             const dirt = new Block("dirt");
             const stone = new Block("stone");
-            const reg = new Registry(NS).add(dirt, stone);
+            const reg = new Registry(OPTIONS).add(dirt, stone);
             reg.remove(dirt);
             assert.deepEqual([...reg.all()], [stone]);
         });
 
         test("frees the identifier for another instance", () => {
-            const reg = new Registry(NS);
+            const reg = new Registry(OPTIONS);
             const old = new Block("dirt");
             reg.add(old).remove(old);
             assert.doesNotThrow(() => reg.add(new Block("dirt")));
@@ -123,7 +126,7 @@ describe(Registry.name, () => {
 
         test("ignores another instance with the same identifier", () => {
             const dirt = new Block("dirt");
-            const reg = new Registry(NS).add(dirt);
+            const reg = new Registry(OPTIONS).add(dirt);
             reg.remove(new Block("dirt"));
             assert.deepEqual([...reg.all()], [dirt]);
         });
@@ -132,7 +135,7 @@ describe(Registry.name, () => {
     describe("namespaces", () => {
         test("qualify registered definitions", () => {
             const dirt = new Block("dirt");
-            new Registry(NS).add(dirt);
+            new Registry(OPTIONS).add(dirt);
             assert.equal(dirt.qualifiedIdentifier, `${NS}:dirt`);
             assert.equal(
                 JSON.stringify(dirt),
@@ -142,7 +145,7 @@ describe(Registry.name, () => {
 
         test("qualify references to instances registered through them", () => {
             const ore = new OreFeature("ore");
-            new Registry(NS).add(new ScatterFeature("scatter", { placesFeature: ore }));
+            new Registry(OPTIONS).add(new ScatterFeature("scatter", { placesFeature: ore }));
             const scatter = new ScatterFeature("other", { placesFeature: ore });
             assert.equal(ore.qualifiedIdentifier, `${NS}:ore`);
             assert.equal(
@@ -153,7 +156,7 @@ describe(Registry.name, () => {
 
         test("leave string references as written", () => {
             const scatter = new ScatterFeature("scatter", { placesFeature: "other:ore" });
-            new Registry(NS).add(scatter);
+            new Registry(OPTIONS).add(scatter);
             assert.equal(
                 JSON.stringify(scatter),
                 `{"format_version":"1.26.50","minecraft:scatter_feature":{"description":{"identifier":"${NS}:scatter"},"places_feature":"other:ore"}}`,
@@ -168,36 +171,53 @@ describe(Registry.name, () => {
 
         test("reject a definition registered under another namespace", () => {
             const dirt = new Block("dirt");
-            new Registry(NS).add(dirt);
-            assert.throws(() => new Registry("other").add(dirt), NamespaceConflictError);
+            new Registry(OPTIONS).add(dirt);
+            assert.throws(
+                () => new Registry({ ...OPTIONS, namespace: "other" }).add(dirt),
+                NamespaceConflictError,
+            );
         });
 
         test("accept the same namespace from another registry", () => {
             const dirt = new Block("dirt");
-            new Registry(NS).add(dirt);
-            assert.doesNotThrow(() => new Registry(NS).add(dirt));
+            new Registry(OPTIONS).add(dirt);
+            assert.doesNotThrow(() => new Registry(OPTIONS).add(dirt));
         });
 
         test("are cleared by remove()", () => {
             const dirt = new Block("dirt");
-            new Registry(NS).add(dirt).remove(dirt);
+            new Registry(OPTIONS).add(dirt).remove(dirt);
             assert.equal(dirt.qualifiedIdentifier, "dirt");
-            assert.doesNotThrow(() => new Registry("other").add(dirt));
+            assert.doesNotThrow(() => new Registry({ ...OPTIONS, namespace: "other" }).add(dirt));
         });
 
         test("stay when remove() ignores another instance", () => {
             const dirt = new Block("dirt");
-            const reg = new Registry(NS).add(dirt);
+            const reg = new Registry(OPTIONS).add(dirt);
             const other = new Block("dirt");
-            new Registry("other").add(other);
+            new Registry({ ...OPTIONS, namespace: "other" }).add(other);
             reg.remove(other);
             assert.equal(other.qualifiedIdentifier, "other:dirt");
         });
     });
 
+    describe("manifests", () => {
+        test("are derived from the namespace", (t) => {
+            t.assert.snapshot(new Registry(OPTIONS).manifests);
+        });
+
+        test("can be edited by systems", async (t) => {
+            const reg = new Registry(OPTIONS).addSystem((reg) =>
+                reg.manifests.bp.module(new ScriptModule("scripts/main.js")),
+            );
+            await reg.run();
+            t.assert.snapshot(reg.manifests.bp);
+        });
+    });
+
     describe("all()", () => {
         test("yields blocks, then features, then feature rules, each in insertion order", () => {
-            const reg = new Registry(NS).add(
+            const reg = new Registry(OPTIONS).add(
                 new FeatureRules("rules", { placesFeature: `${NS}:b_ore` }),
                 new OreFeature("b_ore"),
                 new Block("b_block"),
@@ -211,7 +231,7 @@ describe(Registry.name, () => {
     describe("resolve()", () => {
         const dirt = new Block("dirt");
         const ore = new OreFeature("ore");
-        const reg = new Registry(NS).add(dirt, ore);
+        const reg = new Registry(OPTIONS).add(dirt, ore);
 
         test("finds a definition by class and identifier", () => {
             assert.equal(reg.resolve(Block, "dirt"), dirt);
@@ -239,7 +259,7 @@ describe(Registry.name, () => {
 
     describe("matches()", () => {
         const dirt = new Block("dirt");
-        const reg = new Registry(NS).add(dirt);
+        const reg = new Registry(OPTIONS).add(dirt);
 
         test("compares identifiers ignoring this registry's namespace", () => {
             assert.ok(reg.matches({ kind: Block, target: `${NS}:dirt` }, "dirt"));
@@ -262,7 +282,7 @@ describe(Registry.name, () => {
 
         test("rejects definitions of another kind with the same identifier", () => {
             const ore = new OreFeature("thing");
-            const reg = new Registry(NS).add(new Block("thing"), ore);
+            const reg = new Registry(OPTIONS).add(new Block("thing"), ore);
             assert.equal(reg.matches({ kind: Block, target: `${NS}:thing` }, ore), false);
             assert.equal(reg.matches({ kind: Block, target: `${NS}:thing` }, Feature), false);
             assert.ok(reg.matches({ kind: Feature, target: `${NS}:thing` }, OreFeature));
@@ -274,7 +294,7 @@ describe(Registry.name, () => {
             const byInstance = new OreFeature("by_instance");
             const byId = new OreFeature("by_id");
             const unused = new OreFeature("unused");
-            const reg = new Registry(NS).add(
+            const reg = new Registry(OPTIONS).add(
                 new ScatterFeature("scatter", { placesFeature: byInstance }),
                 new FeatureRules("rules", { placesFeature: `${NS}:by_id` }),
                 byId,
@@ -288,14 +308,14 @@ describe(Registry.name, () => {
         test("ignores references to another kind with the same identifier", () => {
             const block = new Block("thing");
             const ore = new OreFeature("thing").add(`${NS}:thing`, ["minecraft:stone"]);
-            const reg = new Registry(NS).add(block, ore);
+            const reg = new Registry(OPTIONS).add(block, ore);
             assert.ok(reg.isReferenced(block));
             assert.equal(reg.isReferenced(ore), false);
         });
 
         test("ignores references from other namespaces", () => {
             const ore = new OreFeature("ore");
-            const reg = new Registry(NS).add(
+            const reg = new Registry(OPTIONS).add(
                 ore,
                 new FeatureRules("rules", { placesFeature: "other:ore" }),
             );
@@ -305,7 +325,7 @@ describe(Registry.name, () => {
         test("updates after adding and removing", () => {
             const ore = new OreFeature("ore");
             const rules = new FeatureRules("rules", { placesFeature: `${NS}:ore` });
-            const reg = new Registry(NS).add(ore);
+            const reg = new Registry(OPTIONS).add(ore);
             assert.equal(reg.isReferenced(ore), false);
             reg.add(rules);
             assert.ok(reg.isReferenced(ore));
@@ -317,7 +337,7 @@ describe(Registry.name, () => {
             const ore = new OreFeature("ore");
             const rules = new FeatureRules("rules", { placesFeature: `${NS}:ore` });
             const seen: boolean[] = [];
-            await new Registry(NS)
+            await new Registry(OPTIONS)
                 .add(ore, rules)
                 .addSystem(
                     (reg) => {
@@ -336,7 +356,7 @@ describe(Registry.name, () => {
             const order: string[] = [];
             const push = (name: string) => () => order.push(name);
             const schedules = ["finalize", "transform", "setup"] as const;
-            const reg = new Registry(NS);
+            const reg = new Registry(OPTIONS);
             for (const schedule of schedules) {
                 reg.addSystem(schedule, push(`${schedule} 1`), push(`${schedule} 2`));
             }
@@ -353,7 +373,7 @@ describe(Registry.name, () => {
 
         test("default to transform", async () => {
             const order: string[] = [];
-            await new Registry(NS)
+            await new Registry(OPTIONS)
                 .addSystem("finalize", () => order.push("finalize"))
                 .addSystem(() => order.push("default"))
                 .addSystem("setup", () => order.push("setup"))
@@ -363,7 +383,7 @@ describe(Registry.name, () => {
 
         test("see definitions added by earlier systems", async () => {
             let found: Block | undefined;
-            await new Registry(NS)
+            await new Registry(OPTIONS)
                 .addSystem("setup", (reg) => reg.add(new Block("dirt")))
                 .addSystem((reg) => (found = reg.resolve(Block, "dirt")))
                 .run();
@@ -372,7 +392,7 @@ describe(Registry.name, () => {
 
         test("receive the schedule they run on", async () => {
             const seen: string[] = [];
-            await new Registry(NS)
+            await new Registry(OPTIONS)
                 .add(new Block("dirt"))
                 .addSystem("setup", (_, schedule) => seen.push(schedule))
                 .addSystem((_, schedule) => seen.push(schedule))
@@ -386,7 +406,7 @@ describe(Registry.name, () => {
 
         test("wait for async systems before running the next", async () => {
             const order: string[] = [];
-            await new Registry(NS)
+            await new Registry(OPTIONS)
                 .addSystem("setup", async () => {
                     await delay(5);
                     order.push("slow");
@@ -398,14 +418,14 @@ describe(Registry.name, () => {
 
         test("rerun on every run", async () => {
             let count = 0;
-            const reg = new Registry(NS).addSystem(() => count++);
+            const reg = new Registry(OPTIONS).addSystem(() => count++);
             await reg.run();
             await reg.run();
             assert.equal(count, 2);
         });
 
         test("reject unknown schedules", () => {
-            const reg = new Registry(NS);
+            const reg = new Registry(OPTIONS);
             // @ts-expect-error not a schedule of this registry
             assert.throws(() => reg.addSystem("generate", () => {}), UnknownScheduleError);
         });
@@ -413,7 +433,10 @@ describe(Registry.name, () => {
 
     describe("schedules", () => {
         test("run in the given order", async () => {
-            const reg = new Registry(NS, { schedules: ["setup", "generate", "transform"] });
+            const reg = new Registry({
+                ...OPTIONS,
+                schedules: ["setup", "generate", "transform"],
+            });
             assert.deepEqual(await runOrder(reg, ["transform", "generate", "setup"]), [
                 "setup",
                 "generate",
@@ -422,7 +445,8 @@ describe(Registry.name, () => {
         });
 
         test("default to setup, transform and finalize", async () => {
-            assert.deepEqual(await runOrder(new Registry(NS), ["finalize", "transform", "setup"]), [
+            const schedules = ["finalize", "transform", "setup"];
+            assert.deepEqual(await runOrder(new Registry(OPTIONS), schedules), [
                 "setup",
                 "transform",
                 "finalize",
@@ -431,21 +455,29 @@ describe(Registry.name, () => {
 
         test("reject duplicates", () => {
             assert.throws(
-                () => new Registry(NS, { schedules: ["setup", "transform", "setup"] }),
+                () =>
+                    new Registry({
+                        ...OPTIONS,
+                        schedules: ["setup", "transform", "setup"],
+                    }),
                 DuplicateScheduleError,
             );
         });
 
         test("ignore changes to the given list", async () => {
             const schedules = ["setup", "transform"];
-            const reg = new Registry(NS, { schedules });
+            const reg = new Registry({
+                ...OPTIONS,
+                schedules,
+            });
             schedules.push("finalize");
             await assert.rejects(runOrder(reg, ["finalize"]), UnknownScheduleError);
         });
 
         test("run systems without a schedule on the default schedule", async () => {
             const order: string[] = [];
-            await new Registry(NS, {
+            await new Registry({
+                ...OPTIONS,
                 schedules: ["setup", "generate"],
                 defaultSchedule: "generate",
             })
@@ -457,7 +489,10 @@ describe(Registry.name, () => {
 
         test("take a default schedule from the defaults", async () => {
             const order: string[] = [];
-            await new Registry(NS, { defaultSchedule: "finalize" })
+            await new Registry({
+                ...OPTIONS,
+                defaultSchedule: "finalize",
+            })
                 .addSystem(() => order.push("default"))
                 .addSystem("transform", () => order.push("transform"))
                 .run();
@@ -466,14 +501,22 @@ describe(Registry.name, () => {
 
         test("reject a default schedule that isn't a schedule", () => {
             assert.throws(
-                // @ts-expect-error not one of the schedules
-                () => new Registry(NS, { schedules: ["setup"], defaultSchedule: "transform" }),
+                () =>
+                    new Registry({
+                        ...OPTIONS,
+                        schedules: ["setup"],
+                        // @ts-expect-error not one of the schedules
+                        defaultSchedule: "transform",
+                    }),
                 UnknownScheduleError,
             );
         });
 
         test("reject systems without a schedule when there's no transform", () => {
-            const reg = new Registry(NS, { schedules: ["setup"] });
+            const reg = new Registry({
+                ...OPTIONS,
+                schedules: ["setup"],
+            });
             // @ts-expect-error no transform schedule
             assert.throws(() => reg.addSystem(() => {}), UnknownScheduleError);
         });
@@ -482,7 +525,7 @@ describe(Registry.name, () => {
 
 describe(query.name, () => {
     test("yields definitions of the given classes in registry order", async () => {
-        const reg = new Registry(NS).add(
+        const reg = new Registry(OPTIONS).add(
             new FeatureRules("rules", { placesFeature: `${NS}:ore` }),
             new OreFeature("ore"),
             new Block("dirt"),
@@ -493,7 +536,7 @@ describe(query.name, () => {
     });
 
     test("matches subclasses", async () => {
-        const reg = new Registry(NS).add(
+        const reg = new Registry(OPTIONS).add(
             new OreFeature("ore"),
             new ScatterFeature("scatter", { placesFeature: `${NS}:ore` }),
         );
@@ -504,7 +547,7 @@ describe(query.name, () => {
     describe("intoSystem()", () => {
         test("skips the callback when nothing matches", async () => {
             let calls = 0;
-            await new Registry(NS)
+            await new Registry(OPTIONS)
                 .add(new OreFeature("ore"))
                 .addSystem(query(Block).intoSystem(() => calls++))
                 .run();
@@ -515,7 +558,7 @@ describe(query.name, () => {
             const a = new OreFeature("a");
             const b = new OreFeature("b");
             let orphans: string[] = [];
-            await new Registry(NS)
+            await new Registry(OPTIONS)
                 .add(a, b)
                 .addSystem(
                     query(Feature)
@@ -535,7 +578,7 @@ describe(query.name, () => {
         test("drops the first match if the callback removes it", async () => {
             const a = new OreFeature("a");
             let features: string[] = [];
-            await new Registry(NS)
+            await new Registry(OPTIONS)
                 .add(a, new OreFeature("b"))
                 .addSystem(
                     query(Feature).intoSystem((reg, defs) => {
@@ -548,7 +591,7 @@ describe(query.name, () => {
         });
 
         test("allows removing definitions while iterating", async () => {
-            const reg = new Registry(NS).add(new Block("a"), new Block("b"), new Block("c"));
+            const reg = new Registry(OPTIONS).add(new Block("a"), new Block("b"), new Block("c"));
             await reg
                 .addSystem(
                     query(Block).intoSystem((r, blocks) => {
@@ -562,7 +605,7 @@ describe(query.name, () => {
 
     describe("filters", () => {
         test("filter() returns a new query", async () => {
-            const reg = new Registry(NS).add(new Block("dirt"), new Block("stone"));
+            const reg = new Registry(OPTIONS).add(new Block("dirt"), new Block("stone"));
             const base = query(Block);
             const dirt = base.filter((block) => block.identifier === "dirt");
             const none = dirt.filter((block) => block.identifier === "stone");
@@ -572,7 +615,7 @@ describe(query.name, () => {
         });
 
         test("orphan()", async () => {
-            const reg = new Registry(NS).add(
+            const reg = new Registry(OPTIONS).add(
                 new FeatureRules("rules", {
                     placesFeature: new ScatterFeature("scatter", {
                         placesFeature: new OreFeature("used"),
@@ -594,7 +637,7 @@ describe(query.name, () => {
                     new FrictionBlockComponent(0.1),
                     new LightEmissionBlockComponent(15),
                 );
-                const reg = new Registry(NS).add(plain, slippery, glowing);
+                const reg = new Registry(OPTIONS).add(plain, slippery, glowing);
 
                 const blocks = query(Block);
                 assert.deepEqual(await collect(reg, blocks.withComponent(FrictionBlockComponent)), [
@@ -627,7 +670,7 @@ describe(query.name, () => {
             test("only filter blocks", async () => {
                 const slippery = new Block("slippery");
                 slippery.components.set(new FrictionBlockComponent(0.1));
-                const reg = new Registry(NS).add(
+                const reg = new Registry(OPTIONS).add(
                     slippery,
                     new Block("plain"),
                     new OreFeature("ore"),
@@ -648,7 +691,7 @@ describe(query.name, () => {
         describe("placing()", () => {
             test("on features", async () => {
                 const dirt = new Block("dirt");
-                const reg = new Registry(NS).add(
+                const reg = new Registry(OPTIONS).add(
                     dirt,
                     new OreFeature("dirt_ore").add(`${NS}:dirt`, ["minecraft:stone"]),
                     new OreFeature("vanilla_ore").add("minecraft:stone", ["minecraft:deepslate"]),
@@ -665,7 +708,7 @@ describe(query.name, () => {
 
             test("on feature rules", async () => {
                 const ore = new OreFeature("ore");
-                const reg = new Registry(NS).add(
+                const reg = new Registry(OPTIONS).add(
                     new FeatureRules("ore_rules", { placesFeature: ore }),
                     new FeatureRules("vanilla_rules", { placesFeature: "minecraft:ore" }),
                 );
@@ -677,7 +720,7 @@ describe(query.name, () => {
 
             test("only filters features and feature rules", async () => {
                 const ore = new OreFeature("ore");
-                const reg = new Registry(NS).add(
+                const reg = new Registry(OPTIONS).add(
                     new Block("dirt"),
                     new ScatterFeature("scatter", { placesFeature: ore }),
                     new ScatterFeature("elsewhere", { placesFeature: `${NS}:elsewhere` }),
@@ -707,7 +750,7 @@ describe(query.name, () => {
         test("kind filters can be mixed", async () => {
             const geometry = new Block("geometry");
             geometry.components.set(new GeometryBlockComponent("minecraft:geometry.full_block"));
-            const reg = new Registry(NS).add(
+            const reg = new Registry(OPTIONS).add(
                 geometry,
                 new Block("plain"),
                 new ScatterFeature("scatter", { placesFeature: `${NS}:ore` }),

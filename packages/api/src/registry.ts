@@ -10,12 +10,16 @@ import {
 import { autoIdentifier } from "#/core/references";
 import { Feature, type FeatureReference } from "#/feature/base";
 import { FeatureRules } from "#/feature/rules";
+import { Manifest } from "#/manifest/index";
+import { DataModule, ResourcesModule } from "#/manifest/module";
 import type { BlockDescriptorRef } from "#/primitive/index";
 
 /** The schedules a registry has unless it's given its own, in run order. */
 export const DEFAULT_SCHEDULES = ["setup", "transform", "finalize"] as const;
 
 export interface RegistryOptions<S extends string, D extends S = never> {
+    /** The namespace of the registry. */
+    namespace: string;
     /**
      * The schedules systems can run on, in run order.
      *
@@ -30,6 +34,12 @@ export interface RegistryOptions<S extends string, D extends S = never> {
     defaultSchedule?: D;
 }
 
+/** A registry's pack manifests. */
+export interface RegistryManifests {
+    readonly bp: Manifest;
+    readonly rp: Manifest;
+}
+
 /**
  * Holds a project's definitions and the systems that transform them.
  *
@@ -37,7 +47,8 @@ export interface RegistryOptions<S extends string, D extends S = never> {
  * use either form, e.g. `dirt` or `example:dirt`.
  *
  * @example
- *     const reg = new Registry("example").add(new Block("dirt"));
+ *     const reg = new Registry({ namespace: "example" });
+ *     reg.add(new Block("dirt"));
  *     // Remove features that nothing places.
  *     reg.addSystem(
  *         "finalize",
@@ -51,6 +62,9 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
     /** The namespace of this registry's definitions, e.g. `example` in `example:dirt`. */
     readonly namespace: string;
 
+    /** The behavior and resource pack manifests. */
+    readonly manifests: RegistryManifests;
+
     #blocks = new DefinitionStore(Block);
     #featureRules = new DefinitionStore(FeatureRules);
     #features = new DefinitionStore(Feature);
@@ -62,16 +76,13 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
     #referenced?: Map<string, Reference[]>;
 
     /**
-     * Creates a registry for definitions in `namespace`.
-     *
-     * @example
-     *     const reg = new Registry("example");
-     *     reg.addSystem("setup", (reg) => reg.add(new Block("dirt")));
+     * Creates a registry.
      *
      * @throws - {@link DuplicateScheduleError} if a schedule is listed more than once.
      * @throws - {@link UnknownScheduleError} if `defaultSchedule` isn't one of the schedules.
      */
-    constructor(namespace: string, options: RegistryOptions<S, D> = {}) {
+    constructor(options: RegistryOptions<S, D>) {
+        const { namespace } = options;
         this.namespace = namespace;
         const schedules = new Set<string>();
         for (const schedule of options.schedules ?? DEFAULT_SCHEDULES) {
@@ -83,6 +94,10 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
         if (options.defaultSchedule !== undefined && !schedules.has(options.defaultSchedule)) {
             throw new UnknownScheduleError(options.defaultSchedule);
         }
+
+        const rp = new Manifest(namespace).module(new ResourcesModule());
+        const bp = new Manifest(namespace).module(new DataModule()).dependsOn(rp);
+        this.manifests = { bp, rp };
     }
 
     /**

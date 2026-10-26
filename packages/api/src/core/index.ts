@@ -7,4 +7,5 @@ export {
     type Reference,
     type ReferenceTarget,
 } from "#/core/definition";
+export * from "#/core/output";
 export * from "#/core/props";
