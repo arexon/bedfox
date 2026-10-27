@@ -1,3 +1,4 @@
+import type { BRAND } from "#/core/brand";
 import { Component, type ComponentProps } from "#/core/component";
 import { serialize } from "#/serialize";
 
@@ -6,7 +7,11 @@ export interface BlockContainer {
 }
 
 @serialize
-export class BlockEntityBlockComponent extends Component.of("minecraft:block_entity") {
+export class BlockEntityBlockComponent extends Component {
+    static override readonly componentId = "minecraft:block_entity";
+
+    declare readonly [BRAND]: typeof BlockEntityBlockComponent.componentId;
+
     /** @default false */
     dynamicProperties?: boolean;
 

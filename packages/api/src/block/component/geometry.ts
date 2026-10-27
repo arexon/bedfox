@@ -1,3 +1,4 @@
+import type { BRAND } from "#/core/brand";
 import { Component, type ComponentProps } from "#/core/component";
 import { serialize } from "#/serialize";
 
@@ -10,7 +11,11 @@ export interface NWayVisualRotation {
 }
 
 @serialize
-export class GeometryBlockComponent extends Component.of("minecraft:geometry") {
+export class GeometryBlockComponent extends Component {
+    static override readonly componentId = "minecraft:geometry";
+
+    declare readonly [BRAND]: typeof GeometryBlockComponent.componentId;
+
     @serialize({ transparent: true })
     identifier?: string;
 

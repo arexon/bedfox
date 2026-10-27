@@ -20,7 +20,3 @@ export type InstanceProps<T, Excluded extends PropertyKey = never> = {
               : never
     ]: T[K];
 };
-
-/** Any abstract or concrete constructor of `T`. */
-// oxlint-disable-next-line typescript/no-explicit-any
-export type Ctor<T> = abstract new (...args: any[]) => T;

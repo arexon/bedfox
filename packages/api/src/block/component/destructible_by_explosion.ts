@@ -1,10 +1,13 @@
+import type { BRAND } from "#/core/brand";
 import { Component, type ComponentProps } from "#/core/component";
 import { serialize } from "#/serialize";
 
 @serialize
-export class DestructibleByExplosionBlockComponent extends Component.of(
-    "minecraft:destructible_by_explosion",
-) {
+export class DestructibleByExplosionBlockComponent extends Component {
+    static override readonly componentId = "minecraft:destructible_by_explosion";
+
+    declare readonly [BRAND]: typeof DestructibleByExplosionBlockComponent.componentId;
+
     @serialize({ transparent: true })
     enabled?: boolean;
 

@@ -1,3 +1,4 @@
+import type { BRAND } from "#/core/brand";
 import { Component, type ComponentProps } from "#/core/component";
 import { serialize } from "#/serialize";
 
@@ -31,7 +32,11 @@ export type Instrument =
     | "note.none";
 
 @serialize
-export class InstrumentSoundBlockComponent extends Component.of("minecraft:instrument_sound") {
+export class InstrumentSoundBlockComponent extends Component {
+    static override readonly componentId = "minecraft:instrument_sound";
+
+    declare readonly [BRAND]: typeof InstrumentSoundBlockComponent.componentId;
+
     up?: Instrument;
 
     down?: Instrument;

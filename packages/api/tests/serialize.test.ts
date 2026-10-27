@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { Block, BlockTrait } from "#/block/index";
+import { Block } from "#/block/index";
 import {
     Component,
     Definition,
@@ -243,7 +243,7 @@ describe("@serialize with options", () => {
 
         describe("transparent", () => {
             @serialize
-            class Light extends Component.of("minecraft:light") {
+            class Light extends Component {
                 @serialize({ transparent: true }) level?: number;
                 color?: string;
             }
@@ -259,7 +259,7 @@ describe("@serialize with options", () => {
 
             test("a renamed field still collapses", () => {
                 @serialize
-                class Renamed extends Component.of("minecraft:renamed") {
+                class Renamed extends Component {
                     @serialize({ transparent: true, rename: "lvl" }) level = 1;
                 }
                 assert.equal(JSON.stringify(new Renamed()), "1");
@@ -288,7 +288,7 @@ describe("@serialize with options", () => {
 
                 test("inherited conflicts throw when serialized", () => {
                     @serialize
-                    class Base extends Component.of("test:base") {
+                    class Base extends Component {
                         @serialize({ transparent: true }) a?: number;
                     }
                     class Twice extends Base {
@@ -397,111 +397,88 @@ describe("@serialize with options", () => {
     });
 });
 
-describe("of() bases", () => {
-    describe("Component.of()", () => {
-        test("sets the componentId", () => {
-            @serialize
-            class Light extends Component.of("minecraft:light") {}
-            assert.equal(Light.componentId, "minecraft:light");
-            assert.equal(new Light().componentId, "minecraft:light");
-        });
+describe("definitions", () => {
+    @serialize
+    class Thing extends Definition {
+        static override readonly defaultFormatVersion = new FormatVersion(1, 2, 3);
+        static override readonly location: DefinitionLocation = {
+            kind: "behavior",
+            folder: "things",
+        };
 
-        test("each call makes a distinct base", () => {
-            assert.notEqual(Component.of("a:a"), Component.of("a:a"));
-        });
-    });
+        @serialize({ within: ["test:thing", "description"] })
+        override readonly identifier: string;
 
-    describe("BlockTrait.of()", () => {
-        test("sets the traitId", () => {
-            @serialize
-            class Trait extends BlockTrait.of("test:trait") {}
-            assert.equal(new Trait().traitId, "test:trait");
-        });
-    });
+        @serialize({ within: "test:thing" })
+        note?: string;
 
-    describe("definitions", () => {
-        @serialize
-        class Thing extends Definition {
-            static override readonly defaultFormatVersion = new FormatVersion(1, 2, 3);
-            static override readonly location: DefinitionLocation = {
-                kind: "behavior",
-                folder: "things",
-            };
+        @serialize({ within: ["test:thing", "description"] })
+        label?: string;
 
-            @serialize({ within: ["test:thing", "description"] })
-            override readonly identifier: string;
-
-            @serialize({ within: "test:thing" })
-            note?: string;
-
-            @serialize({ within: ["test:thing", "description"] })
-            label?: string;
-
-            constructor(identifier: string) {
-                super(identifier);
-                this.identifier = identifier;
-            }
+        constructor(identifier: string) {
+            super(identifier);
+            this.identifier = identifier;
         }
+    }
 
-        test("reject identifiers that can't name a file", () => {
-            for (const id of ["test:dirt", "../dirt", "Dirt", ""]) {
-                assert.throws(() => new Block(id), InvalidIdentifierError, id);
-            }
+    test("reject identifiers that can't name a file", () => {
+        for (const id of ["test:dirt", "../dirt", "Dirt", ""]) {
+            assert.throws(() => new Block(id), InvalidIdentifierError, id);
+        }
+    });
+
+    describe("location", () => {
+        test("puts each kind in its folder", () => {
+            const outputs = [
+                new Block("dirt"),
+                new OreFeature("ore"),
+                new FeatureRules("rules", { placesFeature: "test:ore" }),
+            ].map((def) => `${def.kind}/${def.path}`);
+            assert.deepEqual(outputs, [
+                "behavior/blocks/dirt.json",
+                "behavior/features/ore.json",
+                "behavior/feature_rules/rules.json",
+            ]);
+        });
+    });
+
+    describe("file layout", () => {
+        test("serializes as a definition file", () => {
+            assert.equal(
+                JSON.stringify(new Thing("thing")),
+                '{"format_version":"1.2.3","test:thing":{"description":{"identifier":"thing"}}}',
+            );
         });
 
-        describe("location", () => {
-            test("puts each kind in its folder", () => {
-                const outputs = [
-                    new Block("dirt"),
-                    new OreFeature("ore"),
-                    new FeatureRules("rules", { placesFeature: "test:ore" }),
-                ].map((def) => `${def.kind}/${def.path}`);
-                assert.deepEqual(outputs, [
-                    "behavior/blocks/dirt.json",
-                    "behavior/features/ore.json",
-                    "behavior/feature_rules/rules.json",
-                ]);
-            });
+        test("description comes first, with the identifier first inside it", () => {
+            const thing = Object.assign(new Thing("thing"), { note: "n", label: "l" });
+            assert.equal(
+                JSON.stringify(thing),
+                '{"format_version":"1.2.3","test:thing":{"description":{"identifier":"thing","label":"l"},"note":"n"}}',
+            );
         });
 
-        describe("file layout", () => {
-            test("serializes as a definition file", () => {
-                assert.equal(
-                    JSON.stringify(new Thing("thing")),
-                    '{"format_version":"1.2.3","test:thing":{"description":{"identifier":"thing"}}}',
-                );
+        test("an explicit format version wins over the fallback", () => {
+            const thing = Object.assign(new Thing("thing"), {
+                formatVersion: new FormatVersion(1, 0, 0),
             });
-
-            test("description comes first, with the identifier first inside it", () => {
-                const thing = Object.assign(new Thing("thing"), { note: "n", label: "l" });
-                assert.equal(
-                    JSON.stringify(thing),
-                    '{"format_version":"1.2.3","test:thing":{"description":{"identifier":"thing","label":"l"},"note":"n"}}',
-                );
-            });
-
-            test("an explicit format version wins over the fallback", () => {
-                const thing = Object.assign(new Thing("thing"), {
-                    formatVersion: new FormatVersion(1, 0, 0),
-                });
-                assert.equal(
-                    JSON.stringify(thing),
-                    '{"format_version":"1.0.0","test:thing":{"description":{"identifier":"thing"}}}',
-                );
-            });
+            assert.equal(
+                JSON.stringify(thing),
+                '{"format_version":"1.0.0","test:thing":{"description":{"identifier":"thing"}}}',
+            );
         });
+    });
 
-        describe("subclasses", () => {
-            test("features are Feature subclasses", () => {
-                const scatter = new ScatterFeature("scatter", {
-                    placesFeature: "test:feature",
-                });
-                assert.ok(scatter instanceof Feature);
-                assert.equal(
-                    JSON.stringify(scatter),
-                    '{"format_version":"1.26.50","minecraft:scatter_feature":{"description":{"identifier":"scatter"},"places_feature":"test:feature"}}',
-                );
+    describe("subclasses", () => {
+        test("features are Feature subclasses", () => {
+            const scatter = new ScatterFeature("scatter", {
+                placesFeature: "test:feature",
             });
+            assert.ok(scatter instanceof Feature);
+            assert.equal(
+                JSON.stringify(scatter),
+                '{"format_version":"1.26.50","minecraft:scatter_feature":{"description":{"identifier":"scatter"},"places_feature":"test:feature"}}',
+            );
         });
     });
 });

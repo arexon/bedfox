@@ -1,3 +1,4 @@
+import type { BRAND } from "#/core/brand";
 import { Component, type ComponentProps } from "#/core/component";
 import type { Range } from "#/primitive/index";
 import { serialize } from "#/serialize";
@@ -10,7 +11,11 @@ export interface RangeAndSteps {
 }
 
 @serialize
-export class RandomOffsetBlockComponent extends Component.of("minecraft:random_offset") {
+export class RandomOffsetBlockComponent extends Component {
+    static override readonly componentId = "minecraft:random_offset";
+
+    declare readonly [BRAND]: typeof RandomOffsetBlockComponent.componentId;
+
     @serialize({ override: serAxis })
     x?: RangeAndSteps;
 

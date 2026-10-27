@@ -1,19 +1,15 @@
+import type { BRAND } from "#/core/brand";
 import { KeyedCollection } from "#/core/collection";
-import type { Ctor, InstanceProps } from "#/core/props";
+import type { InstanceProps } from "#/core/props";
 
-export type ComponentProps<T> = InstanceProps<T, "componentId">;
+export type ComponentProps<T> = InstanceProps<T>;
 
 /** A component in a definition such as a block or item. */
 export abstract class Component {
     /** This component class's identifier, e.g. `minecraft:tick`. */
     declare static readonly componentId: string;
 
-    /** A base for a component class identified by `componentId`. */
-    static of<C extends Ctor<Component>>(this: C, componentId: string): C {
-        abstract class Base extends this {}
-        Object.defineProperty(Base, "componentId", { value: componentId });
-        return Base;
-    }
+    declare readonly [BRAND]: string;
 
     /** This component's identifier. */
     get componentId(): string {

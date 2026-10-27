@@ -1,3 +1,4 @@
+import type { BRAND } from "#/core/brand";
 import { Component, type ComponentProps } from "#/core/component";
 import type { Direction } from "#/primitive/index";
 import { serialize } from "#/serialize";
@@ -15,7 +16,11 @@ export interface DetectionRule {
 }
 
 @serialize
-export class LiquidDetectionBlockComponent extends Component.of("minecraft:liquid_detection") {
+export class LiquidDetectionBlockComponent extends Component {
+    static override readonly componentId = "minecraft:liquid_detection";
+
+    declare readonly [BRAND]: typeof LiquidDetectionBlockComponent.componentId;
+
     detectionRules?: DetectionRule[] = [];
 
     constructor(props: ComponentProps<LiquidDetectionBlockComponent>) {

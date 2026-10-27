@@ -1,3 +1,4 @@
+import type { BRAND } from "#/core/brand";
 import { Component, type ComponentProps } from "#/core/component";
 import { serialize } from "#/serialize";
 
@@ -5,7 +6,11 @@ import { serialize } from "#/serialize";
 export type LavaFlammable = "always" | "never";
 
 @serialize
-export class FlammableBlockComponent extends Component.of("minecraft:flammable") {
+export class FlammableBlockComponent extends Component {
+    static override readonly componentId = "minecraft:flammable";
+
+    declare readonly [BRAND]: typeof FlammableBlockComponent.componentId;
+
     @serialize({ transparent: true })
     enabled?: boolean;
 

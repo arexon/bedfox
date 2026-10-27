@@ -1,3 +1,4 @@
+import type { BRAND } from "#/core/brand";
 import { Component, type ComponentProps } from "#/core/component";
 import { serialize } from "#/serialize";
 
@@ -8,9 +9,11 @@ export type PrecipitationBehavior =
     | "snowlogging";
 
 @serialize
-export class PrecipitationInteractionsBlockComponent extends Component.of(
-    "minecraft:precipitation_interactions",
-) {
+export class PrecipitationInteractionsBlockComponent extends Component {
+    static override readonly componentId = "minecraft:precipitation_interactions";
+
+    declare readonly [BRAND]: typeof PrecipitationInteractionsBlockComponent.componentId;
+
     precipitationBehavior?: PrecipitationBehavior;
 
     constructor(props: ComponentProps<PrecipitationInteractionsBlockComponent>) {

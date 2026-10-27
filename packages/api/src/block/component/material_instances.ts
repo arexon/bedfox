@@ -1,3 +1,4 @@
+import type { BRAND } from "#/core/brand";
 import { Component } from "#/core/component";
 import { serialize } from "#/serialize";
 
@@ -43,7 +44,11 @@ export interface MaterialInstance {
 }
 
 @serialize
-export class MaterialInstancesBlockComponent extends Component.of("minecraft:material_instances") {
+export class MaterialInstancesBlockComponent extends Component {
+    static override readonly componentId = "minecraft:material_instances";
+
+    declare readonly [BRAND]: typeof MaterialInstancesBlockComponent.componentId;
+
     @serialize({ keepKeys: true, transparent: true })
     value?: Record<string, MaterialInstance>;
 

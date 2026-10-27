@@ -1,3 +1,4 @@
+import type { BRAND } from "#/core/brand";
 import { Component } from "#/core/component";
 import type { BlockDescriptorRef, Direction } from "#/primitive/index";
 import { serialize } from "#/serialize";
@@ -10,7 +11,11 @@ export interface PlacementCondition {
 }
 
 @serialize
-export class PlacementFilterBlockComponent extends Component.of("minecraft:placement_filter") {
+export class PlacementFilterBlockComponent extends Component {
+    static override readonly componentId = "minecraft:placement_filter";
+
+    declare readonly [BRAND]: typeof PlacementFilterBlockComponent.componentId;
+
     conditions: PlacementCondition[] = [];
 
     constructor(...conditions: PlacementCondition[]) {

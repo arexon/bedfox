@@ -1,3 +1,4 @@
+import type { BRAND } from "#/core/brand";
 import { Component } from "#/core/component";
 import { Vec3 } from "#/primitive/vec3";
 import { serialize } from "#/serialize";
@@ -22,7 +23,11 @@ export const BoundingBox = {
 };
 
 @serialize
-export class CollisionBoxBlockComponent extends Component.of("minecraft:collision_box") {
+export class CollisionBoxBlockComponent extends Component {
+    static override readonly componentId = "minecraft:collision_box";
+
+    declare readonly [BRAND]: typeof CollisionBoxBlockComponent.componentId;
+
     // TODO: Add min/max
     @serialize({ transparent: true })
     value!: boolean | BoundingBox[];

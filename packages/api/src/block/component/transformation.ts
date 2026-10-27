@@ -1,9 +1,14 @@
+import type { BRAND } from "#/core/brand";
 import { Component, type ComponentProps } from "#/core/component";
 import type { Vec3 } from "#/primitive/vec3";
 import { serialize } from "#/serialize";
 
 @serialize
-export class TransformationBlockComponent extends Component.of("minecraft:transformation") {
+export class TransformationBlockComponent extends Component {
+    static override readonly componentId = "minecraft:transformation";
+
+    declare readonly [BRAND]: typeof TransformationBlockComponent.componentId;
+
     /** @default new Vec3(0, 0, 0) */
     translation?: Vec3;
 

@@ -1,9 +1,14 @@
+import type { BRAND } from "#/core/brand";
 import { Component, type ComponentProps } from "#/core/component";
 import type { Direction } from "#/primitive/index";
 import { serialize } from "#/serialize";
 
 @serialize
-export class RedstoneProducerBlockComponent extends Component.of("minecraft:redstone_producer") {
+export class RedstoneProducerBlockComponent extends Component {
+    static override readonly componentId = "minecraft:redstone_producer";
+
+    declare readonly [BRAND]: typeof RedstoneProducerBlockComponent.componentId;
+
     power?: number;
 
     stronglyPoweredFace?: Direction;

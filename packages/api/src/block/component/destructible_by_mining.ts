@@ -1,3 +1,4 @@
+import type { BRAND } from "#/core/brand";
 import { Component, type ComponentProps } from "#/core/component";
 import { serialize } from "#/serialize";
 
@@ -8,9 +9,11 @@ export interface ItemSpecificSpeed {
 }
 
 @serialize
-export class DestructibleByMiningBlockComponent extends Component.of(
-    "minecraft:destructible_by_mining",
-) {
+export class DestructibleByMiningBlockComponent extends Component {
+    static override readonly componentId = "minecraft:destructible_by_mining";
+
+    declare readonly [BRAND]: typeof DestructibleByMiningBlockComponent.componentId;
+
     @serialize({ transparent: true })
     private enabled?: boolean;
 
