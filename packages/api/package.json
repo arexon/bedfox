@@ -27,7 +27,7 @@
         "./feature": "./dist/feature/index.mjs",
         "./manifest": "./dist/manifest/index.mjs",
         "./primitive": "./dist/primitive/index.mjs",
-        "./registry": "./dist/registry.mjs",
+        "./registry": "./dist/registry/index.mjs",
         "./serialize": "./dist/serialize.mjs",
         "./package.json": "./package.json"
     },

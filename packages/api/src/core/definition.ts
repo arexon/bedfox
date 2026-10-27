@@ -2,7 +2,7 @@ import type { BRAND } from "#/core/brand";
 import type { PackKind, PackOutput } from "#/core/output";
 import type { InstanceProps } from "#/core/props";
 import type { BlockDescriptor, FormatVersion } from "#/primitive/index";
-import { serialize, toReference } from "#/serialize";
+import { serialize, TO_REFERENCE } from "#/serialize";
 
 export const NAMESPACE: unique symbol = Symbol("namespace");
 
@@ -62,7 +62,7 @@ export abstract class Definition implements PackOutput {
         return `${(this.constructor as typeof Definition).location.folder}/${this.identifier}.json`;
     }
 
-    [toReference](): string {
+    [TO_REFERENCE](): string {
         return this.qualifiedIdentifier;
     }
 

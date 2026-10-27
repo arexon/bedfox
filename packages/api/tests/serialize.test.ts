@@ -15,7 +15,7 @@ import {
     MultipleTransparentFieldsError,
     NestedTransparentFieldError,
     serialize,
-    toReference,
+    TO_REFERENCE,
 } from "#/serialize";
 
 @serialize
@@ -35,7 +35,7 @@ describe("@serialize defaults", () => {
 
         test("referenceable values serialize as their reference when nested", () => {
             const def = {
-                [toReference]: () => "my:feature",
+                [TO_REFERENCE]: () => "my:feature",
                 toJSON: () => ({ full: true }),
             };
             const row = Object.assign(new Shared(), { list: [def, [def, 3]] });

@@ -8,7 +8,7 @@ const SCHEMAS = new WeakMap<object, Schema>();
  * Method key for values that serialize as a reference when nested in another value, e.g. a
  * definition as its identifier.
  */
-export const toReference: unique symbol = Symbol("bedfox.toReference");
+export const TO_REFERENCE: unique symbol = Symbol("to_reference");
 
 /** A field decorator, only allowed on classes whose instances are `This`. */
 export type FieldDecorator<This extends object = object> = (prototype: This, name: string) => void;
@@ -243,7 +243,7 @@ function serializeInstance(obj: object): unknown {
 /**
  * Converts a value to JSON:
  *
- * - A value with a {@link toReference} method becomes that reference.
+ * - A value with a {@link TO_REFERENCE} method becomes that reference.
  * - A value with a `toJSON()` method becomes its result, which isn't converted further.
  * - Arrays are converted item by item, and plain objects key by key, snake_casing keys and dropping
  *   `undefined` values and functions.
@@ -253,7 +253,7 @@ function serializeInstance(obj: object): unknown {
 function toJson(value: unknown): unknown {
     if (typeof value === "function") return undefined;
     if (typeof value !== "object" || value === null) return value;
-    if (toReference in value) return (value as { [toReference](): unknown })[toReference]();
+    if (TO_REFERENCE in value) return (value as { [TO_REFERENCE](): unknown })[TO_REFERENCE]();
     if (typeof (value as { toJSON?: unknown }).toJSON === "function") {
         return (value as { toJSON(): unknown }).toJSON();
     }

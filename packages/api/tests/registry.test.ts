@@ -26,8 +26,8 @@ import {
     query,
     Registry,
     UnknownScheduleError,
-} from "#/registry";
-import { serialize, toReference } from "#/serialize";
+} from "#/registry/index";
+import { serialize, TO_REFERENCE } from "#/serialize";
 
 const NS = "test";
 
@@ -210,7 +210,7 @@ describe(Registry.name, () => {
         test("leave unregistered definitions as written", () => {
             const dirt = new Block("dirt");
             assert.equal(dirt.qualifiedIdentifier, "dirt");
-            assert.equal(dirt[toReference](), "dirt");
+            assert.equal(dirt[TO_REFERENCE](), "dirt");
         });
 
         test("are cleared by remove()", () => {
