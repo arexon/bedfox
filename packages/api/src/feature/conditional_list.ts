@@ -1,4 +1,5 @@
-import type { DefinitionProps, Reference } from "#/core/definition";
+import type { BRAND } from "#/core/brand";
+import { type DefinitionProps, type Reference } from "#/core/definition";
 import { targets } from "#/core/references";
 import { Feature } from "#/feature/base";
 import type { FeatureReference } from "#/feature/base";
@@ -12,21 +13,25 @@ export interface ConditionalFeatureEntry {
     condition?: Molang;
 }
 
-@serialize
-export class ConditionalListFeature extends Feature.of(
-    "minecraft:conditional_list",
-    new FormatVersion(1, 26, 50),
-) {
-    override identifier: string;
+const ROOT = "minecraft:conditional_list";
 
-    @serialize({ rename: "conditional_features" })
+@serialize
+export class ConditionalListFeature extends Feature {
+    static override readonly defaultFormatVersion = new FormatVersion(1, 26, 50);
+
+    declare readonly [BRAND]: typeof ROOT;
+
+    @serialize({ within: [ROOT, "description"] })
+    override readonly identifier: string;
+
+    @serialize({ within: ROOT, rename: "conditional_features" })
     features: ConditionalFeatureEntry[] = [];
 
-    @serialize({ rename: "early_out_scheme" })
+    @serialize({ within: ROOT, rename: "early_out_scheme" })
     earlyOut?: ConditionalEarlyOut;
 
     constructor(identifier: string, props?: DefinitionProps<ConditionalListFeature>) {
-        super();
+        super(identifier);
         this.identifier = identifier;
         Object.assign(this, props);
     }

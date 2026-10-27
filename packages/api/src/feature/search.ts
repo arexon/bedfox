@@ -1,4 +1,5 @@
-import type { DefinitionProps, Reference } from "#/core/definition";
+import type { BRAND } from "#/core/brand";
+import { type DefinitionProps, type Reference } from "#/core/definition";
 import { targets } from "#/core/references";
 import { Feature } from "#/feature/base";
 import type { FeatureReference } from "#/feature/base";
@@ -13,23 +14,31 @@ export interface SearchVolume {
     max: Vec3;
 }
 
-@serialize
-export class SearchFeature extends Feature.of(
-    "minecraft:search_feature",
-    new FormatVersion(1, 26, 50),
-) {
-    override identifier: string;
+const ROOT = "minecraft:search_feature";
 
+@serialize
+export class SearchFeature extends Feature {
+    static override readonly defaultFormatVersion = new FormatVersion(1, 26, 50);
+
+    declare readonly [BRAND]: typeof ROOT;
+
+    @serialize({ within: [ROOT, "description"] })
+    override readonly identifier: string;
+
+    @serialize({ within: ROOT })
     placesFeature!: FeatureReference;
 
+    @serialize({ within: ROOT })
     searchVolume!: SearchVolume;
 
+    @serialize({ within: ROOT })
     searchAxis!: SearchAxis;
 
+    @serialize({ within: ROOT })
     requiredSuccesses?: number;
 
     constructor(identifier: string, props?: DefinitionProps<SearchFeature>) {
-        super();
+        super(identifier);
         this.identifier = identifier;
         Object.assign(this, props);
     }

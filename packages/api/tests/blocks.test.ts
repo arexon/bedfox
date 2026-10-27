@@ -53,12 +53,12 @@ import { Color, Range, Vec3 } from "#/primitive/index";
 
 describe(Block.name, () => {
     test("minimal", (t) => {
-        t.assert.snapshot(new Block("test:minimal"));
+        t.assert.snapshot(new Block("minimal"));
     });
 
     test("defaults explicit", (t) => {
         t.assert.snapshot(
-            new Block("test:defaults", {
+            new Block("defaults", {
                 category: "none",
                 isHiddenInCommands: false,
                 states: {},
@@ -68,12 +68,12 @@ describe(Block.name, () => {
     });
 
     test("category only", (t) => {
-        t.assert.snapshot(new Block("test:category", { category: "nature" }));
+        t.assert.snapshot(new Block("category", { category: "nature" }));
     });
 
     test("full", (t) => {
         t.assert.snapshot(
-            new Block("test:full", {
+            new Block("full", {
                 category: "construction",
                 group: "minecraft:itemGroup.name.planks",
                 isHiddenInCommands: true,

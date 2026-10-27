@@ -1,4 +1,10 @@
-import { Definition, type DefinitionProps, type Reference } from "#/core/definition";
+import type { BRAND } from "#/core/brand";
+import {
+    Definition,
+    type DefinitionLocation,
+    type DefinitionProps,
+    type Reference,
+} from "#/core/definition";
 import { targets } from "#/core/references";
 import { Feature, type FeatureReference } from "#/feature/base";
 import type { BiomeFilter } from "#/feature/biome_filter";
@@ -19,43 +25,51 @@ export type PlacementPass =
     | "after_sky_pass"
     | "final_pass";
 
-@serialize
-export class FeatureRules extends Definition.of(
-    "minecraft:feature_rules",
-    new FormatVersion(1, 26, 50),
-) {
-    override identifier: string;
+const ROOT = "minecraft:feature_rules";
 
-    @serialize({ within: "description" })
+@serialize
+export class FeatureRules extends Definition {
+    static override readonly defaultFormatVersion = new FormatVersion(1, 26, 50);
+    static override readonly location: DefinitionLocation = {
+        kind: "behavior",
+        folder: "feature_rules",
+    };
+
+    declare readonly [BRAND]: typeof ROOT;
+
+    @serialize({ within: [ROOT, "description"] })
+    override readonly identifier: string;
+
+    @serialize({ within: [ROOT, "description"] })
     placesFeature!: FeatureReference;
 
-    @serialize({ within: "conditions" })
+    @serialize({ within: [ROOT, "conditions"] })
     placementPass?: PlacementPass;
 
-    @serialize({ within: "conditions", rename: "minecraft:biome_filter" })
+    @serialize({ within: [ROOT, "conditions"], rename: "minecraft:biome_filter" })
     biomeFilter?: BiomeFilter;
 
-    @serialize({ within: "distribution" })
+    @serialize({ within: [ROOT, "distribution"] })
     iterations?: Molang;
 
-    @serialize({ within: "distribution" })
+    @serialize({ within: [ROOT, "distribution"] })
     x?: Molang | ScatterDistribution;
 
-    @serialize({ within: "distribution" })
+    @serialize({ within: [ROOT, "distribution"] })
     y?: Molang | ScatterDistribution;
 
-    @serialize({ within: "distribution" })
+    @serialize({ within: [ROOT, "distribution"] })
     z?: Molang | ScatterDistribution;
 
     /** @default "xzy" */
-    @serialize({ within: "distribution" })
+    @serialize({ within: [ROOT, "distribution"] })
     coordinateEvalOrder?: CoordinateEvalOrder;
 
-    @serialize({ within: "distribution" })
+    @serialize({ within: [ROOT, "distribution"] })
     scatterChance?: ScatterChance;
 
     constructor(identifier: string, props?: DefinitionProps<FeatureRules>) {
-        super();
+        super(identifier);
         this.identifier = identifier;
         Object.assign(this, props);
     }

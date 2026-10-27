@@ -11,13 +11,13 @@ export function autoIdentifier(target: ReferenceTarget): string {
     return target instanceof Definition ? target.identifier : target.name;
 }
 
-/** References to definitions of `kind`, skipping unset values. */
+/** References to definitions of class `ctor`, skipping unset values. */
 export function targets(
-    kind: DefinitionCtor,
+    ctor: DefinitionCtor,
     ...values: (ReferenceTarget | ReferenceTarget[] | undefined)[]
 ): Reference[] {
     return values
         .flat()
         .filter((value) => value !== undefined)
-        .map((target) => ({ kind, target }));
+        .map((target) => ({ ctor, target }));
 }

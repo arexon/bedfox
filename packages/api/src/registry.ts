@@ -7,6 +7,7 @@ import {
     type Reference,
     type ReferenceTarget,
 } from "#/core/definition";
+import type { PackKind } from "#/core/output";
 import { autoIdentifier } from "#/core/references";
 import { Feature, type FeatureReference } from "#/feature/base";
 import { FeatureRules } from "#/feature/rules";
@@ -65,15 +66,16 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
     /** The behavior and resource pack manifests. */
     readonly manifests: RegistryManifests;
 
-    #blocks = new DefinitionStore(Block);
-    #featureRules = new DefinitionStore(FeatureRules);
-    #features = new DefinitionStore(Feature);
-
-    #stores = [this.#blocks, this.#features, this.#featureRules];
+    #members = new Set<Definition>();
     #schedules: ReadonlySet<string>;
     #defaultSchedule: string;
     #systems = new Map<string, System[]>();
     #referenced?: Map<string, Reference[]>;
+    #byIdentifier?: Map<string, Definition[]>;
+    #byPath: Record<PackKind, Map<string, Definition>> = {
+        behavior: new Map(),
+        resource: new Map(),
+    };
 
     /**
      * Creates a registry.
@@ -101,53 +103,56 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
     }
 
     /**
-     * Registers definitions, along with any definition instances they reference. Adding an instance
-     * that's already registered does nothing. Registered definitions serialize with this registry's
-     * namespace, e.g. `example:dirt`.
+     * Registers definitions, along with any definition instances they reference. A definition
+     * belongs to one registry at a time, and serializes with its namespace, e.g. `example:dirt`.
+     * Adding a definition that's already here does nothing. Definitions of different kinds, such as
+     * a block and a feature, may share an identifier.
      *
      * @example
      *     const ore = new OreFeature("dirt_ore").add("example:dirt", ["minecraft:stone"]);
      *     // Registers `dirt_ore` too, since `scatter` holds the instance.
      *     reg.add(new ScatterFeature("scatter", { placesFeature: ore }));
      *
-     * @throws - {@link InvalidIdentifierError} if an identifier has a namespace or characters other
-     *   than `a-z`, `0-9`, `.`, `_` and `-`.
-     * @throws - {@link DuplicateDefinitionIdError} if another instance of the same kind has the
-     *   same identifier.
-     * @throws - {@link UnknownDefinitionError} if a definition's kind can't be registered.
-     * @throws - {@link NamespaceConflictError} if a definition is registered under another
-     *   namespace.
+     * @throws - {@link AlreadyRegisteredError} if a definition is in another registry.
+     * @throws - {@link DuplicateIdentifierError} if another definition here would be written to the
+     *   same file, e.g. a second block called `dirt`.
      */
     add(...defs: Definition[]): this {
         for (const def of defs) {
-            if (!validateIdentifier(def.identifier)) {
-                throw new InvalidIdentifierError(def.identifier);
-            }
+            if (this.#members.has(def)) continue;
             const namespace = def[NAMESPACE];
-            if (namespace !== undefined && namespace !== this.namespace) {
-                throw new NamespaceConflictError(def.identifier, namespace, this.namespace);
-            }
-
-            this.add(...def._referencedInstances());
-            this.#storeFor(def).add(def);
+            if (namespace !== undefined)
+                throw new AlreadyRegisteredError(def.identifier, namespace);
+            const paths = this.#byPath[def.kind];
+            const taken = paths.get(def.path);
+            if (taken !== undefined) throw new DuplicateIdentifierError(taken, def);
+            // Registered before its references, so a reference cycle ends here.
+            paths.set(def.path, def);
+            this.#members.add(def);
             def[NAMESPACE] = this.namespace;
+            try {
+                this.add(...def._referencedInstances());
+            } catch (error) {
+                this.remove(def);
+                throw error;
+            }
         }
-        this.#referenced = undefined;
+        this.#invalidate();
         return this;
     }
 
     /**
-     * Unregisters definitions, which then serialize without a namespace again. Removing an instance
-     * that isn't registered does nothing, even if another instance has its identifier. Definitions
-     * they reference stay registered.
-     *
-     * @throws - {@link UnknownDefinitionError} if a definition's kind can't be registered.
+     * Unregisters definitions, which then serialize without a namespace and can be added to another
+     * registry. Removing a definition that isn't here does nothing. Definitions they reference stay
+     * registered.
      */
     remove(...defs: Definition[]): void {
         for (const def of defs) {
-            if (this.#storeFor(def).delete(def)) delete def[NAMESPACE];
+            if (!this.#members.delete(def)) continue;
+            delete def[NAMESPACE];
+            this.#byPath[def.kind].delete(def.path);
         }
-        this.#referenced = undefined;
+        this.#invalidate();
     }
 
     /**
@@ -165,7 +170,9 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
      *
      * @example
      *     reg.addSystem((reg) => {
-     *         reg.resolve(Block, "dirt")?.setComponent(new FrictionBlockComponent(0.4));
+     *         for (const dirt of reg.resolve(Block, "dirt")) {
+     *             dirt.setComponent(new FrictionBlockComponent(0.4));
+     *         }
      *     });
      */
     addSystem(
@@ -190,9 +197,9 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
     async run(): Promise<void> {
         for (const schedule of this.#schedules) {
             for (const system of this.#systems.get(schedule) ?? []) {
-                // A system may change what references what, so drop the cached references
-                // before each one and rebuild them on demand.
-                this.#referenced = undefined;
+                // A system may change what references what, so drop the caches before each one and
+                // rebuild them on demand.
+                this.#invalidate();
                 // Systems run one at a time, since each may depend on what earlier ones changed.
                 // oxlint-disable-next-line no-await-in-loop
                 await system(this, schedule);
@@ -200,38 +207,44 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
         }
     }
 
-    /** @yields Each registered {@link Definition}, by kind then insertion order. */
+    /**
+     * @yields Each {@link Definition} registered when iteration starts, in the order they were
+     *   added. Definitions added while iterating aren't yielded, and those removed are skipped.
+     */
     *all(): Generator<Definition, void, unknown> {
-        for (const store of this.#stores) yield* store.values();
+        const snapshot = Array.from(this.#members);
+        for (const def of snapshot) {
+            if (this.#members.has(def)) yield def;
+        }
     }
 
     /**
-     * Looks up a definition by class and identifier, with or without this registry's namespace.
+     * Looks up definitions by class and identifier, with or without this registry's namespace, in
+     * the order they were added. Only one definition can be written to each file, so a class like
+     * `Block` finds at most one, while a base class like `Definition` may find a block and a
+     * feature.
      *
      * @example
-     *     reg.resolve(Block, "dirt");
+     *     reg.resolve(Block, "dirt"); // [dirt]
      *     reg.resolve(Block, "example:dirt"); // Same block.
      */
-    resolve<T extends Definition>(ctor: DefinitionCtor<T>, id: string): T | undefined {
-        const localId = this.#stripNamespace(id);
-        for (const store of this.#stores) {
-            const def = store.get(localId);
-            if (def instanceof ctor) return def;
-        }
-        return undefined;
+    resolve<T extends Definition>(ctor: DefinitionCtor<T>, id: string): T[] {
+        this.#byIdentifier ??= Map.groupBy(this.#members, (def) => def.identifier);
+        const defs = this.#byIdentifier.get(this.#stripNamespace(id)) ?? [];
+        return defs.filter((def): def is T => def instanceof ctor);
     }
 
     /**
      * Whether `ref` points at `target`. A class matches when `ref` resolves to a registered
      * instance of it. Anything else matches by identifier, ignoring this registry's namespace, and
-     * a definition must also be an instance of {@link Reference.kind}.
+     * a definition must also be an instance of {@link Reference.ctor}.
      */
     matches(ref: Reference, target: DefinitionCtor | ReferenceTarget): boolean {
         const id = autoIdentifier(ref.target);
         if (typeof target === "function") {
-            return this.resolve(ref.kind, id) instanceof target;
+            return this.resolve(ref.ctor, id).some((def) => def instanceof target);
         }
-        if (target instanceof Definition && !(target instanceof ref.kind)) return false;
+        if (target instanceof Definition && !(target instanceof ref.ctor)) return false;
         return this.#stripNamespace(id) === this.#stripNamespace(autoIdentifier(target));
     }
 
@@ -247,22 +260,13 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
             (ref) => this.#stripNamespace(autoIdentifier(ref.target)),
         );
         const refs = this.#referenced.get(def.identifier) ?? [];
-        return refs.some((ref) => def instanceof ref.kind);
+        return refs.some((ref) => def instanceof ref.ctor);
     }
 
-    #storeFor(def: Definition): DefinitionStore {
-        const store = this.#stores.find((store) => store.is(def));
-        if (store === undefined) {
-            throw new UnknownDefinitionError(def.constructor.name);
-        }
-        return store;
+    #invalidate(): void {
+        this.#referenced = undefined;
+        this.#byIdentifier = undefined;
     }
-}
-
-const IDENTIFIER_REG = /^[a-z0-9._-]+$/;
-
-function validateIdentifier(value: string): boolean {
-    return IDENTIFIER_REG.test(value);
 }
 
 /** Whether a query keeps `def`. */
@@ -412,7 +416,7 @@ class QueryImpl {
         rest: Iterable<Definition>,
     ): Generator<Definition, void, unknown> {
         const ctor = first.constructor as DefinitionCtor;
-        if (reg.resolve(ctor, first.identifier) === first && this.#matches(first, reg)) {
+        if (reg.resolve(ctor, first.identifier).includes(first) && this.#matches(first, reg)) {
             yield first;
         }
         yield* rest;
@@ -432,81 +436,6 @@ class QueryImpl {
     }
 }
 
-class DefinitionStore {
-    #inner = new Map<string, Definition>();
-    #ctors: DefinitionCtor[];
-
-    constructor(...ctors: DefinitionCtor[]) {
-        this.#ctors = ctors;
-    }
-
-    is(def: Definition): boolean {
-        for (const ctor of this.#ctors) {
-            if (def instanceof ctor) return true;
-        }
-        return false;
-    }
-
-    get(id: string): Definition | undefined {
-        return this.#inner.get(id);
-    }
-
-    values(): IterableIterator<Definition> {
-        return this.#inner.values();
-    }
-
-    add(def: Definition): this {
-        const id = this.#idFor(def);
-
-        // Adding the same instance again is a no-op.
-        const existing = this.#inner.get(id);
-        if (existing === def) return this;
-        if (existing !== undefined) throw new DuplicateDefinitionIdError(id);
-
-        this.#inner.set(id, def);
-        return this;
-    }
-
-    delete(def: Definition): boolean {
-        const id = this.#idFor(def);
-        return this.#inner.get(id) === def && this.#inner.delete(id);
-    }
-
-    clear(): void {
-        this.#inner.clear();
-    }
-
-    #idFor(def: Definition): string {
-        if (this.#ctors.some((ctor) => def instanceof ctor)) {
-            return def.identifier;
-        }
-        throw new UnknownDefinitionError(def.constructor.name, this.#ctors);
-    }
-}
-
-/** An error caused by a definition of a kind the registry can't hold. */
-export class UnknownDefinitionError extends TypeError {
-    constructor(defName: string, defCtors?: DefinitionCtor[]) {
-        let msg = `Unknown definition: got ${defName}`;
-        if (defCtors !== undefined) {
-            msg += `, expected `;
-            const expectedCtors = defCtors.map((ctor) => ctor.name).join(", ");
-            if (defCtors.length > 1) msg += `one of ${expectedCtors}`;
-            else msg += expectedCtors;
-        }
-        super(msg);
-        this.name = "UnknownDefinitionError";
-    }
-}
-
-/** An error caused by two instances of the same kind with the same identifier. */
-export class DuplicateDefinitionIdError extends TypeError {
-    constructor(id: string) {
-        super(`Found duplicate definition identifier: ${id}`);
-        this.name = "DuplicateDefinitionIdError";
-    }
-}
-
 /** An error caused by a schedule listed more than once. */
 export class DuplicateScheduleError extends TypeError {
     constructor(name: string) {
@@ -523,18 +452,22 @@ export class UnknownScheduleError extends TypeError {
     }
 }
 
-/** An error caused by adding a definition that another registry's namespace already claims. */
-export class NamespaceConflictError extends TypeError {
-    constructor(id: string, existing: string, namespace: string) {
-        super(`Definition ${id} is registered under ${existing}, can't add it under ${namespace}`);
-        this.name = "NamespaceConflictError";
+/** An error caused by adding a definition that another registry holds. */
+export class AlreadyRegisteredError extends TypeError {
+    constructor(id: string, namespace: string) {
+        super(
+            `Definition ${id} is already in the ${namespace} registry, remove it from there first`,
+        );
+        this.name = "AlreadyRegisteredError";
     }
 }
 
-/** An error caused by an identifier the registry doesn't accept. */
-export class InvalidIdentifierError extends TypeError {
-    constructor(id: string) {
-        super(`Invalid registry identifier: ${id}`);
-        this.name = "InvalidIdentifierError";
+/** An error caused by adding a definition that would be written to the same file as another. */
+export class DuplicateIdentifierError extends TypeError {
+    constructor(existing: Definition, added: Definition) {
+        super(
+            `Can't add ${added.constructor.name} ${added.identifier}, ${existing.constructor.name} ${existing.identifier} is already written to ${existing.path} in the ${existing.kind} pack`,
+        );
+        this.name = "DuplicateIdentifierError";
     }
 }

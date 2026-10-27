@@ -1,42 +1,49 @@
-import type { DefinitionProps, Reference } from "#/core/definition";
+import type { BRAND } from "#/core/brand";
+import { type DefinitionProps, type Reference } from "#/core/definition";
 import { targets } from "#/core/references";
 import { Feature } from "#/feature/base";
 import type { FeatureReference } from "#/feature/base";
 import { FormatVersion, type Molang } from "#/primitive/index";
 import { serialize } from "#/serialize";
 
-@serialize
-export class ScatterFeature extends Feature.of(
-    "minecraft:scatter_feature",
-    new FormatVersion(1, 26, 50),
-) {
-    override identifier: string;
+const ROOT = "minecraft:scatter_feature";
 
+@serialize
+export class ScatterFeature extends Feature {
+    static override readonly defaultFormatVersion = new FormatVersion(1, 26, 50);
+
+    declare readonly [BRAND]: typeof ROOT;
+
+    @serialize({ within: [ROOT, "description"] })
+    override readonly identifier: string;
+
+    @serialize({ within: ROOT })
     placesFeature!: FeatureReference;
 
-    @serialize({ within: "distribution" })
+    @serialize({ within: [ROOT, "distribution"] })
     iterations?: Molang;
 
-    @serialize({ within: "distribution" })
+    @serialize({ within: [ROOT, "distribution"] })
     x?: Molang | ScatterDistribution;
 
-    @serialize({ within: "distribution" })
+    @serialize({ within: [ROOT, "distribution"] })
     y?: Molang | ScatterDistribution;
 
-    @serialize({ within: "distribution" })
+    @serialize({ within: [ROOT, "distribution"] })
     z?: Molang | ScatterDistribution;
 
     /** @default "xzy" */
-    @serialize({ within: "distribution" })
+    @serialize({ within: [ROOT, "distribution"] })
     coordinateEvalOrder?: CoordinateEvalOrder;
 
-    @serialize({ within: "distribution" })
+    @serialize({ within: [ROOT, "distribution"] })
     scatterChance?: ScatterChance;
 
+    @serialize({ within: ROOT })
     projectInputToFloor?: boolean;
 
     constructor(identifier: string, props?: DefinitionProps<ScatterFeature>) {
-        super();
+        super(identifier);
         this.identifier = identifier;
         Object.assign(this, props);
     }

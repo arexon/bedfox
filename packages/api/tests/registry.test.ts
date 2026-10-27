@@ -8,29 +8,44 @@ import {
     GeometryBlockComponent,
     LightEmissionBlockComponent,
 } from "#/block/index";
-import { Definition } from "#/core/index";
-import { Feature, FeatureRules, OreFeature, ScatterFeature } from "#/feature/index";
+import { Definition, type DefinitionLocation } from "#/core/index";
+import {
+    Feature,
+    FeatureRules,
+    OreFeature,
+    ScatterFeature,
+    SequenceFeature,
+} from "#/feature/index";
 import { ScriptModule } from "#/manifest/index";
 import { FormatVersion } from "#/primitive/index";
 import {
-    DuplicateDefinitionIdError,
+    AlreadyRegisteredError,
+    DuplicateIdentifierError,
     DuplicateScheduleError,
-    InvalidIdentifierError,
-    NamespaceConflictError,
     type Query,
     query,
     Registry,
-    UnknownDefinitionError,
     UnknownScheduleError,
 } from "#/registry";
-import { toReference } from "#/serialize";
+import { serialize, toReference } from "#/serialize";
 
 const NS = "test";
 
 const OPTIONS = { namespace: NS } as const;
 
-class Unregistrable extends Definition.of("test:unregistrable", new FormatVersion(1, 0, 0)) {
-    override identifier = "unregistrable";
+/** A definition kind bedfox doesn't ship. */
+@serialize
+class Custom extends Definition {
+    static override readonly defaultFormatVersion = new FormatVersion(1, 0, 0);
+    static override readonly location: DefinitionLocation = { kind: "behavior", folder: "custom" };
+
+    @serialize({ within: ["test:custom", "description"] })
+    override readonly identifier: string;
+
+    constructor(identifier: string) {
+        super(identifier);
+        this.identifier = identifier;
+    }
 }
 
 function ids(defs: Iterable<Definition>): string[] {
@@ -68,9 +83,23 @@ describe(Registry.name, () => {
             assert.deepEqual([...reg.all()], [block]);
         });
 
-        test("rejects another instance with the same identifier", () => {
+        test("rejects another definition written to the same file", () => {
+            const reg = new Registry(OPTIONS).add(new Block("dirt"), new OreFeature("ore"));
+            assert.throws(() => reg.add(new Block("dirt")), {
+                name: "DuplicateIdentifierError",
+                message:
+                    "Can't add Block dirt, Block dirt is already written to blocks/dirt.json in the behavior pack",
+            });
+            assert.throws(() => reg.add(new ScatterFeature("ore")), DuplicateIdentifierError);
+            assert.equal([...reg.all()].length, 2);
+        });
+
+        test("accepts a definition at a file freed by a removal", () => {
             const reg = new Registry(OPTIONS).add(new Block("dirt"));
-            assert.throws(() => reg.add(new Block("dirt")), DuplicateDefinitionIdError);
+            reg.remove(...reg.all());
+            const dirt = new Block("dirt");
+            reg.add(dirt);
+            assert.deepEqual([...reg.all()], [dirt]);
         });
 
         test("allows the same identifier across kinds", () => {
@@ -82,14 +111,15 @@ describe(Registry.name, () => {
             assert.equal([...reg.all()].length, 3);
         });
 
-        test("rejects invalid identifiers", () => {
-            const reg = new Registry(OPTIONS);
-            assert.throws(() => reg.add(new Block(`${NS}:dirt`)), InvalidIdentifierError);
+        test("registers any definition kind", () => {
+            const custom = new Custom("custom");
+            assert.deepEqual([...new Registry(OPTIONS).add(custom).all()], [custom]);
         });
 
-        test("rejects unknown definition kinds", () => {
-            const reg = new Registry(OPTIONS);
-            assert.throws(() => reg.add(new Unregistrable()), UnknownDefinitionError);
+        test("rejects a definition in another registry, even with the same namespace", () => {
+            const dirt = new Block("dirt");
+            new Registry(OPTIONS).add(dirt);
+            assert.throws(() => new Registry(OPTIONS).add(dirt), AlreadyRegisteredError);
         });
 
         test("registers nested definition instances", () => {
@@ -97,7 +127,21 @@ describe(Registry.name, () => {
             const scatter = new ScatterFeature("scatter", { placesFeature: ore });
             const rules = new FeatureRules("rules", { placesFeature: scatter });
             const reg = new Registry(OPTIONS).add(rules);
-            assert.deepEqual(ids(reg.all()), ["ore", "scatter", "rules"]);
+            assert.deepEqual(ids(reg.all()), ["rules", "scatter", "ore"]);
+        });
+
+        test("registers reference cycles", () => {
+            const a = new SequenceFeature("a", { features: [] });
+            a.features.push(new SequenceFeature("b", { features: [a] }));
+            assert.deepEqual(ids(new Registry(OPTIONS).add(a).all()), ["a", "b"]);
+        });
+
+        test("unregisters a definition whose references are rejected", () => {
+            const reg = new Registry(OPTIONS).add(new OreFeature("ore"));
+            const scatter = new ScatterFeature("scatter", { placesFeature: new OreFeature("ore") });
+            assert.throws(() => reg.add(scatter), DuplicateIdentifierError);
+            assert.deepEqual(ids(reg.all()), ["ore"]);
+            assert.equal(scatter.qualifiedIdentifier, "scatter");
         });
 
         test("does not register string references", () => {
@@ -117,18 +161,18 @@ describe(Registry.name, () => {
             assert.deepEqual([...reg.all()], [stone]);
         });
 
-        test("frees the identifier for another instance", () => {
-            const reg = new Registry(OPTIONS);
-            const old = new Block("dirt");
-            reg.add(old).remove(old);
-            assert.doesNotThrow(() => reg.add(new Block("dirt")));
-        });
-
         test("ignores another instance with the same identifier", () => {
             const dirt = new Block("dirt");
             const reg = new Registry(OPTIONS).add(dirt);
             reg.remove(new Block("dirt"));
             assert.deepEqual([...reg.all()], [dirt]);
+        });
+
+        test("lets the definition be added to another registry", () => {
+            const dirt = new Block("dirt");
+            new Registry(OPTIONS).add(dirt).remove(dirt);
+            new Registry({ ...OPTIONS, namespace: "other" }).add(dirt);
+            assert.equal(dirt.qualifiedIdentifier, "other:dirt");
         });
     });
 
@@ -169,21 +213,6 @@ describe(Registry.name, () => {
             assert.equal(dirt[toReference](), "dirt");
         });
 
-        test("reject a definition registered under another namespace", () => {
-            const dirt = new Block("dirt");
-            new Registry(OPTIONS).add(dirt);
-            assert.throws(
-                () => new Registry({ ...OPTIONS, namespace: "other" }).add(dirt),
-                NamespaceConflictError,
-            );
-        });
-
-        test("accept the same namespace from another registry", () => {
-            const dirt = new Block("dirt");
-            new Registry(OPTIONS).add(dirt);
-            assert.doesNotThrow(() => new Registry(OPTIONS).add(dirt));
-        });
-
         test("are cleared by remove()", () => {
             const dirt = new Block("dirt");
             new Registry(OPTIONS).add(dirt).remove(dirt);
@@ -216,7 +245,7 @@ describe(Registry.name, () => {
     });
 
     describe("all()", () => {
-        test("yields blocks, then features, then feature rules, each in insertion order", () => {
+        test("yields definitions in the order they were added", () => {
             const reg = new Registry(OPTIONS).add(
                 new FeatureRules("rules", { placesFeature: `${NS}:b_ore` }),
                 new OreFeature("b_ore"),
@@ -224,7 +253,7 @@ describe(Registry.name, () => {
                 new OreFeature("a_ore"),
                 new Block("a_block"),
             );
-            assert.deepEqual(ids(reg.all()), ["b_block", "a_block", "b_ore", "a_ore", "rules"]);
+            assert.deepEqual(ids(reg.all()), ["rules", "b_ore", "b_block", "a_ore", "a_block"]);
         });
     });
 
@@ -234,26 +263,33 @@ describe(Registry.name, () => {
         const reg = new Registry(OPTIONS).add(dirt, ore);
 
         test("finds a definition by class and identifier", () => {
-            assert.equal(reg.resolve(Block, "dirt"), dirt);
+            assert.deepEqual(reg.resolve(Block, "dirt"), [dirt]);
         });
 
         test("strips this registry's namespace", () => {
-            assert.equal(reg.resolve(Block, `${NS}:dirt`), dirt);
+            assert.deepEqual(reg.resolve(Block, `${NS}:dirt`), [dirt]);
         });
 
         test("matches base classes", () => {
-            assert.equal(reg.resolve(Feature, "ore"), ore);
-            assert.equal(reg.resolve(Definition, "dirt"), dirt);
+            assert.deepEqual(reg.resolve(Feature, "ore"), [ore]);
+            assert.deepEqual(reg.resolve(Definition, "dirt"), [dirt]);
         });
 
         test("misses other classes", () => {
-            assert.equal(reg.resolve(Block, "ore"), undefined);
-            assert.equal(reg.resolve(ScatterFeature, "ore"), undefined);
+            assert.deepEqual(reg.resolve(Block, "ore"), []);
+            assert.deepEqual(reg.resolve(ScatterFeature, "ore"), []);
         });
 
         test("misses unknown identifiers and other namespaces", () => {
-            assert.equal(reg.resolve(Block, "stone"), undefined);
-            assert.equal(reg.resolve(Block, "other:dirt"), undefined);
+            assert.deepEqual(reg.resolve(Block, "stone"), []);
+            assert.deepEqual(reg.resolve(Block, "other:dirt"), []);
+        });
+
+        test("finds every kind sharing an identifier, in the order they were added", () => {
+            const block = new Block("stone");
+            const ore = new OreFeature("stone");
+            const reg = new Registry(OPTIONS).add(block, ore);
+            assert.deepEqual(reg.resolve(Definition, "stone"), [block, ore]);
         });
     });
 
@@ -262,30 +298,30 @@ describe(Registry.name, () => {
         const reg = new Registry(OPTIONS).add(dirt);
 
         test("compares identifiers ignoring this registry's namespace", () => {
-            assert.ok(reg.matches({ kind: Block, target: `${NS}:dirt` }, "dirt"));
-            assert.ok(reg.matches({ kind: Block, target: "dirt" }, `${NS}:dirt`));
-            assert.equal(reg.matches({ kind: Block, target: "other:dirt" }, "dirt"), false);
+            assert.ok(reg.matches({ ctor: Block, target: `${NS}:dirt` }, "dirt"));
+            assert.ok(reg.matches({ ctor: Block, target: "dirt" }, `${NS}:dirt`));
+            assert.equal(reg.matches({ ctor: Block, target: "other:dirt" }, "dirt"), false);
         });
 
         test("compares definitions and descriptors by identifier", () => {
-            assert.ok(reg.matches({ kind: Block, target: dirt }, `${NS}:dirt`));
-            assert.ok(reg.matches({ kind: Block, target: { name: `${NS}:dirt` } }, dirt));
-            assert.ok(reg.matches({ kind: Block, target: new Block("dirt") }, dirt));
+            assert.ok(reg.matches({ ctor: Block, target: dirt }, `${NS}:dirt`));
+            assert.ok(reg.matches({ ctor: Block, target: { name: `${NS}:dirt` } }, dirt));
+            assert.ok(reg.matches({ ctor: Block, target: new Block("dirt") }, dirt));
         });
 
         test("checks classes against registered definitions", () => {
-            assert.ok(reg.matches({ kind: Block, target: `${NS}:dirt` }, Block));
-            assert.ok(reg.matches({ kind: Block, target: dirt }, Block));
-            assert.equal(reg.matches({ kind: Block, target: `${NS}:dirt` }, Feature), false);
-            assert.equal(reg.matches({ kind: Block, target: "minecraft:stone" }, Block), false);
+            assert.ok(reg.matches({ ctor: Block, target: `${NS}:dirt` }, Block));
+            assert.ok(reg.matches({ ctor: Block, target: dirt }, Block));
+            assert.equal(reg.matches({ ctor: Block, target: `${NS}:dirt` }, Feature), false);
+            assert.equal(reg.matches({ ctor: Block, target: "minecraft:stone" }, Block), false);
         });
 
         test("rejects definitions of another kind with the same identifier", () => {
             const ore = new OreFeature("thing");
             const reg = new Registry(OPTIONS).add(new Block("thing"), ore);
-            assert.equal(reg.matches({ kind: Block, target: `${NS}:thing` }, ore), false);
-            assert.equal(reg.matches({ kind: Block, target: `${NS}:thing` }, Feature), false);
-            assert.ok(reg.matches({ kind: Feature, target: `${NS}:thing` }, OreFeature));
+            assert.equal(reg.matches({ ctor: Block, target: `${NS}:thing` }, ore), false);
+            assert.equal(reg.matches({ ctor: Block, target: `${NS}:thing` }, Feature), false);
+            assert.ok(reg.matches({ ctor: Feature, target: `${NS}:thing` }, OreFeature));
         });
     });
 
@@ -382,12 +418,12 @@ describe(Registry.name, () => {
         });
 
         test("see definitions added by earlier systems", async () => {
-            let found: Block | undefined;
+            let found: Block[] = [];
             await new Registry(OPTIONS)
                 .addSystem("setup", (reg) => reg.add(new Block("dirt")))
                 .addSystem((reg) => (found = reg.resolve(Block, "dirt")))
                 .run();
-            assert.equal(found?.identifier, "dirt");
+            assert.deepEqual(ids(found), ["dirt"]);
         });
 
         test("receive the schedule they run on", async () => {
@@ -524,15 +560,15 @@ describe(Registry.name, () => {
 });
 
 describe(query.name, () => {
-    test("yields definitions of the given classes in registry order", async () => {
+    test("yields definitions of the given classes in the order they were added", async () => {
         const reg = new Registry(OPTIONS).add(
             new FeatureRules("rules", { placesFeature: `${NS}:ore` }),
             new OreFeature("ore"),
             new Block("dirt"),
         );
         assert.deepEqual(await collect(reg, query(Block)), ["dirt"]);
-        assert.deepEqual(await collect(reg, query(FeatureRules, Block)), ["dirt", "rules"]);
-        assert.deepEqual(await collect(reg, query(Definition)), ["dirt", "ore", "rules"]);
+        assert.deepEqual(await collect(reg, query(FeatureRules, Block)), ["rules", "dirt"]);
+        assert.deepEqual(await collect(reg, query(Definition)), ["rules", "ore", "dirt"]);
     });
 
     test("matches subclasses", async () => {
@@ -590,6 +626,21 @@ describe(query.name, () => {
             assert.deepEqual(features, ["b"]);
         });
 
+        test("doesn't yield definitions added while iterating", async () => {
+            const seen: string[] = [];
+            const reg = new Registry(OPTIONS).add(new Block("oak")).addSystem(
+                query(Block).intoSystem((reg, blocks) => {
+                    for (const block of blocks) {
+                        seen.push(block.identifier);
+                        reg.add(new Block(`${block.identifier}_slab`));
+                    }
+                }),
+            );
+            await reg.run();
+            assert.deepEqual(seen, ["oak"]);
+            assert.deepEqual(ids(reg.all()), ["oak", "oak_slab"]);
+        });
+
         test("allows removing definitions while iterating", async () => {
             const reg = new Registry(OPTIONS).add(new Block("a"), new Block("b"), new Block("c"));
             await reg
@@ -624,7 +675,7 @@ describe(query.name, () => {
                 new OreFeature("unused"),
             );
             assert.deepEqual(await collect(reg, query(Feature).orphan()), ["unused"]);
-            assert.deepEqual(await collect(reg, query(Definition).orphan()), ["unused", "rules"]);
+            assert.deepEqual(await collect(reg, query(Definition).orphan()), ["rules", "unused"]);
         });
 
         describe("withComponent() and withoutComponent()", () => {
@@ -732,19 +783,6 @@ describe(query.name, () => {
                     "rules",
                 ]);
             });
-
-            test("only accepts what the kind can place", () => {
-                const features = query(Feature);
-                const rules = query(FeatureRules);
-                // @ts-expect-error rules only place features
-                rules.placing(Block);
-                // @ts-expect-error rules only place features
-                rules.placing({ name: "minecraft:stone" });
-                assert.ok(query(Definition).placing(Block));
-                assert.ok(features.placing("minecraft:stone"));
-                assert.ok(rules.placing(OreFeature));
-                assert.ok(rules.placing("minecraft:ore"));
-            });
         });
 
         test("kind filters can be mixed", async () => {
@@ -760,15 +798,6 @@ describe(query.name, () => {
                 .placing(`${NS}:ore`)
                 .withComponent(GeometryBlockComponent);
             assert.deepEqual(await collect(reg, mixed), ["geometry", "scatter"]);
-        });
-
-        test("only exposes the filters for the kinds a query could yield", () => {
-            // @ts-expect-error blocks don't place anything
-            assert.equal(typeof query(Block).placing, "function");
-            // @ts-expect-error features don't have components
-            assert.equal(typeof query(OreFeature).withComponent, "function");
-            assert.equal(typeof query(Definition).withComponent, "function");
-            assert.equal(typeof query(Definition).placing, "function");
         });
     });
 });

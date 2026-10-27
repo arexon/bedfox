@@ -133,7 +133,7 @@ exports[`FeatureRules > empty biome filter 1`] = `
   "format_version": "1.26.50",
   "minecraft:feature_rules": {
     "description": {
-      "identifier": "test:rules_empty_filter",
+      "identifier": "rules_empty_filter",
       "places_feature": "test:string_feature"
     }
   }
@@ -145,8 +145,8 @@ exports[`FeatureRules > full instance 1`] = `
   "format_version": "1.26.50",
   "minecraft:feature_rules": {
     "description": {
-      "identifier": "test:rules",
-      "places_feature": "test:live_ore"
+      "identifier": "rules",
+      "places_feature": "live_ore"
     },
     "conditions": {
       "placement_pass": "underground_pass",
@@ -204,12 +204,12 @@ exports[`features > aggregate > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:aggregate_feature": {
     "description": {
-      "identifier": "test:aggregate"
+      "identifier": "aggregate"
     },
     "features": [
-      "test:live_ore",
+      "live_ore",
       "test:string_feature",
-      "test:live_sequence"
+      "live_sequence"
     ],
     "early_out": "first_success"
   }
@@ -221,7 +221,7 @@ exports[`features > cave_carver > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:cave_carver_feature": {
     "description": {
-      "identifier": "test:cave_carver"
+      "identifier": "cave_carver"
     },
     "fill_with": "minecraft:air",
     "width_modifier": "q.noise(1, 2)",
@@ -249,7 +249,7 @@ exports[`features > conditional_list > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:conditional_list": {
     "description": {
-      "identifier": "test:conditional"
+      "identifier": "conditional"
     },
     "conditional_features": [
       {
@@ -260,7 +260,7 @@ exports[`features > conditional_list > full 1`] = `
         "places_feature": "test:string_feature"
       },
       {
-        "places_feature": "test:live_sequence",
+        "places_feature": "live_sequence",
         "condition": "v.x > 0"
       }
     ],
@@ -274,7 +274,7 @@ exports[`features > fossil > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:fossil_feature": {
     "description": {
-      "identifier": "test:fossil"
+      "identifier": "fossil"
     },
     "ore_block": "minecraft:coal_ore",
     "max_empty_corners": 4
@@ -287,7 +287,7 @@ exports[`features > geode > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:geode_feature": {
     "description": {
-      "identifier": "test:geode"
+      "identifier": "geode"
     },
     "filler": "minecraft:air",
     "inner_layer": "minecraft:amethyst_block",
@@ -332,7 +332,7 @@ exports[`features > growing_plant > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:growing_plant_feature": {
     "description": {
-      "identifier": "test:growing_plant"
+      "identifier": "growing_plant"
     },
     "height_distribution": [
       [
@@ -383,7 +383,7 @@ exports[`features > height_difference_filter > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:height_difference_filter_feature": {
     "description": {
-      "identifier": "test:hdf"
+      "identifier": "hdf"
     },
     "places_feature": "test:live_ore",
     "search_radius": 3,
@@ -400,7 +400,7 @@ exports[`features > horizontal_tree_decoration > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:horizontal_tree_decoration_feature": {
     "description": {
-      "identifier": "test:htd"
+      "identifier": "htd"
     },
     "places_block": {
       "name": "minecraft:stone",
@@ -419,7 +419,7 @@ exports[`features > multi_block > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:multi_block_feature": {
     "description": {
-      "identifier": "test:multi_block"
+      "identifier": "multi_block"
     },
     "places_block": "minecraft:tall_grass",
     "enforce_placement_rules": true,
@@ -442,7 +442,7 @@ exports[`features > multiface > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:multiface_feature": {
     "description": {
-      "identifier": "test:multiface"
+      "identifier": "multiface"
     },
     "places_block": "minecraft:glow_lichen",
     "search_range": 20,
@@ -468,7 +468,7 @@ exports[`features > multipart_block_column > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:multipart_block_column_feature": {
     "description": {
-      "identifier": "test:column"
+      "identifier": "column"
     },
     "tip_block": "minecraft:pointed_dripstone",
     "frustum_block": {
@@ -510,7 +510,7 @@ exports[`features > nether_cave_carver > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:nether_cave_carver_feature": {
     "description": {
-      "identifier": "test:nether_carver"
+      "identifier": "nether_carver"
     },
     "fill_with": "minecraft:air",
     "width_modifier": "q.noise(1, 2)",
@@ -538,7 +538,7 @@ exports[`features > ore > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:ore_feature": {
     "description": {
-      "identifier": "test:ore"
+      "identifier": "ore"
     },
     "count": 8,
     "discard_chance_on_air_exposure": 0.5,
@@ -582,7 +582,7 @@ exports[`features > partially_exposed_blob > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:partially_exposed_blob_feature": {
     "description": {
-      "identifier": "test:blob"
+      "identifier": "blob"
     },
     "places_block": {
       "name": "minecraft:stone",
@@ -602,7 +602,7 @@ exports[`features > scatter > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:scatter_feature": {
     "description": {
-      "identifier": "test:scatter"
+      "identifier": "scatter"
     },
     "places_feature": "test:live_ore",
     "distribution": {
@@ -640,7 +640,7 @@ exports[`features > search > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:search_feature": {
     "description": {
-      "identifier": "test:search"
+      "identifier": "search"
     },
     "places_feature": "test:live_ore",
     "search_volume": {
@@ -666,12 +666,12 @@ exports[`features > sequence > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:sequence_feature": {
     "description": {
-      "identifier": "test:sequence"
+      "identifier": "sequence"
     },
     "features": [
       "test:live_ore",
       "test:string_feature",
-      "test:live_aggregate"
+      "live_aggregate"
     ]
   }
 }
@@ -682,7 +682,7 @@ exports[`features > single_block > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:single_block_feature": {
     "description": {
-      "identifier": "test:single"
+      "identifier": "single"
     },
     "places_block": {
       "name": "minecraft:stone",
@@ -742,7 +742,7 @@ exports[`features > single_block > weighted 1`] = `
   "format_version": "1.26.50",
   "minecraft:single_block_feature": {
     "description": {
-      "identifier": "test:single_weighted"
+      "identifier": "single_weighted"
     },
     "places_block": [
       {
@@ -772,7 +772,7 @@ exports[`features > snap_to_surface > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:snap_to_surface_feature": {
     "description": {
-      "identifier": "test:snap"
+      "identifier": "snap"
     },
     "feature_to_snap": "test:live_ore",
     "search_range": 12,
@@ -807,7 +807,7 @@ exports[`features > structure_template > boolean constraints 1`] = `
   "format_version": "1.26.50",
   "minecraft:structure_template_feature": {
     "description": {
-      "identifier": "test:structure_bool"
+      "identifier": "structure_bool"
     },
     "structure_name": "mystructure:hut",
     "constraints": {
@@ -824,7 +824,7 @@ exports[`features > structure_template > empty constraint objects 1`] = `
   "format_version": "1.26.50",
   "minecraft:structure_template_feature": {
     "description": {
-      "identifier": "test:structure_empty"
+      "identifier": "structure_empty"
     },
     "structure_name": "mystructure:tower",
     "constraints": {
@@ -840,7 +840,7 @@ exports[`features > structure_template > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:structure_template_feature": {
     "description": {
-      "identifier": "test:structure"
+      "identifier": "structure"
     },
     "structure_name": "mystructure:house",
     "constraints": {
@@ -875,7 +875,7 @@ exports[`features > surface_relative_threshold > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:surface_relative_threshold_feature": {
     "description": {
-      "identifier": "test:srt"
+      "identifier": "srt"
     },
     "feature_to_place": "test:live_ore",
     "minimum_distance_below_surface": 4
@@ -888,7 +888,7 @@ exports[`features > underwater_cave_carver > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:underwater_cave_carver_feature": {
     "description": {
-      "identifier": "test:uw_carver"
+      "identifier": "uw_carver"
     },
     "replace_air_with": {
       "name": "minecraft:stone",
@@ -922,7 +922,7 @@ exports[`features > vegetation_patch > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:vegetation_patch_feature": {
     "description": {
-      "identifier": "test:veg"
+      "identifier": "veg"
     },
     "replaceable_blocks": [
       "minecraft:stone",
@@ -958,7 +958,7 @@ exports[`features > weighted_random > full 1`] = `
   "format_version": "1.26.50",
   "minecraft:weighted_random_feature": {
     "description": {
-      "identifier": "test:weighted"
+      "identifier": "weighted"
     },
     "features": [
       [
@@ -970,7 +970,7 @@ exports[`features > weighted_random > full 1`] = `
         1
       ],
       [
-        "test:live_sequence",
+        "live_sequence",
         0.5
       ]
     ]

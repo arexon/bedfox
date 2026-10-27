@@ -1,54 +1,47 @@
-import type { Ctor, InstanceProps } from "#/core/props";
+import type { BRAND } from "#/core/brand";
+import type { PackKind, PackOutput } from "#/core/output";
+import type { InstanceProps } from "#/core/props";
 import type { BlockDescriptor, FormatVersion } from "#/primitive/index";
-import { setLayout, toReference } from "#/serialize";
+import { serialize, toReference } from "#/serialize";
 
-/** Keys the namespace of the registry a definition is registered in. */
 export const NAMESPACE: unique symbol = Symbol("namespace");
 
-export type DefinitionProps<T> = Partial<InstanceProps<T, "identifier" | typeof NAMESPACE>>;
+export type DefinitionProps<T> = Partial<InstanceProps<T, typeof NAMESPACE>>;
 
-/**
- * A top-level JSON file in a resource or behavior pack, such as a block, item, entity or feature.
- * Its data sits under a `minecraft:<kind>` key.
- */
-export abstract class Definition {
-    /** A base for a definition class written under `root`, e.g. `minecraft:block`. */
-    static of<C extends Ctor<Definition>, R extends string>(
-        this: C,
-        root: R,
-        formatVersion: FormatVersion,
-    ): C & Ctor<{ readonly _root: R }> {
-        abstract class Base extends this {}
-        // A definition file nests every field under the root key, except the format version, with
-        // the identifier first in `description`.
-        setLayout(Base, (json, def) => {
-            const {
-                format_version,
-                identifier: _,
-                description,
-                ...body
-            } = json as Record<string, unknown>;
-            return {
-                format_version: format_version ?? formatVersion,
-                [root]: {
-                    description: {
-                        identifier: (def as Definition).qualifiedIdentifier,
-                        ...(description as object | undefined),
-                    },
-                    ...body,
-                },
-            };
-        });
-        return Base as C & Ctor<{ readonly _root: R }>;
-    }
+/** Where a kind of definition is written: which pack, and the folder in it. */
+export interface DefinitionLocation {
+    kind: PackKind;
+    folder: string;
+}
 
-    /** Overrides the format version given to {@link Definition.of}. */
+const IDENTIFIER_REG = /^[a-z0-9._-]+$/;
+
+/** A top-level JSON file in a resource or behavior pack, such as a block, item, entity or feature. */
+export abstract class Definition implements PackOutput {
+    declare static readonly defaultFormatVersion: FormatVersion;
+
+    declare static readonly location: DefinitionLocation;
+
+    declare readonly [BRAND]: string;
+
+    declare [NAMESPACE]?: string;
+
+    /** Overrides the class's default format version. */
+    @serialize({
+        override: (v, def) => v ?? (def.constructor as typeof Definition).defaultFormatVersion,
+    })
     formatVersion?: FormatVersion;
 
-    abstract identifier: string;
+    @serialize({ override: (_, def) => def.qualifiedIdentifier })
+    readonly identifier!: string;
 
-    /** Internal. Set by the registry this is registered in. */
-    declare [NAMESPACE]?: string;
+    /**
+     * @throws - {@link InvalidIdentifierError} if `identifier` has a namespace or characters other
+     *   than `a-z`, `0-9`, `.`, `_` and `-`.
+     */
+    constructor(identifier: string) {
+        if (!IDENTIFIER_REG.test(identifier)) throw new InvalidIdentifierError(identifier);
+    }
 
     /**
      * The identifier with the namespace of the registry this is registered in, e.g. `example:dirt`
@@ -57,6 +50,16 @@ export abstract class Definition {
     get qualifiedIdentifier(): string {
         const namespace = this[NAMESPACE];
         return namespace === undefined ? this.identifier : `${namespace}:${this.identifier}`;
+    }
+
+    /** Which pack this is written in. */
+    get kind(): PackKind {
+        return (this.constructor as typeof Definition).location.kind;
+    }
+
+    /** Where this is written in its pack, e.g. `blocks/dirt.json`. */
+    get path(): string {
+        return `${(this.constructor as typeof Definition).location.folder}/${this.identifier}.json`;
     }
 
     [toReference](): string {
@@ -93,8 +96,18 @@ export type DefinitionCtor<T extends Definition = Definition> = abstract new (
 
 export type ReferenceTarget = Definition | BlockDescriptor | string;
 
-/** A reference to a definition of a given kind. */
+/** A reference to a definition of a given class. */
 export interface Reference {
-    kind: DefinitionCtor;
+    ctor: DefinitionCtor;
     target: ReferenceTarget;
+}
+
+/** An error caused by an identifier that can't name a definition's file. */
+export class InvalidIdentifierError extends TypeError {
+    constructor(id: string) {
+        super(
+            `Invalid identifier: ${id}, expected only a-z, 0-9, ".", "_" and "-", without a namespace`,
+        );
+        this.name = "InvalidIdentifierError";
+    }
 }

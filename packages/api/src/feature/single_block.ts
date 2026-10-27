@@ -1,5 +1,6 @@
 import { Block } from "#/block/index";
-import type { DefinitionProps, Reference } from "#/core/definition";
+import type { BRAND } from "#/core/brand";
+import { type DefinitionProps, type Reference } from "#/core/definition";
 import { targets } from "#/core/references";
 import { Feature } from "#/feature/base";
 import { type BlockDescriptorRef, FormatVersion } from "#/primitive/index";
@@ -34,29 +35,40 @@ export interface BlockAttachmentRules {
     diagonal?: BlockDescriptorRef | BlockDescriptorRef[];
 }
 
-@serialize
-export class SingleBlockFeature extends Feature.of(
-    "minecraft:single_block_feature",
-    new FormatVersion(1, 26, 50),
-) {
-    override identifier: string;
+const ROOT = "minecraft:single_block_feature";
 
+@serialize
+export class SingleBlockFeature extends Feature {
+    static override readonly defaultFormatVersion = new FormatVersion(1, 26, 50);
+
+    declare readonly [BRAND]: typeof ROOT;
+
+    @serialize({ within: [ROOT, "description"] })
+    override readonly identifier: string;
+
+    @serialize({ within: ROOT })
     placesBlock?: BlockDescriptorRef | WeightedBlock[];
 
+    @serialize({ within: ROOT })
     enforcePlacementRules!: boolean;
 
+    @serialize({ within: ROOT })
     enforceSurvivabilityRules!: boolean;
 
+    @serialize({ within: ROOT })
     randomizeRotation?: boolean;
 
+    @serialize({ within: ROOT })
     mayAttachTo?: BlockAttachmentRules;
 
+    @serialize({ within: ROOT })
     mayNotAttachTo?: BlockAttachmentRules;
 
+    @serialize({ within: ROOT })
     mayReplace?: BlockDescriptorRef[];
 
     constructor(identifier: string, props?: DefinitionProps<SingleBlockFeature>) {
-        super();
+        super(identifier);
         this.identifier = identifier;
         Object.assign(this, props);
     }

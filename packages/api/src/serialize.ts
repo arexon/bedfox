@@ -1,6 +1,3 @@
-/** Layouts registered with {@link setLayout}, keyed by base class. */
-const LAYOUTS = new WeakMap<object, Layout>();
-
 /** Options of each decorated field, keyed by the prototype that declares it. */
 const OPTIONS = new WeakMap<object, Map<string, FieldOptions>>();
 
@@ -13,10 +10,11 @@ const SCHEMAS = new WeakMap<object, Schema>();
  */
 export const toReference: unique symbol = Symbol("bedfox.toReference");
 
-export type FieldDecorator = (prototype: object, name: string) => void;
+/** A field decorator, only allowed on classes whose instances are `This`. */
+export type FieldDecorator<This extends object = object> = (prototype: This, name: string) => void;
 
-/** How a field serializes. Every option is off by default. */
-export interface FieldOptions<T = unknown> {
+/** How a field of type `T`, on instances of `This`, serializes. Every option is off by default. */
+export interface FieldOptions<T = unknown, This extends object = object> {
     /** The JSON key, instead of the snake_cased field name. */
     rename?: string;
     /**
@@ -35,10 +33,11 @@ export interface FieldOptions<T = unknown> {
      */
     transparent?: boolean;
     /**
-     * Maps the field's value before it's serialized. Returning `undefined` omits the field. Unlike
-     * other fields, an empty array or object returned here is kept.
+     * Maps the field's value before it's serialized, given the instance it belongs to. Returning
+     * `undefined` omits the field. Unlike other fields, an empty array or object returned here is
+     * kept.
      */
-    override?: (value: T | undefined) => unknown;
+    override?: (value: T | undefined, instance: This) => unknown;
 }
 
 /** An error caused by {@link serialize()} on a static field, method or accessor. */
@@ -91,19 +90,18 @@ export class UnsupportedJsonValueError extends TypeError {
  * field, it sets that field's {@link FieldOptions}.
  */
 export function serialize(target: abstract new (...args: never[]) => object): void;
-export function serialize<T>(options: FieldOptions<T>): FieldDecorator;
+export function serialize<T, This extends object = object>(
+    options: FieldOptions<T, This>,
+): FieldDecorator<This>;
 export function serialize(
     arg: FieldOptions | (abstract new (...args: never[]) => object),
 ): FieldDecorator | undefined {
     if (typeof arg === "function") {
-        const layout = layoutOf(arg);
         Object.defineProperty(arg.prototype, "toJSON", {
             configurable: true,
             writable: true,
             value(this: object): unknown {
-                return layout !== undefined
-                    ? layout(serializeInstance(this), this)
-                    : serializeInstance(this);
+                return serializeInstance(this);
             },
         });
         return undefined;
@@ -124,36 +122,12 @@ export function serialize(
     };
 }
 
-/**
- * Rearranges an instance's serialized fields. It also receives the instance, for anything the
- * fields don't carry.
- */
-export type Layout = (json: unknown, instance: object) => unknown;
-
-/**
- * Passes the serialized fields of `base` and its subclasses through `layout`, e.g. to wrap them in
- * a definition file's structure. Subclasses pick up the layout when {@link serialize()} decorates
- * them, so call this first.
- */
-export function setLayout(base: object, layout: Layout): void {
-    LAYOUTS.set(base, layout);
-}
-
-/** The layout registered on `ctor` or its nearest base, if any. */
-function layoutOf(ctor: object): Layout | undefined {
-    for (let c: object | null = ctor; c !== null; c = Object.getPrototypeOf(c) as object | null) {
-        const layout = LAYOUTS.get(c);
-        if (layout !== undefined) return layout;
-    }
-    return undefined;
-}
-
 /** How one field serializes. */
 interface FieldSchema {
     readonly key: string;
     readonly within: readonly string[];
     /** The field's JSON, or `undefined` to omit it. */
-    readonly toJson: (value: unknown) => unknown;
+    readonly toJson: (value: unknown, instance: object) => unknown;
 }
 
 /** How a class serializes: its fields, resolved from its decorators and its bases'. */
@@ -199,7 +173,7 @@ class Schema {
             within: typeof within === "string" ? [within] : (within ?? []),
             toJson:
                 override !== undefined
-                    ? (value) => convert(override(value))
+                    ? (value, instance) => convert(override(value, instance))
                     : (value) => omitEmpty(convert(value)),
         };
 
@@ -253,7 +227,7 @@ function serializeInstance(obj: object): unknown {
     const out: Record<string, unknown> = {};
     for (const name of Object.keys(obj)) {
         const field = schema.field(name);
-        const json = field.toJson((obj as Record<string, unknown>)[name]);
+        const json = field.toJson((obj as Record<string, unknown>)[name], obj);
         if (json === undefined) continue;
         let target = out;
         for (const segment of field.within) {

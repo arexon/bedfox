@@ -1,5 +1,6 @@
 import { Block } from "#/block/index";
-import type { DefinitionProps, Reference } from "#/core/definition";
+import type { BRAND } from "#/core/brand";
+import { type DefinitionProps, type Reference } from "#/core/definition";
 import { targets } from "#/core/references";
 import { Feature } from "#/feature/base";
 import { type BlockDescriptorRef, FormatVersion } from "#/primitive/index";
@@ -11,18 +12,28 @@ export interface OreReplaceRule {
     mayReplace?: BlockDescriptorRef[];
 }
 
-@serialize
-export class OreFeature extends Feature.of("minecraft:ore_feature", new FormatVersion(1, 26, 50)) {
-    override identifier: string;
+const ROOT = "minecraft:ore_feature";
 
+@serialize
+export class OreFeature extends Feature {
+    static override readonly defaultFormatVersion = new FormatVersion(1, 26, 50);
+
+    declare readonly [BRAND]: typeof ROOT;
+
+    @serialize({ within: [ROOT, "description"] })
+    override readonly identifier: string;
+
+    @serialize({ within: ROOT })
     count!: number;
 
+    @serialize({ within: ROOT })
     discardChanceOnAirExposure?: number;
 
+    @serialize({ within: ROOT })
     replaceRules: OreReplaceRule[] = [];
 
     constructor(identifier: string, props?: DefinitionProps<OreFeature>) {
-        super();
+        super(identifier);
         this.identifier = identifier;
         Object.assign(this, props);
     }

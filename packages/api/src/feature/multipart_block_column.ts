@@ -1,5 +1,6 @@
 import { Block } from "#/block/index";
-import type { DefinitionProps, Reference } from "#/core/definition";
+import type { BRAND } from "#/core/brand";
+import { type DefinitionProps, type Reference } from "#/core/definition";
 import { targets } from "#/core/references";
 import { Feature } from "#/feature/base";
 import {
@@ -10,33 +11,46 @@ import {
 } from "#/primitive/index";
 import { serialize } from "#/serialize";
 
-@serialize
-export class MultipartBlockColumnFeature extends Feature.of(
-    "minecraft:multipart_block_column_feature",
-    new FormatVersion(1, 26, 50),
-) {
-    override identifier: string;
+const ROOT = "minecraft:multipart_block_column_feature";
 
+@serialize
+export class MultipartBlockColumnFeature extends Feature {
+    static override readonly defaultFormatVersion = new FormatVersion(1, 26, 50);
+
+    declare readonly [BRAND]: typeof ROOT;
+
+    @serialize({ within: [ROOT, "description"] })
+    override readonly identifier: string;
+
+    @serialize({ within: ROOT })
     tipBlock!: BlockDescriptorRef;
 
+    @serialize({ within: ROOT })
     frustumBlock!: BlockDescriptorRef;
 
+    @serialize({ within: ROOT })
     middleBlock!: BlockDescriptorRef;
 
+    @serialize({ within: ROOT })
     baseBlock!: BlockDescriptorRef;
 
+    @serialize({ within: ROOT })
     heightRange?: number | Range;
 
+    @serialize({ within: ROOT })
     weightedHeights?: number[];
 
+    @serialize({ within: ROOT })
     direction?: VerticalDirection;
 
+    @serialize({ within: ROOT })
     mayPlaceOn?: BlockDescriptorRef[];
 
+    @serialize({ within: ROOT })
     mayReplace?: BlockDescriptorRef[];
 
     constructor(identifier: string, props?: DefinitionProps<MultipartBlockColumnFeature>) {
-        super();
+        super(identifier);
         this.identifier = identifier;
         Object.assign(this, props);
     }

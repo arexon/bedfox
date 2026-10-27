@@ -1,37 +1,48 @@
 import { type BlockTrait, BlockTraitCollection } from "#/block/trait/base";
+import type { BRAND } from "#/core/brand";
 import { type Component, ComponentCollection } from "#/core/component";
-import { Definition, type DefinitionProps } from "#/core/definition";
+import { Definition, type DefinitionLocation, type DefinitionProps } from "#/core/definition";
 import { FormatVersion, type ItemCategory, Range } from "#/primitive/index";
 import { serialize } from "#/serialize";
 
 export * from "#/block/component/index";
 export * from "#/block/trait/index";
 
-@serialize
-export class Block extends Definition.of("minecraft:block", new FormatVersion(1, 26, 40)) {
-    override identifier: string;
+const ROOT = "minecraft:block";
 
-    @serialize({ within: "description" })
+@serialize
+export class Block extends Definition {
+    static override readonly defaultFormatVersion = new FormatVersion(1, 26, 40);
+    static override readonly location: DefinitionLocation = { kind: "behavior", folder: "blocks" };
+
+    declare readonly [BRAND]: typeof ROOT;
+
+    @serialize({ within: [ROOT, "description"] })
+    override readonly identifier: string;
+
+    @serialize({ within: [ROOT, "description"] })
     traits: BlockTraitCollection = new BlockTraitCollection();
 
-    @serialize({ within: ["description", "menu_category"] })
+    @serialize({ within: [ROOT, "description", "menu_category"] })
     category?: ItemCategory;
 
-    @serialize({ within: ["description", "menu_category"] })
+    @serialize({ within: [ROOT, "description", "menu_category"] })
     group?: string;
 
-    @serialize({ within: ["description", "menu_category"] })
+    @serialize({ within: [ROOT, "description", "menu_category"] })
     isHiddenInCommands?: boolean;
 
-    @serialize({ within: "description", keepKeys: true, override: serStates })
+    @serialize({ within: [ROOT, "description"], keepKeys: true, override: serStates })
     states: Record<string, (number | boolean | string)[] | Range> = {};
 
+    @serialize({ within: ROOT })
     components: ComponentCollection = new ComponentCollection();
 
+    @serialize({ within: ROOT })
     permutations: BlockPermutation[] = [];
 
     constructor(identifier: string, props?: DefinitionProps<Block>) {
-        super();
+        super(identifier);
         this.identifier = identifier;
         Object.assign(this, props);
     }

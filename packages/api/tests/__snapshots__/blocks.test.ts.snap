@@ -3,7 +3,7 @@ exports[`Block > category only 1`] = `
   "format_version": "1.26.40",
   "minecraft:block": {
     "description": {
-      "identifier": "test:category",
+      "identifier": "category",
       "menu_category": {
         "category": "nature"
       }
@@ -17,7 +17,7 @@ exports[`Block > defaults explicit 1`] = `
   "format_version": "1.26.40",
   "minecraft:block": {
     "description": {
-      "identifier": "test:defaults",
+      "identifier": "defaults",
       "menu_category": {
         "category": "none",
         "is_hidden_in_commands": false
@@ -32,7 +32,7 @@ exports[`Block > full 1`] = `
   "format_version": "1.26.40",
   "minecraft:block": {
     "description": {
-      "identifier": "test:full",
+      "identifier": "full",
       "traits": {
         "minecraft:placement_direction": {
           "enabled_states": [
@@ -140,7 +140,7 @@ exports[`Block > minimal 1`] = `
   "format_version": "1.26.40",
   "minecraft:block": {
     "description": {
-      "identifier": "test:minimal"
+      "identifier": "minimal"
     }
   }
 }

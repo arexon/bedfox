@@ -1,11 +1,13 @@
-import { Definition, type Reference } from "#/core/definition";
+import type { BRAND } from "#/core/brand";
+import { Definition, type DefinitionLocation, type Reference } from "#/core/definition";
 
 export abstract class Feature extends Definition {
-    /**
-     * Internal. The root key of every feature, e.g. `minecraft:ore_feature`. Feature rules have a
-     * different root, which keeps them from being structurally equivalent to features.
-     */
-    declare readonly _root: `minecraft:${string}_feature` | "minecraft:conditional_list";
+    static override readonly location: DefinitionLocation = {
+        kind: "behavior",
+        folder: "features",
+    };
+
+    declare readonly [BRAND]: `minecraft:${string}_feature` | "minecraft:conditional_list";
 
     /** Internal. Everything this feature places in the world. */
     _placements(): Reference[] {
