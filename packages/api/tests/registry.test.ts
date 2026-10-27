@@ -480,12 +480,13 @@ describe(Registry.name, () => {
             ]);
         });
 
-        test("default to setup, transform and finalize", async () => {
-            const schedules = ["finalize", "transform", "setup"];
+        test("default to setup, transform, finalize and build", async () => {
+            const schedules = ["build", "finalize", "transform", "setup"];
             assert.deepEqual(await runOrder(new Registry(OPTIONS), schedules), [
                 "setup",
                 "transform",
                 "finalize",
+                "build",
             ]);
         });
 

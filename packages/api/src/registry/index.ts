@@ -13,7 +13,7 @@ import { DataModule, ResourcesModule } from "#/manifest/module";
 export * from "#/registry/query";
 
 /** The schedules a registry has unless it's given its own, in run order. */
-export const DEFAULT_SCHEDULES = ["setup", "transform", "finalize"] as const;
+export const DEFAULT_SCHEDULES = ["setup", "transform", "finalize", "build"] as const;
 
 export interface RegistryOptions<S extends string, D extends S = never> {
     /** The namespace of the registry. */
@@ -21,7 +21,7 @@ export interface RegistryOptions<S extends string, D extends S = never> {
     /**
      * The schedules systems can run on, in run order.
      *
-     * @default ["setup", "transform", "finalize"]
+     * @default ["setup", "transform", "finalize", "build"]
      */
     schedules?: readonly S[];
     /**
