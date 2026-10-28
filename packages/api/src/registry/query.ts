@@ -32,8 +32,8 @@ interface BaseQuery<T extends Definition> {
     orphan(): Query<T>;
 
     /**
-     * Turns the query into a system that calls `callback` with the definitions matched when it
-     * runs. If nothing matches, `callback` isn't called.
+     * Converts the query to a system. When the system runs, it calls `callback` with the
+     * definitions that the query matches. If nothing matches, the system doesn't call `callback`.
      *
      * @example
      *     reg.addSystem(
@@ -47,7 +47,7 @@ interface BaseQuery<T extends Definition> {
     intoSystem(callback: SystemCallback<T>): System;
 }
 
-// Each kind's filters let definitions of other kinds through, so one query can mix kinds.
+// Each kind's filters keep definitions of other kinds, so one query can mix kinds.
 
 interface BlockQuery<T extends Definition> {
     /** Matches blocks that have every given component. */
@@ -79,8 +79,8 @@ export type Query<T extends Definition> = BaseQuery<T> &
           : unknown);
 
 /**
- * Queries registered definitions of the given classes. Filters only become available for the kinds
- * the query can yield.
+ * Queries registered definitions of the given classes. Filters are available only for the kinds
+ * that the query can yield.
  *
  * @example
  *     query(Block).withComponent(LightEmissionBlockComponent);
@@ -139,7 +139,7 @@ class QueryImpl {
 
     /**
      * @yields `first` if it still matches once iteration starts, then everything in `rest`. The
-     *   callback may have changed the registry since `first` was matched.
+     *   callback may have changed the registry since the query matched `first`.
      */
     *#withFirst(
         reg: Registry<string>,

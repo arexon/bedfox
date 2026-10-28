@@ -12,7 +12,7 @@ import { DataModule, ResourcesModule } from "#/manifest/module";
 
 export * from "#/registry/query";
 
-/** The schedules a registry has unless it's given its own, in run order. */
+/** The schedules of a registry without its own `schedules` option, in run order. */
 export const DEFAULT_SCHEDULES = ["setup", "transform", "finalize", "build"] as const;
 
 export interface RegistryOptions<S extends string, D extends S = never> {
@@ -25,7 +25,7 @@ export interface RegistryOptions<S extends string, D extends S = never> {
      */
     schedules?: readonly S[];
     /**
-     * The schedule for systems added without one.
+     * The schedule for systems that `addSystem()` gets without a schedule.
      *
      * @default "transform"
      */
@@ -41,8 +41,8 @@ export interface RegistryManifests {
 /**
  * Holds a project's definitions and the systems that transform them.
  *
- * Definitions are registered by identifier without a namespace, e.g. `dirt`. References to them may
- * use either form, e.g. `dirt` or `example:dirt`.
+ * A registry stores definitions by identifier without a namespace, e.g. `dirt`. References to them
+ * may use either form, e.g. `dirt` or `example:dirt`.
  *
  * @example
  *     const reg = new Registry({ namespace: "example" });
@@ -77,7 +77,7 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
     /**
      * Creates a registry.
      *
-     * @throws - {@link DuplicateScheduleError} if a schedule is listed more than once.
+     * @throws - {@link DuplicateScheduleError} if `schedules` lists a schedule more than once.
      * @throws - {@link UnknownScheduleError} if `defaultSchedule` isn't one of the schedules.
      */
     constructor(options: RegistryOptions<S, D>) {
@@ -111,8 +111,8 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
      *     reg.add(new ScatterFeature("scatter", { placesFeature: ore }));
      *
      * @throws - {@link AlreadyRegisteredError} if a definition is in another registry.
-     * @throws - {@link DuplicateIdentifierError} if another definition here would be written to the
-     *   same file, e.g. a second block called `dirt`.
+     * @throws - {@link DuplicateIdentifierError} if another definition here uses the same file,
+     *   e.g. a second block called `dirt`.
      */
     add(...defs: Definition[]): this {
         for (const def of defs) {
@@ -123,7 +123,7 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
             const paths = this.#byPath[def.kind];
             const taken = paths.get(def.path);
             if (taken !== undefined) throw new DuplicateIdentifierError(taken, def);
-            // Registered before its references, so a reference cycle ends here.
+            // Register the definition before its references, so that a reference cycle ends here.
             paths.set(def.path, def);
             this.#members.add(def);
             def[NAMESPACE] = this.namespace;
@@ -139,9 +139,9 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
     }
 
     /**
-     * Unregisters definitions, which then serialize without a namespace and can be added to another
-     * registry. Removing a definition that isn't here does nothing. Definitions they reference stay
-     * registered.
+     * Unregisters definitions. They then serialize without a namespace, and another registry can
+     * add them. Removing a definition that isn't here does nothing. Definitions that they reference
+     * stay registered.
      */
     remove(...defs: Definition[]): void {
         for (const def of defs) {
@@ -158,12 +158,12 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
      * @example
      *     reg.addSystem("setup", (reg) => reg.add(new Block("dirt")));
      *
-     * @throws - {@link UnknownScheduleError} if no schedule is called `schedule`.
+     * @throws - {@link UnknownScheduleError} if the registry has no schedule called `schedule`.
      */
     addSystem(schedule: S, ...systems: System[]): this;
     /**
-     * Adds systems to run on the default schedule, `transform` unless the registry was given
-     * another.
+     * Adds systems to run on the default schedule. This is the `defaultSchedule` option, or
+     * `transform` if that option is unset.
      *
      * @example
      *     reg.addSystem((reg) => {
@@ -188,8 +188,8 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
     }
 
     /**
-     * Runs every system, schedule by schedule, in the order they were added. Each system finishes,
-     * including any promise it returns, before the next one starts.
+     * Runs every system, schedule by schedule, in the order that `addSystem()` added them. Each
+     * system finishes, including any promise it returns, before the next one starts.
      */
     async run(): Promise<void> {
         for (const schedule of this.#schedules) {
@@ -205,8 +205,8 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
     }
 
     /**
-     * @yields Each {@link Definition} registered when iteration starts, in the order they were
-     *   added. Definitions added while iterating aren't yielded, and those removed are skipped.
+     * @yields Each {@link Definition} in the registry when iteration starts, in the order that the
+     *   registry added them. It skips definitions added or removed during iteration.
      */
     *all(): Generator<Definition, void, unknown> {
         const snapshot = Array.from(this.#members);
@@ -216,10 +216,9 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
     }
 
     /**
-     * Looks up definitions by class and identifier, with or without this registry's namespace, in
-     * the order they were added. Only one definition can be written to each file, so a class like
-     * `Block` finds at most one, while a base class like `Definition` may find a block and a
-     * feature.
+     * Finds definitions by class and identifier, with or without this registry's namespace, in the
+     * order that the registry added them. Each file holds only one definition, so a class like
+     * `Block` finds at most one. A base class like `Definition` may find a block and a feature.
      *
      * @example
      *     reg.resolve(Block, "dirt"); // [dirt]
@@ -233,8 +232,8 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
 
     /**
      * Whether `ref` points at `target`. A class matches when `ref` resolves to a registered
-     * instance of it. Anything else matches by identifier, ignoring this registry's namespace, and
-     * a definition must also be an instance of {@link Reference.ctor}.
+     * instance of it. Any other target matches by identifier, and the match ignores this registry's
+     * namespace. A definition target must also be an instance of {@link Reference.ctor}.
      */
     matches(ref: Reference, target: DefinitionCtor | ReferenceTarget): boolean {
         const id = autoIdentifier(ref.target);
@@ -268,7 +267,7 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
 
 /**
  * A function that {@link Registry.run()} calls. If it returns a promise, the run waits for it before
- * starting the next system. Any other return value is ignored.
+ * starting the next system. The run ignores any other return value.
  */
 export type System = (reg: Registry<string>, schedule: string) => unknown;
 
@@ -298,7 +297,7 @@ export class AlreadyRegisteredError extends TypeError {
     }
 }
 
-/** An error caused by adding a definition that would be written to the same file as another. */
+/** An error caused by adding a definition that uses the same file as another. */
 export class DuplicateIdentifierError extends TypeError {
     constructor(existing: Definition, added: Definition) {
         super(

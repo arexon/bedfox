@@ -12,13 +12,13 @@ import pkg from "#package.json" with { type: "json" };
 export * from "#/manifest/module";
 export * from "#/manifest/settings";
 
-/** An optional engine feature a pack can turn on, as the game registers them. */
+/** An optional engine feature that a pack can enable, named as the game registers it. */
 export type PackCapability = "chemistry" | "editorExtension" | "script_eval" | "raytraced" | "pbr";
 
 /** Where a pack can be applied. Packs without a scope can be applied anywhere. */
 export type PackScope = "global" | "world" | "system" | "any";
 
-/** The minimum engine version a registry's manifests get unless one is set. */
+/** The minimum engine version of a manifest that doesn't set one with `minEngineVersion()`. */
 export const DEFAULT_MIN_ENGINE_VERSION = "1.26.50";
 
 const BEDFOX = "bedfox";
@@ -46,7 +46,7 @@ interface SubpackJson {
  *         .dependsOn(rp);
  */
 export class Manifest implements PackOutput {
-    /** The namespace UUIDs and the default name are derived from. */
+    /** The namespace that the manifest derives its UUIDs and default name from. */
     readonly namespace: string;
 
     readonly path = "manifest.json";
@@ -76,8 +76,8 @@ export class Manifest implements PackOutput {
     /**
      * Which pack this is, from its modules.
      *
-     * @throws - {@link InvalidModulesError} if there are no modules, or a resources module with
-     *   behavior pack ones.
+     * @throws - {@link InvalidModulesError} if the manifest has no modules, or has a resources
+     *   module and a behavior pack module.
      */
     get kind(): PackKind {
         const resources = this.#modules.some((module) => module.type === "resources");
@@ -114,7 +114,7 @@ export class Manifest implements PackOutput {
     }
 
     /**
-     * Sets the oldest game version the pack is made for, e.g. `1.26.50`.
+     * Sets the oldest game version that the pack targets, e.g. `1.26.50`.
      *
      * @default "1.26.50"
      */
@@ -144,7 +144,7 @@ export class Manifest implements PackOutput {
     }
 
     /**
-     * Depends on another pack, by its header UUID and version as they are when this is serialized.
+     * Depends on another pack, by its header UUID and version at the time this manifest serializes.
      * Depending on the same manifest again does nothing.
      */
     dependsOn(pack: Manifest): this {
@@ -152,7 +152,7 @@ export class Manifest implements PackOutput {
         return this;
     }
 
-    /** Turns on optional engine features, e.g. `pbr`. Turning one on again does nothing. */
+    /** Enables optional engine features, e.g. `pbr`. Enabling a feature again does nothing. */
     capabilities(...names: PackCapability[]): this {
         for (const name of names) {
             if (!this.#capabilities.includes(name)) this.#capabilities.push(name);
@@ -179,8 +179,8 @@ export class Manifest implements PackOutput {
     }
 
     /**
-     * Sets what the pack is made for. `addon`, for packs added to worlds, is the only value the
-     * game accepts, and it doesn't change how the pack works.
+     * Sets the pack's product type. The game accepts only `addon`, for packs added to worlds. The
+     * value doesn't change how the pack works.
      */
     productType(productType: "addon"): this {
         this.#productType = productType;
@@ -189,7 +189,7 @@ export class Manifest implements PackOutput {
 
     /**
      * Records the versions of another tool that generated the manifest, e.g. `mctools` at `0.12.0`.
-     * Bedfox always records itself first, and this can't replace that entry.
+     * Bedfox always records itself first. This method can't replace that entry.
      */
     generatedWith(tool: string, ...versions: string[]): this {
         if (tool !== BEDFOX) this.#generatedWith[tool] = versions;

@@ -11,7 +11,7 @@ export type Version =
 export type ModuleVersion = Version | `${number}` | "alpha" | "beta" | "internal";
 
 /**
- * A module as a manifest writes it in `modules`. A manifest fills in the UUID and version a module
+ * A module as a manifest writes it in `modules`. A manifest sets the UUID and version that a module
  * leaves unset.
  */
 export interface ModuleJson {
@@ -31,8 +31,9 @@ export interface ModuleDependencyJson {
 }
 
 /**
- * Something a pack contains, added to a manifest with `module()`. Its UUID is derived from the
- * manifest's header UUID and its version is the manifest's, unless set.
+ * Something that a pack contains, added to a manifest with `module()`. The manifest derives the
+ * module's UUID from the header UUID, and the module uses the manifest's version. {@link uuid} and
+ * {@link version} override these.
  */
 export abstract class ManifestModule {
     abstract readonly type: ModuleType;
@@ -80,8 +81,8 @@ export class ResourcesModule extends ManifestModule {
 }
 
 /**
- * A JavaScript module that runs `entry`, a path inside a behavior pack. Its UUID is derived from
- * the manifest's header UUID and `entry`, unless set.
+ * A JavaScript module that runs `entry`, a path inside a behavior pack. The manifest derives its
+ * UUID from the header UUID and `entry`, unless {@link uuid} sets one.
  *
  * @example
  *     new ScriptModule("scripts/main.js").dependsOn("@minecraft/server", "2.1.0");

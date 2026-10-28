@@ -1,7 +1,7 @@
-/** Which pack a file is written in. */
+/** The pack that holds a file. */
 export type PackKind = "behavior" | "resource";
 
-/** Something written to a file in a pack. */
+/** Something that becomes a file in a pack. */
 export interface PackOutput {
     readonly kind: PackKind;
     /** The file's path from the pack's root. */

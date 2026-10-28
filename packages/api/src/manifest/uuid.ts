@@ -6,7 +6,7 @@ const BEDFOX_NAMESPACE = Uint8Array.fromHex(
 );
 
 /**
- * A version 5 UUID for `name`, the same every time it's derived from the same name.
+ * A version 5 UUID for `name`. The same name always gives the same UUID.
  *
  * @example
  *     deriveUuid("example/behavior/header");

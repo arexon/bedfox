@@ -8,7 +8,7 @@ export const NAMESPACE: unique symbol = Symbol("namespace");
 
 export type DefinitionProps<T> = Partial<InstanceProps<T, typeof NAMESPACE>>;
 
-/** Where a kind of definition is written: which pack, and the folder in it. */
+/** The pack and the folder that hold a kind of definition. */
 export interface DefinitionLocation {
     kind: PackKind;
     folder: string;
@@ -44,20 +44,20 @@ export abstract class Definition implements PackOutput {
     }
 
     /**
-     * The identifier with the namespace of the registry this is registered in, e.g. `example:dirt`
-     * for `dirt`. An unregistered definition's identifier is returned as is.
+     * The identifier with the namespace of this definition's registry, e.g. `example:dirt` for
+     * `dirt`. An unregistered definition returns its identifier unchanged.
      */
     get qualifiedIdentifier(): string {
         const namespace = this[NAMESPACE];
         return namespace === undefined ? this.identifier : `${namespace}:${this.identifier}`;
     }
 
-    /** Which pack this is written in. */
+    /** The pack that holds this definition. */
     get kind(): PackKind {
         return (this.constructor as typeof Definition).location.kind;
     }
 
-    /** Where this is written in its pack, e.g. `blocks/dirt.json`. */
+    /** This definition's path in its pack, e.g. `blocks/dirt.json`. */
     get path(): string {
         return `${(this.constructor as typeof Definition).location.folder}/${this.identifier}.json`;
     }
@@ -81,7 +81,10 @@ export abstract class Definition implements PackOutput {
         return [];
     }
 
-    /** Internal. The definition instances among {@link _references}, registered along with this. */
+    /**
+     * Internal. The definition instances among {@link _references}. A registry registers them along
+     * with this definition.
+     */
     _referencedInstances(): Definition[] {
         return this._references()
             .map((ref) => ref.target)

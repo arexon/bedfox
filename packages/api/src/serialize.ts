@@ -1,12 +1,12 @@
 /** Options of each decorated field, keyed by the prototype that declares it. */
 const OPTIONS = new WeakMap<object, Map<string, FieldOptions>>();
 
-/** Each class's schema, built on first use so that every decorator has already run. */
+/** Each class's schema. `schemaOf()` builds it on first use, after every decorator runs. */
 const SCHEMAS = new WeakMap<object, Schema>();
 
 /**
- * Method key for values that serialize as a reference when nested in another value, e.g. a
- * definition as its identifier.
+ * The method key for values that serialize as a reference inside another value, e.g. a definition
+ * as its identifier.
  */
 export const TO_REFERENCE: unique symbol = Symbol("to_reference");
 
@@ -18,8 +18,8 @@ export interface FieldOptions<T = unknown, This extends object = object> {
     /** The JSON key, instead of the snake_cased field name. */
     rename?: string;
     /**
-     * Nested objects to place the field inside, e.g. `["description", "menu_category"]`. Can't be
-     * combined with {@link transparent}.
+     * Nested objects to place the field inside, e.g. `["description", "menu_category"]`. It can't
+     * be combined with {@link transparent}.
      */
     within?: string | readonly string[];
     /**
@@ -28,14 +28,14 @@ export interface FieldOptions<T = unknown, This extends object = object> {
      */
     keepKeys?: boolean;
     /**
-     * Makes the field's value replace the whole object when it's the only field set. Can't be
+     * Makes the field's value replace the whole object when no other field is set. It can't be
      * combined with {@link within}.
      */
     transparent?: boolean;
     /**
-     * Maps the field's value before it's serialized, given the instance it belongs to. Returning
-     * `undefined` omits the field. Unlike other fields, an empty array or object returned here is
-     * kept.
+     * Maps the field's value, given the instance that holds it, before the field serializes.
+     * Returning `undefined` omits the field. An empty array or object from this function stays in
+     * the JSON, unlike for other fields.
      */
     override?: (value: T | undefined, instance: This) => unknown;
 }
@@ -221,7 +221,7 @@ function resolveOptions(ctor: { readonly prototype: object }): Map<string, Field
     return resolved;
 }
 
-/** Serializes a class instance as described by its schema. */
+/** Serializes a class instance as its schema describes. */
 function serializeInstance(obj: object): unknown {
     const schema = schemaOf(obj.constructor);
     const out: Record<string, unknown> = {};
@@ -244,11 +244,12 @@ function serializeInstance(obj: object): unknown {
  * Converts a value to JSON:
  *
  * - A value with a {@link TO_REFERENCE} method becomes that reference.
- * - A value with a `toJSON()` method becomes its result, which isn't converted further.
- * - Arrays are converted item by item, and plain objects key by key, snake_casing keys and dropping
- *   `undefined` values and functions.
+ * - A value with a `toJSON()` method becomes its result as is.
+ * - Arrays convert item by item.
+ * - Plain objects convert key by key, with snake_cased keys and without `undefined` values or
+ *   functions.
  * - A `Map` or `Set` throws {@link UnsupportedJsonValueError}.
- * - Any other class instance is serialized like a {@link serialize()} class.
+ * - Any other class instance serializes like a {@link serialize()} class.
  */
 function toJson(value: unknown): unknown {
     if (typeof value === "function") return undefined;
@@ -292,8 +293,8 @@ const SNAKE_CASE_CACHE = new Map<string, string>();
 const CASEABLE = /^[A-Za-z][A-Za-z0-9]*$/;
 
 /**
- * Converts a camelCase name to snake_case. Only pure alphanumeric names are converted, so
- * namespaced keys like `minecraft:cardinal_direction` pass through.
+ * Converts a camelCase name to snake_case. It converts only pure alphanumeric names, so it returns
+ * namespaced keys like `minecraft:cardinal_direction` unchanged.
  */
 function toSnakeCase(name: string): string {
     if (!CASEABLE.test(name)) return name;

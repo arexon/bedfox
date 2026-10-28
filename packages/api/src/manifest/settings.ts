@@ -1,6 +1,6 @@
 /** A choice in a dropdown or multiselect setting, as a manifest writes it. */
 export interface SettingOption {
-    /** What the setting's value is when this is picked, e.g. `high`. */
+    /** The setting's value when a player picks this option, e.g. `high`. */
     name: string;
     /** What players see, e.g. `High`. */
     text: string;
@@ -28,8 +28,8 @@ export class LabelSetting {
 }
 
 /**
- * What every named setting has. `name` is namespaced, e.g. `example:power`, can't use `minecraft`,
- * and is unique in its manifest. `text` is what players see.
+ * What every named setting has. `name` has a namespace, e.g. `example:power`. The namespace can't
+ * be `minecraft`, and `name` is unique in its manifest. `text` is what players see.
  */
 abstract class NamedSetting {
     readonly name: string;
@@ -41,7 +41,7 @@ abstract class NamedSetting {
     }
 }
 
-/** An on/off switch. It starts off unless set. */
+/** An on/off switch. It starts off unless `default()` sets it on. */
 export class ToggleSetting extends NamedSetting {
     #default = false;
 
@@ -57,8 +57,9 @@ export class ToggleSetting extends NamedSetting {
 }
 
 /**
- * A number players pick from `min` to `max`, where `min` is less than `max`. It moves in steps of 1
- * and starts at `min` unless set.
+ * A number that players pick from `min` to `max`, where `min` is less than `max`. It moves in steps
+ * of 1 unless `step()` sets another step. It starts at `min` unless `default()` sets another
+ * value.
  */
 export class SliderSetting extends NamedSetting {
     readonly min: number;
@@ -98,12 +99,15 @@ export class SliderSetting extends NamedSetting {
     }
 }
 
-/** A list players pick one of 2 to 20 options from. It starts on the first option unless set. */
+/**
+ * A list of 2 to 20 options that players pick one from. It starts on the first option unless
+ * `default()` sets another.
+ */
 export class DropdownSetting extends NamedSetting {
     #options: SettingOption[] = [];
     #default?: string;
 
-    /** Adds an option. Its `name` is the setting's value when it's picked. */
+    /** Adds an option. Its `name` is the setting's value when a player picks it. */
     option(name: string, text: string): this {
         this.#options.push({ name, text });
         return this;
@@ -126,13 +130,16 @@ export class DropdownSetting extends NamedSetting {
     }
 }
 
-/** A list players pick any number of 2 to 20 options from. Nothing is picked unless set. */
+/**
+ * A list of 2 to 20 options that players pick any number from. It starts with no options picked
+ * unless `defaults()` picks some.
+ */
 export class MultiSelectSetting extends NamedSetting {
     #options: SettingOption[] = [];
     #defaults: string[] = [];
     #selectionText?: string;
 
-    /** Adds an option. Its `name` is in the setting's value when it's picked. */
+    /** Adds an option. Its `name` is in the setting's value when a player picks it. */
     option(name: string, text: string): this {
         this.#options.push({ name, text });
         return this;
@@ -144,7 +151,7 @@ export class MultiSelectSetting extends NamedSetting {
         return this;
     }
 
-    /** Sets the text that describes what's picked. */
+    /** Sets the text that describes the picked options. */
     selectionText(text: string): this {
         this.#selectionText = text;
         return this;
@@ -156,7 +163,7 @@ export class MultiSelectSetting extends NamedSetting {
             name: this.name,
             text: this.text,
             options: this.#options,
-            // A required field, so it's written even when nothing is picked.
+            // The game requires this field, so write it even when it's empty.
             defaults: this.#defaults,
             selection_text: this.#selectionText,
         };
