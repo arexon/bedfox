@@ -13,7 +13,7 @@
     "plugins": ["eslint", "jsdoc", "oxc", "typescript", "unicorn"],
     "overrides": [
         {
-            "files": ["packages/api/src/**"],
+            "files": ["packages/*/src/**"],
             "rules": {
                 "no-restricted-imports": [
                     "warn",

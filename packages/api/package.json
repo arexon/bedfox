@@ -22,16 +22,26 @@
         "#/*": "./src/*.ts"
     },
     "exports": {
-        "./block": "./dist/block/index.mjs",
-        "./core": "./dist/core/index.mjs",
-        "./feature": "./dist/feature/index.mjs",
-        "./manifest": "./dist/manifest/index.mjs",
-        "./primitive": "./dist/primitive/index.mjs",
-        "./registry": "./dist/registry/index.mjs",
-        "./serialize": "./dist/serialize.mjs",
+        "./block": "./src/block/index.ts",
+        "./core": "./src/core/index.ts",
+        "./feature": "./src/feature/index.ts",
+        "./manifest": "./src/manifest/index.ts",
+        "./primitive": "./src/primitive/index.ts",
+        "./registry": "./src/registry/index.ts",
+        "./serialize": "./src/serialize.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
+        "exports": {
+            "./block": "./dist/block/index.mjs",
+            "./core": "./dist/core/index.mjs",
+            "./feature": "./dist/feature/index.mjs",
+            "./manifest": "./dist/manifest/index.mjs",
+            "./primitive": "./dist/primitive/index.mjs",
+            "./registry": "./dist/registry/index.mjs",
+            "./serialize": "./dist/serialize.mjs",
+            "./package.json": "./package.json"
+        },
         "access": "public"
     },
     "scripts": {

@@ -4,6 +4,6 @@ export default defineConfig({
     workspace: "packages/*",
     dts: true,
     entry: ["src/*/index.ts", "src/*.ts"],
-    exports: true,
+    exports: { devExports: true },
     unbundle: true,
 });
