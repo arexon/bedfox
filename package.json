@@ -9,7 +9,6 @@
         "lint": "vp lint",
         "check": "vp check",
         "test": "vp test",
-        "test:update": "vp test -u",
         "ready": "pnpm build && pnpm check && pnpm test"
     },
     "devDependencies": {
