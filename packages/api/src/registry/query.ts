@@ -7,13 +7,12 @@ import type { BlockDescriptorRef } from "#/primitive/index";
 import type { Registry, System } from "#/registry/index";
 
 /** Whether a query keeps `def`. */
-export type Filter<T extends Definition = Definition> = (def: T, reg: Registry<string>) => boolean;
+export type Filter<T extends Definition = Definition> = (def: T, reg: Registry) => boolean;
 
 /** A system that receives the definitions its query matched. */
 export type SystemCallback<T extends Definition> = (
-    reg: Registry<string>,
+    reg: Registry,
     defs: Generator<T, void, unknown>,
-    schedule: string,
 ) => unknown;
 
 /** Whether a query over `T` could yield a `K`: some member of `T` is a `K`, or `K` extends `T`. */
@@ -129,11 +128,11 @@ class QueryImpl {
     }
 
     intoSystem(callback: SystemCallback<Definition>): System {
-        return (reg, schedule) => {
+        return (reg) => {
             const defs = this.#run(reg);
             const first = defs.next();
             if (first.done) return undefined;
-            return callback(reg, this.#withFirst(reg, first.value, defs), schedule);
+            return callback(reg, this.#withFirst(reg, first.value, defs));
         };
     }
 
@@ -142,7 +141,7 @@ class QueryImpl {
      *   callback may have changed the registry since the query matched `first`.
      */
     *#withFirst(
-        reg: Registry<string>,
+        reg: Registry,
         first: Definition,
         rest: Iterable<Definition>,
     ): Generator<Definition, void, unknown> {
@@ -153,13 +152,13 @@ class QueryImpl {
         yield* rest;
     }
 
-    *#run(reg: Registry<string>): Generator<Definition, void, unknown> {
+    *#run(reg: Registry): Generator<Definition, void, unknown> {
         for (const def of reg.all()) {
             if (this.#matches(def, reg)) yield def;
         }
     }
 
-    #matches(def: Definition, reg: Registry<string>): boolean {
+    #matches(def: Definition, reg: Registry): boolean {
         return (
             this.#ctors.some((ctor) => def instanceof ctor) &&
             this.#filters.every((filter) => filter(def, reg))

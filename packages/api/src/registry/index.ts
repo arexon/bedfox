@@ -9,27 +9,14 @@ import type { PackKind } from "#/core/output";
 import { autoIdentifier } from "#/core/references";
 import { Manifest } from "#/manifest/index";
 import { DataModule, ResourcesModule } from "#/manifest/module";
+import { type Schedule, Schedules } from "#/registry/schedule";
 
 export * from "#/registry/query";
+export type { Schedule } from "#/registry/schedule";
 
-/** The schedules of a registry without its own `schedules` option, in run order. */
-export const DEFAULT_SCHEDULES = ["setup", "transform", "finalize", "build"] as const;
-
-export interface RegistryOptions<S extends string, D extends S = never> {
+export interface RegistryOptions {
     /** The namespace of the registry. */
     namespace: string;
-    /**
-     * The schedules systems can run on, in run order.
-     *
-     * @default ["setup", "transform", "finalize", "build"]
-     */
-    schedules?: readonly S[];
-    /**
-     * The schedule for systems that `addSystem()` gets without a schedule.
-     *
-     * @default "transform"
-     */
-    defaultSchedule?: D;
 }
 
 /** A registry's pack manifests. */
@@ -56,7 +43,7 @@ export interface RegistryManifests {
  *     );
  *     await reg.run();
  */
-export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D extends S = never> {
+export class Registry {
     /** The namespace of this registry's definitions, e.g. `example` in `example:dirt`. */
     readonly namespace: string;
 
@@ -64,9 +51,7 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
     readonly manifests: RegistryManifests;
 
     #members = new Set<Definition>();
-    #schedules: ReadonlySet<string>;
-    #defaultSchedule: string;
-    #systems = new Map<string, System[]>();
+    #schedules = new Schedules();
     #referenced?: Map<string, Reference[]>;
     #byIdentifier?: Map<string, Definition[]>;
     #byPath: Record<PackKind, Map<string, Definition>> = {
@@ -74,25 +59,10 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
         resource: new Map(),
     };
 
-    /**
-     * Creates a registry.
-     *
-     * @throws - {@link DuplicateScheduleError} if `schedules` lists a schedule more than once.
-     * @throws - {@link UnknownScheduleError} if `defaultSchedule` isn't one of the schedules.
-     */
-    constructor(options: RegistryOptions<S, D>) {
+    /** Creates a registry. */
+    constructor(options: RegistryOptions) {
         const { namespace } = options;
         this.namespace = namespace;
-        const schedules = new Set<string>();
-        for (const schedule of options.schedules ?? DEFAULT_SCHEDULES) {
-            if (schedules.has(schedule)) throw new DuplicateScheduleError(schedule);
-            schedules.add(schedule);
-        }
-        this.#schedules = schedules;
-        this.#defaultSchedule = options.defaultSchedule ?? "transform";
-        if (options.defaultSchedule !== undefined && !schedules.has(options.defaultSchedule)) {
-            throw new UnknownScheduleError(options.defaultSchedule);
-        }
 
         const rp = new Manifest(namespace).module(new ResourcesModule());
         const bp = new Manifest(namespace).module(new DataModule()).dependsOn(rp);
@@ -157,13 +127,10 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
      *
      * @example
      *     reg.addSystem("setup", (reg) => reg.add(new Block("dirt")));
-     *
-     * @throws - {@link UnknownScheduleError} if the registry has no schedule called `schedule`.
      */
-    addSystem(schedule: S, ...systems: System[]): this;
+    addSystem(schedule: Schedule, ...systems: System[]): this;
     /**
-     * Adds systems to run on the default schedule. This is the `defaultSchedule` option, or
-     * `transform` if that option is unset.
+     * Adds systems to run on the `transform` schedule.
      *
      * @example
      *     reg.addSystem((reg) => {
@@ -172,18 +139,13 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
      *         }
      *     });
      */
-    addSystem(
-        ...systems: [D] extends [never] ? ("transform" extends S ? System[] : never[]) : System[]
-    ): this;
-    addSystem(...args: unknown[]): this {
-        const [schedule, systems] =
-            typeof args[0] === "string"
-                ? [args[0], args.slice(1) as System[]]
-                : [this.#defaultSchedule, args as System[]];
-        if (!this.#schedules.has(schedule)) throw new UnknownScheduleError(schedule);
-        const list = this.#systems.get(schedule) ?? [];
-        list.push(...systems);
-        this.#systems.set(schedule, list);
+    addSystem(...systems: System[]): this;
+    addSystem(first?: Schedule | System, ...rest: System[]): this {
+        if (typeof first === "string") {
+            this.#schedules.add(first, rest);
+        } else if (first !== undefined) {
+            this.#schedules.add(this.#schedules.default, [first, ...rest]);
+        }
         return this;
     }
 
@@ -192,15 +154,13 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
      * system finishes, including any promise it returns, before the next one starts.
      */
     async run(): Promise<void> {
-        for (const schedule of this.#schedules) {
-            for (const system of this.#systems.get(schedule) ?? []) {
-                // A system may change what references what, so drop the caches before each one and
-                // rebuild them on demand.
-                this.#invalidate();
-                // Systems run one at a time, since each may depend on what earlier ones changed.
-                // oxlint-disable-next-line no-await-in-loop
-                await system(this, schedule);
-            }
+        for (const system of this.#schedules.systems()) {
+            // A system may change what references what, so drop the caches before each one and
+            // rebuild them on demand.
+            this.#invalidate();
+            // Systems run one at a time, since each may depend on what earlier ones changed.
+            // oxlint-disable-next-line no-await-in-loop
+            await system(this);
         }
     }
 
@@ -269,23 +229,7 @@ export class Registry<S extends string = (typeof DEFAULT_SCHEDULES)[number], D e
  * A function that {@link Registry.run()} calls. If it returns a promise, the run waits for it before
  * starting the next system. The run ignores any other return value.
  */
-export type System = (reg: Registry<string>, schedule: string) => unknown;
-
-/** An error caused by a schedule listed more than once. */
-export class DuplicateScheduleError extends TypeError {
-    constructor(name: string) {
-        super(`Found duplicate schedule: ${name}`);
-        this.name = "DuplicateScheduleError";
-    }
-}
-
-/** An error caused by a schedule name the registry doesn't have. */
-export class UnknownScheduleError extends TypeError {
-    constructor(name: string) {
-        super(`Unknown schedule: ${name}`);
-        this.name = "UnknownScheduleError";
-    }
-}
+export type System = (reg: Registry) => unknown;
 
 /** An error caused by adding a definition that another registry holds. */
 export class AlreadyRegisteredError extends TypeError {

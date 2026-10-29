@@ -21,11 +21,9 @@ import { FormatVersion } from "#/primitive/index";
 import {
     AlreadyRegisteredError,
     DuplicateIdentifierError,
-    DuplicateScheduleError,
     type Query,
     query,
     Registry,
-    UnknownScheduleError,
 } from "#/registry/index";
 import { serialize, TO_REFERENCE } from "#/serialize";
 
@@ -56,16 +54,6 @@ async function collect<T extends Definition>(reg: Registry, q: Query<T>): Promis
     let result: string[] = [];
     await reg.addSystem(q.intoSystem((_, defs) => (result = ids(defs)))).run();
     return result;
-}
-
-/** Adds a system to each schedule, runs them, and returns the schedules in the order they ran. */
-async function runOrder(reg: Registry<string>, schedules: string[]): Promise<string[]> {
-    const order: string[] = [];
-    for (const schedule of schedules) {
-        reg.addSystem(schedule, () => order.push(schedule));
-    }
-    await reg.run();
-    return order;
 }
 
 describe(Registry.name, () => {
@@ -387,10 +375,10 @@ describe(Registry.name, () => {
     });
 
     describe("systems", () => {
-        test("run setup, then transform, then finalize, each in insertion order", async () => {
+        test("run setup, transform, finalize, then build, each in insertion order", async () => {
             const order: string[] = [];
             const push = (name: string) => () => order.push(name);
-            const schedules = ["finalize", "transform", "setup"] as const;
+            const schedules = ["build", "finalize", "transform", "setup"] as const;
             const reg = new Registry(OPTIONS);
             for (const schedule of schedules) {
                 reg.addSystem(schedule, push(`${schedule} 1`), push(`${schedule} 2`));
@@ -403,6 +391,8 @@ describe(Registry.name, () => {
                 "transform 2",
                 "finalize 1",
                 "finalize 2",
+                "build 1",
+                "build 2",
             ]);
         });
 
@@ -425,20 +415,6 @@ describe(Registry.name, () => {
             expect(ids(found)).toStrictEqual(["dirt"]);
         });
 
-        test("receive the schedule they run on", async () => {
-            const seen: string[] = [];
-            await new Registry(OPTIONS)
-                .add(new Block("dirt"))
-                .addSystem("setup", (_, schedule) => seen.push(schedule))
-                .addSystem((_, schedule) => seen.push(schedule))
-                .addSystem(
-                    "finalize",
-                    query(Block).intoSystem((_, __, schedule) => seen.push(schedule)),
-                )
-                .run();
-            expect(seen).toStrictEqual(["setup", "transform", "finalize"]);
-        });
-
         test("wait for async systems before running the next", async () => {
             const order: string[] = [];
             await new Registry(OPTIONS)
@@ -457,102 +433,6 @@ describe(Registry.name, () => {
             await reg.run();
             await reg.run();
             expect(count).toBe(2);
-        });
-
-        test("reject unknown schedules", () => {
-            const reg = new Registry(OPTIONS);
-            // @ts-expect-error not a schedule of this registry
-            expect(() => reg.addSystem("generate", () => {})).toThrow(UnknownScheduleError);
-        });
-    });
-
-    describe("schedules", () => {
-        test("run in the given order", async () => {
-            const reg = new Registry({
-                ...OPTIONS,
-                schedules: ["setup", "generate", "transform"],
-            });
-            expect(await runOrder(reg, ["transform", "generate", "setup"])).toStrictEqual([
-                "setup",
-                "generate",
-                "transform",
-            ]);
-        });
-
-        test("default to setup, transform, finalize and build", async () => {
-            const schedules = ["build", "finalize", "transform", "setup"];
-            expect(await runOrder(new Registry(OPTIONS), schedules)).toStrictEqual([
-                "setup",
-                "transform",
-                "finalize",
-                "build",
-            ]);
-        });
-
-        test("reject duplicates", () => {
-            expect(
-                () =>
-                    new Registry({
-                        ...OPTIONS,
-                        schedules: ["setup", "transform", "setup"],
-                    }),
-            ).toThrow(DuplicateScheduleError);
-        });
-
-        test("ignore changes to the given list", async () => {
-            const schedules = ["setup", "transform"];
-            const reg = new Registry({
-                ...OPTIONS,
-                schedules,
-            });
-            schedules.push("finalize");
-            await expect(runOrder(reg, ["finalize"])).rejects.toThrow(UnknownScheduleError);
-        });
-
-        test("run systems without a schedule on the default schedule", async () => {
-            const order: string[] = [];
-            await new Registry({
-                ...OPTIONS,
-                schedules: ["setup", "generate"],
-                defaultSchedule: "generate",
-            })
-                .addSystem(() => order.push("default"))
-                .addSystem("setup", () => order.push("setup"))
-                .run();
-            expect(order).toStrictEqual(["setup", "default"]);
-        });
-
-        test("take a default schedule from the defaults", async () => {
-            const order: string[] = [];
-            await new Registry({
-                ...OPTIONS,
-                defaultSchedule: "finalize",
-            })
-                .addSystem(() => order.push("default"))
-                .addSystem("transform", () => order.push("transform"))
-                .run();
-            expect(order).toStrictEqual(["transform", "default"]);
-        });
-
-        test("reject a default schedule that isn't a schedule", () => {
-            expect(
-                () =>
-                    new Registry({
-                        ...OPTIONS,
-                        schedules: ["setup"],
-                        // @ts-expect-error not one of the schedules
-                        defaultSchedule: "transform",
-                    }),
-            ).toThrow(UnknownScheduleError);
-        });
-
-        test("reject systems without a schedule when there's no transform", () => {
-            const reg = new Registry({
-                ...OPTIONS,
-                schedules: ["setup"],
-            });
-            // @ts-expect-error no transform schedule
-            expect(() => reg.addSystem(() => {})).toThrow(UnknownScheduleError);
         });
     });
 });
