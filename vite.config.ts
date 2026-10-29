@@ -2,7 +2,7 @@ import { defineConfig } from "vite-plus";
 
 export default defineConfig({
     test: {
-        include: ["packages/*/tests/**/*.test.ts"],
+        include: ["packages/*/{src,tests}/**/*.test.ts"],
         snapshotSerializers: ["./packages/api/tests/_json_serializer.ts"],
     },
     pack: {

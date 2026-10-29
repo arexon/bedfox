@@ -5,8 +5,8 @@ import { Feature, type FeatureReference } from "#/feature/base";
 import { FeatureRules } from "#/feature/rules";
 import type { BlockDescriptorRef } from "#/primitive/index";
 import { AsyncSystemError } from "#/project/errors";
-import type { PreparedSystem, System } from "#/project/index";
-import type { Registry } from "#/registry/registry";
+import type { PreparedSystem, System } from "#/project/project";
+import type { Registry } from "#/project/registry";
 
 /** Whether a query keeps `def`. */
 export type Filter<T extends Definition = Definition> = (def: T, reg: Registry) => boolean;

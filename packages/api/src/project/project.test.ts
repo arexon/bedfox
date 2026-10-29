@@ -3,9 +3,15 @@ import { setTimeout as delay } from "node:timers/promises";
 import { describe, expect, test } from "vite-plus/test";
 
 import { Block } from "#/block/index";
-import type { Definition } from "#/core/index";
-import { AsyncSystemError, prepared, Project, SystemFailedError } from "#/project/index";
-import { type Registry, RegistryClosedError } from "#/registry/index";
+import type { Definition } from "#/core/definition";
+import {
+    AsyncSystemError,
+    prepared,
+    Project,
+    type Registry,
+    RegistryClosedError,
+    SystemFailedError,
+} from "#/project/index";
 
 const NS = "test";
 

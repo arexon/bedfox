@@ -6,17 +6,20 @@ import {
     GeometryBlockComponent,
     LightEmissionBlockComponent,
 } from "#/block/index";
-import { Definition } from "#/core/index";
-import { Feature, FeatureRules, OreFeature, ScatterFeature } from "#/feature/index";
+import { Definition } from "#/core/definition";
+import { Feature } from "#/feature/base";
+import { OreFeature } from "#/feature/ore";
+import { FeatureRules } from "#/feature/rules";
+import { ScatterFeature } from "#/feature/scatter";
 import {
     type PreparedSystem,
     Project,
     type Query,
     query,
+    type Registry,
     type System,
     SystemFailedError,
 } from "#/project/index";
-import type { Registry } from "#/registry/index";
 
 const NS = "test";
 

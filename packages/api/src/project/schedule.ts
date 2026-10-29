@@ -1,4 +1,4 @@
-import type { PreparedSystem, System } from "#/project/index";
+import type { PreparedSystem, System } from "#/project/project";
 
 /** When a system runs: `setup`, then `transform`, then `finalize`. */
 export type Schedule = "setup" | "transform" | "finalize";

@@ -3,18 +3,23 @@ import { setTimeout as delay } from "node:timers/promises";
 import { beforeAll, describe, expect, test } from "vite-plus/test";
 
 import { Block } from "#/block/index";
-import { Definition, type DefinitionLocation } from "#/core/index";
-import {
-    Feature,
-    FeatureRules,
-    OreFeature,
-    ScatterFeature,
-    SequenceFeature,
-} from "#/feature/index";
+import { Definition, type DefinitionLocation } from "#/core/definition";
+import { Feature } from "#/feature/base";
+import { OreFeature } from "#/feature/ore";
+import { FeatureRules } from "#/feature/rules";
+import { ScatterFeature } from "#/feature/scatter";
+import { SequenceFeature } from "#/feature/sequence";
 import { ScriptModule } from "#/manifest/index";
 import { FormatVersion } from "#/primitive/index";
-import { type PreparedSystem, Project, type System, SystemFailedError } from "#/project/index";
-import { DuplicateIdentifierError, type Registry, RegistryClosedError } from "#/registry/index";
+import {
+    DuplicateIdentifierError,
+    type PreparedSystem,
+    Project,
+    type Registry,
+    RegistryClosedError,
+    type System,
+    SystemFailedError,
+} from "#/project/index";
 import { serialize, TO_REFERENCE } from "#/serialize";
 
 const NS = "test";
@@ -280,15 +285,26 @@ describe("Registry", () => {
     });
 
     describe("manifests", () => {
-        test("are derived from the namespace", async () => {
-            expect((await registryWith()).manifests).toMatchSnapshot();
+        test("are a behavior and a resource pack for the namespace", async () => {
+            const { bp, rp } = (await registryWith()).manifests;
+            expect([bp.namespace, bp.kind]).toStrictEqual([NS, "behavior"]);
+            expect([rp.namespace, rp.kind]).toStrictEqual([NS, "resource"]);
+        });
+
+        test("make the behavior pack depend on the resource pack", async () => {
+            const { bp, rp } = (await registryWith()).manifests;
+            const rpUuid = "220a205f-0cf8-57cd-8ca3-b3a714e93a44";
+            expect(JSON.stringify(rp)).toContain(`"uuid":"${rpUuid}"`);
+            expect(JSON.stringify(bp)).toContain(
+                `"dependencies":[{"uuid":"${rpUuid}","version":"1.0.0"}]`,
+            );
         });
 
         test("can be edited by systems", async () => {
             const reg = await runSetup(NS, (reg) =>
                 reg.manifests.bp.module(new ScriptModule("scripts/main.js")),
             );
-            expect(reg.manifests.bp).toMatchSnapshot();
+            expect(JSON.stringify(reg.manifests.bp)).toContain('"entry":"scripts/main.js"');
         });
     });
 
