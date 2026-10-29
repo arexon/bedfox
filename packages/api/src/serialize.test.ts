@@ -1,13 +1,12 @@
 import { describe, expect, test } from "vite-plus/test";
 
 import { Block } from "#/block/index";
-import {
-    Component,
-    Definition,
-    type DefinitionLocation,
-    InvalidIdentifierError,
-} from "#/core/index";
-import { Feature, FeatureRules, OreFeature, ScatterFeature } from "#/feature/index";
+import { Component } from "#/core/component";
+import { Definition, type DefinitionLocation, InvalidIdentifierError } from "#/core/definition";
+import { Feature } from "#/feature/base";
+import { OreFeature } from "#/feature/ore";
+import { FeatureRules } from "#/feature/rules";
+import { ScatterFeature } from "#/feature/scatter";
 import { FormatVersion } from "#/primitive/index";
 import {
     DecoratedNonFieldError,
