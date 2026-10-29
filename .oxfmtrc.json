@@ -1,7 +1,0 @@
-{
-    "$schema": "./node_modules/oxfmt/configuration_schema.json",
-    "jsdoc": true,
-    "proseWrap": "always",
-    "sortImports": true,
-    "tabWidth": 4
-}
