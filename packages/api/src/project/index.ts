@@ -1,10 +1,13 @@
-export * from "#/project/errors";
 export {
+    AsyncSystemError,
     type PreparedSystem,
     prepared,
     Project,
     type ProjectOptions,
+    RunInProgressError,
     type System,
+    SystemAddedDuringRunError,
+    SystemFailedError,
 } from "#/project/project";
 export * from "#/project/query";
 export {

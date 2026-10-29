@@ -4,8 +4,7 @@ import type { Definition, DefinitionCtor, ReferenceTarget } from "#/core/definit
 import { Feature, type FeatureReference } from "#/feature/base";
 import { FeatureRules } from "#/feature/rules";
 import type { BlockDescriptorRef } from "#/primitive/index";
-import { AsyncSystemError } from "#/project/errors";
-import type { PreparedSystem, System } from "#/project/project";
+import { AsyncSystemError, type PreparedSystem, type System } from "#/project/project";
 import type { Registry } from "#/project/registry";
 
 /** Whether a query keeps `def`. */
