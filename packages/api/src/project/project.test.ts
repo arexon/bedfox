@@ -5,7 +5,6 @@ import { describe, expect, test } from "vite-plus/test";
 import { Block } from "#/block/index";
 import type { Definition } from "#/core/definition";
 import {
-    AsyncSystemError,
     prepared,
     Project,
     type Registry,
@@ -20,8 +19,22 @@ const OPTIONS = { namespace: NS } as const;
 const ASYNC_ADVICE =
     "Systems must be sync, so move async work into the prepare step of a prepared system";
 
+const PLUGIN_ASYNC_ADVICE =
+    "Plugins must be sync, so move async work into the prepare step of a prepared system";
+
 function ids(defs: Iterable<Definition>): string[] {
     return Array.from(defs, (def) => def.identifier);
+}
+
+function langPlugin(): void {}
+
+function defaultPlugins(project: Project): void {
+    project.addPlugin(langPlugin);
+}
+
+/** A plugin that adds itself. */
+function loop(project: Project): void {
+    project.addPlugin(loop);
 }
 
 describe(Project.name, () => {
@@ -180,6 +193,96 @@ describe(Project.name, () => {
         });
     });
 
+    describe("addPlugin()", () => {
+        test("calls the plugin at once with the project", () => {
+            const seen: Project[] = [];
+            const project = new Project(OPTIONS).addPlugin((p) => seen.push(p));
+            expect(seen).toHaveLength(1);
+            expect(seen[0]).toBe(project);
+        });
+
+        test("runs a plugin's systems where it was added, also for nested plugins", async () => {
+            const order: string[] = [];
+            const push = (name: string) => () => order.push(name);
+            const inner = (project: Project) => project.addSystem(push("inner"));
+            const outer = (project: Project) =>
+                project.addSystem(push("outer 1")).addPlugin(inner).addSystem(push("outer 2"));
+            await new Project(OPTIONS)
+                .addSystem(push("before"))
+                .addPlugin(outer)
+                .addSystem(push("after"))
+                .run();
+            expect(order).toStrictEqual(["before", "outer 1", "inner", "outer 2", "after"]);
+        });
+
+        test("rejects a plugin added twice, and names the plugin that added it first", () => {
+            const project = new Project(OPTIONS).addPlugin(defaultPlugins);
+            expect(() => project.addPlugin(langPlugin)).toThrow(
+                expect.objectContaining({
+                    name: "DuplicatePluginError",
+                    message: "Plugin langPlugin is already added by defaultPlugins",
+                }),
+            );
+            expect(() => project.addPlugin(defaultPlugins)).toThrow(
+                expect.objectContaining({
+                    name: "DuplicatePluginError",
+                    message: "Plugin defaultPlugins is already added",
+                }),
+            );
+        });
+
+        test("rejects a plugin that adds itself", () => {
+            expect(() => new Project(OPTIONS).addPlugin(loop)).toThrow(
+                expect.objectContaining({
+                    name: "DuplicatePluginError",
+                    message: "Plugin loop is already added",
+                }),
+            );
+        });
+
+        test("rejects plugins while the project runs", async () => {
+            const project = new Project(OPTIONS);
+            project.addSystem("setup", () => project.addPlugin(() => {}));
+            await expect(project.run()).rejects.toThrow(
+                expect.objectContaining({
+                    name: "SystemFailedError",
+                    cause: expect.objectContaining({ name: "SystemAddedDuringRunError" }),
+                }),
+            );
+        });
+
+        test("rejects async functions without calling them", () => {
+            let called = false;
+            expect(() =>
+                new Project(OPTIONS).addPlugin(async function dirtPlugin() {
+                    called = true;
+                }),
+            ).toThrow(
+                expect.objectContaining({
+                    name: "AsyncPluginError",
+                    message: `Plugin dirtPlugin is async. ${PLUGIN_ASYNC_ADVICE}`,
+                }),
+            );
+            expect(called).toBe(false);
+        });
+
+        test("doesn't name a failed plugin for systems added after it", async () => {
+            const cause = new Error("boom");
+            const project = new Project(OPTIONS);
+            expect(() =>
+                project.addPlugin(function broken() {
+                    throw new Error("broken");
+                }),
+            ).toThrow("broken");
+            project.addSystem("setup", function addDirt() {
+                throw cause;
+            });
+            await expect(project.run()).rejects.toThrow(
+                expect.objectContaining({ message: "System 0 (addDirt) on setup failed in run" }),
+            );
+        });
+    });
+
     describe("errors", () => {
         test("wrap what a system throws, with its schedule, index and name", async () => {
             const cause = new Error("boom");
@@ -197,36 +300,37 @@ describe(Project.name, () => {
             );
         });
 
-        test("reject systems that return a promise", async () => {
-            await expect(
-                new Project(OPTIONS).addSystem(() => Promise.resolve()).run(),
-            ).rejects.toThrow(
+        test("name the plugins that added a system, from the innermost", async () => {
+            const cause = new Error("boom");
+            function blockPlugin(project: Project): void {
+                project.addSystem("setup", function addDirt() {
+                    throw cause;
+                });
+            }
+            function defaultPlugins(project: Project): void {
+                project.addPlugin(blockPlugin);
+            }
+            await expect(new Project(OPTIONS).addPlugin(defaultPlugins).run()).rejects.toThrow(
                 expect.objectContaining({
-                    name: "AsyncSystemError",
-                    message: `System 0 on transform returned a promise. ${ASYNC_ADVICE}`,
+                    name: "SystemFailedError",
+                    message:
+                        "System 0 (addDirt) on setup from plugin blockPlugin in defaultPlugins failed in run",
+                    cause,
                 }),
             );
         });
 
-        test("let thenables that aren't promises through, without calling their then", async () => {
-            let calls = 0;
-            // oxlint-disable-next-line unicorn/no-thenable -- the test needs a thenable
-            const thenable = { then: () => calls++ };
-            await expect(
-                new Project(OPTIONS).addSystem(() => thenable).run(),
-            ).resolves.toBeUndefined();
-            expect(calls).toBe(0);
-        });
-
-        test("stop an async system from changing the registry after the run", async () => {
-            const late: Promise<unknown>[] = [];
-            const project = new Project(OPTIONS).addSystem((reg) => {
-                const work = delay(1).then(() => reg.add(new Block("dirt")));
-                late.push(work);
-                return work;
-            });
-            await expect(project.run()).rejects.toThrow(AsyncSystemError);
-            await expect(late[0]).rejects.toThrow(RegistryClosedError);
+        test("name the plugin of an async system, also an anonymous one", () => {
+            expect(() =>
+                new Project(OPTIONS).addPlugin((project) => {
+                    project.addSystem(async function addDirt() {});
+                }),
+            ).toThrow(
+                expect.objectContaining({
+                    name: "AsyncSystemError",
+                    message: `System 0 (addDirt) on transform from plugin (anonymous) is async. ${ASYNC_ADVICE}`,
+                }),
+            );
         });
     });
 });
@@ -364,18 +468,5 @@ describe(prepared.name, () => {
         ).rejects.toThrow(
             expect.objectContaining({ message: "System 0 (addBiomes) on transform failed in run" }),
         );
-    });
-
-    test("rejects a run function that returns a promise", async () => {
-        await expect(
-            new Project(OPTIONS)
-                .addSystem(
-                    prepared(
-                        async () => 1,
-                        () => Promise.resolve(),
-                    ),
-                )
-                .run(),
-        ).rejects.toThrow(AsyncSystemError);
     });
 });

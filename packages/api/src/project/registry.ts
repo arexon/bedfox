@@ -229,7 +229,7 @@ export class AlreadyRegisteredError extends TypeError {
 export class RegistryClosedError extends Error {
     constructor() {
         super(
-            "Can't change a registry after its run ended. A system may have kept the registry, or started async work without returning it",
+            "Can't change a registry after its run ended. A system may have kept the registry, or changed it from async work",
         );
         this.name = "RegistryClosedError";
     }

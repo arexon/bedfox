@@ -217,17 +217,19 @@ describe("Registry", () => {
                 expect.objectContaining({
                     name: "RegistryClosedError",
                     message:
-                        "Can't change a registry after its run ended. A system may have kept the registry, or started async work without returning it",
+                        "Can't change a registry after its run ended. A system may have kept the registry, or changed it from async work",
                 }),
             );
             expect(() => reg.remove(dirt)).toThrow(RegistryClosedError);
             expect([...reg.all()]).toStrictEqual([dirt]);
         });
 
-        test("rejects changes from async work that a system didn't return", async () => {
+        test("rejects changes from a system's async work, also if the system returns it", async () => {
             const late: Promise<unknown>[] = [];
             await runSetup(NS, (reg) => {
-                late.push(delay(1).then(() => reg.add(new Block("dirt"))));
+                const work = delay(1).then(() => reg.add(new Block("dirt")));
+                late.push(work);
+                return work;
             });
             await expect(late[0]).rejects.toThrow(RegistryClosedError);
         });

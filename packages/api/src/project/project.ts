@@ -7,10 +7,10 @@ export interface ProjectOptions {
 }
 
 /**
- * A function that {@link Project.run()} calls with the run's registry. It must be sync. The run
- * ignores the return value, unless it's a promise.
+ * A function that {@link Project.run()} calls with the run's registry. It must be sync: the registry
+ * closes when the run ends, so changes from async work throw {@link RegistryClosedError}.
  */
-export type System = (reg: Registry) => unknown;
+export type System = (reg: Registry) => void;
 
 /**
  * A system with an async step. Each run starts the `prepare` step of every prepared system at once,
@@ -23,7 +23,7 @@ export interface PreparedSystem<T> {
     /** Loads the system's data, e.g. reads files. It gets no registry, since no system ran yet. */
     prepare(): Promise<T>;
     /** Changes the registry with the data from {@link prepare}. It must be sync. */
-    run(reg: Registry, data: T): unknown;
+    run(reg: Registry, data: T): void;
 }
 
 /**
@@ -40,10 +40,20 @@ export interface PreparedSystem<T> {
  */
 export function prepared<T>(
     prepare: () => Promise<T>,
-    run: (reg: Registry, data: T) => unknown,
+    run: (reg: Registry, data: T) => void,
 ): PreparedSystem<T> {
     return { prepare, run };
 }
+
+/**
+ * A function that adds systems or other plugins to a project. It must be sync.
+ *
+ * @example
+ *     function dirtPlugin(project: Project): void {
+ *         project.addSystem("setup", (reg) => reg.add(new Block("dirt")));
+ *     }
+ */
+export type Plugin = (project: Project) => void;
 
 /**
  * Holds a project's systems and runs them. Each run creates a new {@link Registry}, and every
@@ -76,6 +86,8 @@ export class Project {
     #schedules = new Schedules();
     #registry?: Registry;
     #running = false;
+    #plugins = new Map<Plugin, readonly string[]>();
+    #building: string[] = [];
 
     constructor(options: ProjectOptions) {
         this.namespace = options.namespace;
@@ -120,14 +132,46 @@ export class Project {
         for (const [i, system] of systems.entries()) {
             // oxlint-disable-next-line typescript/unbound-method -- only inspected, never called
             const fn = typeof system === "function" ? system : system.run;
-            // This catches only `async` functions. `run()` catches other functions that return a
-            // promise.
             if (fn.constructor.name === "AsyncFunction") {
-                const location = { schedule, index: offset + i };
+                const location = { schedule, index: offset + i, plugins: this.#building };
                 throw new AsyncSystemError(`${describeSystem(system, location)} is async`);
             }
         }
-        this.#schedules.add(schedule, systems);
+        this.#schedules.add(schedule, systems, [...this.#building]);
+        return this;
+    }
+
+    /**
+     * Calls each plugin with this project, in order. If a plugin throws, what it added before stays
+     * added.
+     *
+     * @example
+     *     function fishPlugin(project: Project): void {
+     *         project.addSystem("setup", fishEntities, fishItems);
+     *     }
+     *     project.addPlugin(fishPlugin);
+     *
+     * @throws - {@link SystemAddedDuringRunError} if the project is running.
+     * @throws - {@link DuplicatePluginError} if a plugin is already added, also by another plugin.
+     * @throws - {@link AsyncPluginError} if a plugin is an `async` function.
+     */
+    addPlugin(...plugins: Plugin[]): this {
+        if (this.#running) throw new SystemAddedDuringRunError();
+        for (const plugin of plugins) {
+            const name = plugin.name === "" ? "(anonymous)" : plugin.name;
+            const addedBy = this.#plugins.get(plugin);
+            if (addedBy !== undefined) throw new DuplicatePluginError(name, addedBy);
+            if (plugin.constructor.name === "AsyncFunction") throw new AsyncPluginError(name);
+            // Mark the plugin before the call, so that a plugin that adds itself throws instead of
+            // calling itself without end.
+            this.#plugins.set(plugin, [...this.#building]);
+            this.#building.push(name);
+            try {
+                plugin(this);
+            } finally {
+                this.#building.pop();
+            }
+        }
         return this;
     }
 
@@ -137,12 +181,9 @@ export class Project {
      * no system runs, and the run rejects when every `prepare` step has ended. The registry closes
      * when the run ends, also when the run fails.
      *
-     * A new run releases the definitions of the last run, so that systems can add them again.
-     *
      * @throws - {@link RunInProgressError} if the project is already running.
      * @throws - {@link SystemFailedError} if a system throws or a `prepare` step rejects. If more
      *   than one `prepare` step rejects, the first in system order.
-     * @throws - {@link AsyncSystemError} if a system returns a promise.
      */
     async run(): Promise<void> {
         if (this.#running) throw new RunInProgressError();
@@ -161,9 +202,14 @@ export class Project {
                     if (result.status === "rejected") throw result.reason;
                     data.push(result.value);
                 }
-                for (const [i, scheduled] of systems.entries()) {
+                for (const [i, { system, ...location }] of systems.entries()) {
                     reg[INVALIDATE]();
-                    runSync(scheduled, reg, data[i]);
+                    try {
+                        if (typeof system === "function") system(reg);
+                        else system.run(reg, data[i]);
+                    } catch (error) {
+                        throw new SystemFailedError(describeSystem(system, location), "run", error);
+                    }
                 }
             } finally {
                 reg[CLOSE]();
@@ -183,33 +229,25 @@ async function prepare({ system, ...location }: ScheduledSystem): Promise<unknow
     }
 }
 
-function runSync({ system, ...location }: ScheduledSystem, reg: Registry, data: unknown): void {
-    let result: unknown;
-    try {
-        result = typeof system === "function" ? system(reg) : system.run(reg, data);
-    } catch (error) {
-        throw new SystemFailedError(describeSystem(system, location), "run", error);
-    }
-    // Only native promises count. Thenables and promises from another realm pass.
-    if (result instanceof Promise) {
-        // A promise that rejects later would crash Node as an unhandled rejection. Ignore its
-        // result: the AsyncSystemError already tells the user to fix the system, but this also
-        // hides any error from the async work itself.
-        result.catch(() => {});
-        throw new AsyncSystemError(`${describeSystem(system, location)} returned a promise`);
-    }
-}
-
-/** Names a system for error messages, e.g. `System 0 (addDirt) on setup`. */
+/**
+ * Names a system for error messages, e.g. `System 0 (addDirt) on setup from plugin dirtPlugin in
+ * defaultPlugins`.
+ */
 function describeSystem(
     system: System | PreparedSystem<unknown>,
-    { schedule, index }: Omit<ScheduledSystem, "system">,
+    { schedule, index, plugins }: Omit<ScheduledSystem, "system">,
 ): string {
     // An arrow function written inline as `run: (reg, data) => ...` gets the name `run`, which
     // says nothing about the system.
     const name = typeof system === "function" ? system.name : system.run.name;
     const label = name === "" || name === "run" ? "" : ` (${name})`;
-    return `System ${index}${label} on ${schedule}`;
+    const from = plugins.length === 0 ? "" : ` from plugin ${describePlugins(plugins)}`;
+    return `System ${index}${label} on ${schedule}${from}`;
+}
+
+/** Names plugins, outermost first, from the innermost, e.g. `dirtPlugin in defaultPlugins`. */
+function describePlugins(plugins: readonly string[]): string {
+    return plugins.toReversed().join(" in ");
 }
 
 /** An error caused by a system that threw, or by a `prepare` step that rejected. */
@@ -220,7 +258,7 @@ export class SystemFailedError extends Error {
     }
 }
 
-/** An error caused by an `async` system, or by a system that returned a promise. */
+/** An error caused by an `async` system. */
 export class AsyncSystemError extends TypeError {
     /** @param problem - What is async, e.g. `System 0 on setup is async`. */
     constructor(problem: string) {
@@ -228,6 +266,26 @@ export class AsyncSystemError extends TypeError {
             `${problem}. Systems must be sync, so move async work into the prepare step of a prepared system`,
         );
         this.name = "AsyncSystemError";
+    }
+}
+
+/** An error caused by an `async` plugin. */
+export class AsyncPluginError extends TypeError {
+    constructor(name: string) {
+        super(
+            `Plugin ${name} is async. Plugins must be sync, so move async work into the prepare step of a prepared system`,
+        );
+        this.name = "AsyncPluginError";
+    }
+}
+
+/** An error caused by adding a plugin that the project already has. */
+export class DuplicatePluginError extends TypeError {
+    /** @param addedBy - The plugins that added it first, outermost first. */
+    constructor(name: string, addedBy: readonly string[]) {
+        const by = addedBy.length === 0 ? "" : ` by ${describePlugins(addedBy)}`;
+        super(`Plugin ${name} is already added${by}`);
+        this.name = "DuplicatePluginError";
     }
 }
 

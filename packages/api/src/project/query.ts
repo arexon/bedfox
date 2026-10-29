@@ -14,14 +14,14 @@ export type Filter<T extends Definition = Definition> = (def: T, reg: Registry) 
 export type SystemCallback<T extends Definition> = (
     reg: Registry,
     defs: Generator<T, void, unknown>,
-) => unknown;
+) => void;
 
 /** A prepared system that receives the definitions its query matched and its prepared data. */
 export type PreparedSystemCallback<T extends Definition, D> = (
     reg: Registry,
     defs: Generator<T, void, unknown>,
     data: D,
-) => unknown;
+) => void;
 
 /** Whether a query over `T` could yield a `K`: some member of `T` is a `K`, or `K` extends `T`. */
 type Overlaps<T, K> = [Extract<T, K>] extends [never] ? (K extends T ? true : false) : true;

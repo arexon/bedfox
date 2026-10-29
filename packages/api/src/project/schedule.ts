@@ -8,6 +8,8 @@ export interface ScheduledSystem {
     schedule: Schedule;
     /** The system's position in its schedule, from 0. */
     index: number;
+    /** The names of the plugins that added the system, outermost first. */
+    plugins: readonly string[];
     system: System | PreparedSystem<unknown>;
 }
 
@@ -18,12 +20,16 @@ export class Schedules {
 
     /** The schedules in run order. */
     #schedules: readonly Schedule[] = ["setup", "transform", "finalize"];
-    #systems = new Map<Schedule, (System | PreparedSystem<unknown>)[]>();
+    #systems = new Map<Schedule, Pick<ScheduledSystem, "system" | "plugins">[]>();
 
-    /** Adds systems to the end of `schedule`. */
-    add(schedule: Schedule, systems: (System | PreparedSystem<unknown>)[]): void {
+    /** Adds systems to the end of `schedule`, from the given plugins, outermost first. */
+    add(
+        schedule: Schedule,
+        systems: (System | PreparedSystem<unknown>)[],
+        plugins: readonly string[],
+    ): void {
         const list = this.#systems.get(schedule) ?? [];
-        list.push(...systems);
+        list.push(...systems.map((system) => ({ system, plugins })));
         this.#systems.set(schedule, list);
     }
 
@@ -38,9 +44,10 @@ export class Schedules {
      */
     list(): ScheduledSystem[] {
         return this.#schedules.flatMap((schedule) =>
-            (this.#systems.get(schedule) ?? []).map((system, index) => ({
+            (this.#systems.get(schedule) ?? []).map(({ system, plugins }, index) => ({
                 schedule,
                 index,
+                plugins,
                 system,
             })),
         );

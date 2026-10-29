@@ -1,5 +1,8 @@
 export {
+    AsyncPluginError,
     AsyncSystemError,
+    DuplicatePluginError,
+    type Plugin,
     type PreparedSystem,
     prepared,
     Project,
