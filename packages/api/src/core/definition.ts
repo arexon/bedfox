@@ -76,15 +76,10 @@ export abstract class Definition implements PackOutput {
         return this;
     }
 
-    /** Internal. Everything this definition directly references. */
     _references(): Reference[] {
         return [];
     }
 
-    /**
-     * Internal. The definition instances among {@link _references}. A registry registers them along
-     * with this definition.
-     */
     _referencedInstances(): Definition[] {
         return this._references()
             .map((ref) => ref.target)

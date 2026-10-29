@@ -32,7 +32,6 @@ function defaultPlugins(project: Project): void {
     project.addPlugin(langPlugin);
 }
 
-/** A plugin that adds itself. */
 function loop(project: Project): void {
     project.addPlugin(loop);
 }

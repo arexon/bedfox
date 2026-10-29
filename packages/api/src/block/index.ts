@@ -91,7 +91,6 @@ export class Block extends Definition {
     }
 }
 
-/** States as `{ name: values }`, with ranges as `{ values: { min, max } }`. */
 function serStates(states?: Block["states"]): unknown {
     let out: Record<string, unknown> | undefined = undefined;
     for (const [name, state] of Object.entries(states ?? {})) {

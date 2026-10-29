@@ -23,7 +23,6 @@ export type PreparedSystemCallback<T extends Definition, D> = (
     data: D,
 ) => void;
 
-/** Whether a query over `T` could yield a `K`: some member of `T` is a `K`, or `K` extends `T`. */
 type Overlaps<T, K> = [Extract<T, K>] extends [never] ? (K extends T ? true : false) : true;
 
 interface BaseQuery<T extends Definition> {
@@ -183,7 +182,6 @@ class QueryImpl {
         };
     }
 
-    /** Calls `fn` with the definitions the query matches, unless nothing matches. */
     #call(reg: Registry, fn: (defs: Generator<Definition, void, unknown>) => unknown): unknown {
         const defs = this.#run(reg);
         const first = defs.next();
@@ -191,10 +189,6 @@ class QueryImpl {
         return fn(this.#withFirst(reg, first.value, defs));
     }
 
-    /**
-     * @yields `first` if it still matches once iteration starts, then everything in `rest`. The
-     *   callback may have changed the registry since the query matched `first`.
-     */
     *#withFirst(
         reg: Registry,
         first: Definition,

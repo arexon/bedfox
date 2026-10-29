@@ -9,12 +9,10 @@ export abstract class Feature extends Definition {
 
     declare readonly [BRAND]: `minecraft:${string}_feature` | "minecraft:conditional_list";
 
-    /** Internal. Everything this feature places in the world. */
     _placements(): Reference[] {
         return [];
     }
 
-    /** Internal. Placements plus anything else referenced, e.g. blocks a feature may replace. */
     override _references(): Reference[] {
         return this._placements();
     }

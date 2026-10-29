@@ -25,7 +25,6 @@ const BEDFOX = "bedfox";
 
 const NAME_SUFFIXES = { behavior: "BP", resource: "RP" } as const;
 
-/** A subpack as a manifest writes it in `subpacks`. */
 interface SubpackJson {
     name: string;
     folder_name: string;

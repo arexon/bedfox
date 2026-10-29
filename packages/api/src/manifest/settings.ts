@@ -27,10 +27,6 @@ export class LabelSetting {
     }
 }
 
-/**
- * What every named setting has. `name` has a namespace, e.g. `example:power`. The namespace can't
- * be `minecraft`, and `name` is unique in its manifest. `text` is what players see.
- */
 abstract class NamedSetting {
     readonly name: string;
     readonly text: string;

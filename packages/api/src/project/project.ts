@@ -229,10 +229,6 @@ async function prepare({ system, ...location }: ScheduledSystem): Promise<unknow
     }
 }
 
-/**
- * Names a system for error messages, e.g. `System 0 (addDirt) on setup from plugin dirtPlugin in
- * defaultPlugins`.
- */
 function describeSystem(
     system: System | PreparedSystem<unknown>,
     { schedule, index, plugins }: Omit<ScheduledSystem, "system">,
@@ -245,7 +241,6 @@ function describeSystem(
     return `System ${index}${label} on ${schedule}${from}`;
 }
 
-/** Names plugins, outermost first, from the innermost, e.g. `dirtPlugin in defaultPlugins`. */
 function describePlugins(plugins: readonly string[]): string {
     return plugins.toReversed().join(" in ");
 }

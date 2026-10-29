@@ -78,7 +78,6 @@ export class FeatureRules extends Definition {
         return targets(Feature, this.placesFeature);
     }
 
-    /** A rule references exactly what it places. */
     override _references(): Reference[] {
         return this._placements();
     }

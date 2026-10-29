@@ -10,11 +10,8 @@ import { autoIdentifier } from "#/core/references";
 import { Manifest } from "#/manifest/index";
 import { DataModule, ResourcesModule } from "#/manifest/module";
 
-/** The key of the method that drops a registry's lookup caches. */
 export const INVALIDATE: unique symbol = Symbol("invalidate");
-/** The key of the method that ends a registry's run. */
 export const CLOSE: unique symbol = Symbol("close");
-/** The key of the method that unregisters all of a registry's definitions. */
 export const RELEASE: unique symbol = Symbol("release");
 
 /** A registry's pack manifests. */
@@ -58,7 +55,6 @@ export class Registry {
         resource: new Map(),
     };
 
-    /** Internal. Only `Project.run()` creates registries. */
     constructor(namespace: string) {
         this.namespace = namespace;
 
@@ -193,23 +189,14 @@ export class Registry {
         this.#byIdentifier = undefined;
     }
 
-    /**
-     * Drops the lookup caches. A system may change what references what without the registry
-     * knowing, so `Project.run()` calls this before each system.
-     */
     [INVALIDATE](): void {
         this.#invalidate();
     }
 
-    /** Ends the registry's run. Reads still work, changes throw. */
     [CLOSE](): void {
         this.#closed = true;
     }
 
-    /**
-     * Unregisters every definition, even when the registry is closed, so that the next run of the
-     * project can add them again.
-     */
     [RELEASE](): void {
         this.#unregister(Array.from(this.#members));
     }

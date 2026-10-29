@@ -31,7 +31,6 @@ export class RandomOffsetBlockComponent extends Component {
     }
 }
 
-/** An axis with its `range` as `{ min, max }` rather than a tuple, omitted when empty. */
 function serAxis(axis?: RangeAndSteps): unknown {
     if (axis === undefined || (axis.range === undefined && axis.steps === undefined)) {
         return undefined;

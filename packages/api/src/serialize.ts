@@ -1,7 +1,5 @@
-/** Options of each decorated field, keyed by the prototype that declares it. */
 const OPTIONS = new WeakMap<object, Map<string, FieldOptions>>();
 
-/** Each class's schema. `schemaOf()` builds it on first use, after every decorator runs. */
 const SCHEMAS = new WeakMap<object, Schema>();
 
 /**
@@ -122,22 +120,15 @@ export function serialize(
     };
 }
 
-/** How one field serializes. */
 interface FieldSchema {
     readonly key: string;
     readonly within: readonly string[];
-    /** The field's JSON, or `undefined` to omit it. */
     readonly toJson: (value: unknown, instance: object) => unknown;
 }
 
-/** How a class serializes: its fields, resolved from its decorators and its bases'. */
 class Schema {
     readonly #className: string;
     readonly #fields = new Map<string, FieldSchema>();
-    /**
-     * Key paths already taken, each segment followed by `/`, used to catch collisions. `#objects`
-     * holds the nested objects made by `within`, and `#values` holds the fields themselves.
-     */
     readonly #objects = new Set<string>();
     readonly #values = new Set<string>();
     readonly transparentKey: string | undefined;
@@ -203,7 +194,6 @@ function schemaOf(ctor: { readonly name: string; readonly prototype: object }): 
     return schema;
 }
 
-/** The options of every decorated field of `ctor`, base classes first so subclasses win. */
 function resolveOptions(ctor: { readonly prototype: object }): Map<string, FieldOptions> {
     const owners: object[] = [];
     let proto: object | null = ctor.prototype;
@@ -221,7 +211,6 @@ function resolveOptions(ctor: { readonly prototype: object }): Map<string, Field
     return resolved;
 }
 
-/** Serializes a class instance as its schema describes. */
 function serializeInstance(obj: object): unknown {
     const schema = schemaOf(obj.constructor);
     const out: Record<string, unknown> = {};
@@ -240,17 +229,6 @@ function serializeInstance(obj: object): unknown {
     return keys.length === 1 && keys[0] === transparentKey ? out[transparentKey] : out;
 }
 
-/**
- * Converts a value to JSON:
- *
- * - A value with a {@link TO_REFERENCE} method becomes that reference.
- * - A value with a `toJSON()` method becomes its result as is.
- * - Arrays convert item by item.
- * - Plain objects convert key by key, with snake_cased keys and without `undefined` values or
- *   functions.
- * - A `Map` or `Set` throws {@link UnsupportedJsonValueError}.
- * - Any other class instance serializes like a {@link serialize()} class.
- */
 function toJson(value: unknown): unknown {
     if (typeof value === "function") return undefined;
     if (typeof value !== "object" || value === null) return value;
@@ -292,10 +270,6 @@ function omitEmpty(json: unknown): unknown {
 const SNAKE_CASE_CACHE = new Map<string, string>();
 const CASEABLE = /^[A-Za-z][A-Za-z0-9]*$/;
 
-/**
- * Converts a camelCase name to snake_case. It converts only pure alphanumeric names, so it returns
- * namespaced keys like `minecraft:cardinal_direction` unchanged.
- */
 function toSnakeCase(name: string): string {
     if (!CASEABLE.test(name)) return name;
     let key = SNAKE_CASE_CACHE.get(name);
@@ -306,7 +280,6 @@ function toSnakeCase(name: string): string {
     return key;
 }
 
-/** Whether `value` is an object literal (or `Object.create(null)`), as opposed to a class instance. */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
     if (value === null || typeof value !== "object") return false;
     const proto: object | null = Object.getPrototypeOf(value);
