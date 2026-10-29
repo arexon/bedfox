@@ -89,7 +89,10 @@ describe(Project.name, () => {
 
         test("rejects a run while another run is active", async () => {
             const project = new Project(OPTIONS).addSystem(
-                prepared({ prepare: () => delay(1), run: () => {} }),
+                prepared(
+                    () => delay(1),
+                    () => {},
+                ),
             );
             const first = project.run();
             await expect(project.run()).rejects.toThrow(
@@ -163,7 +166,10 @@ describe(Project.name, () => {
         test("rejects prepared systems with an async run function", () => {
             expect(() =>
                 new Project(OPTIONS).addSystem(
-                    prepared({ prepare: async () => 1, run: async () => {} }),
+                    prepared(
+                        async () => 1,
+                        async () => {},
+                    ),
                 ),
             ).toThrow(
                 expect.objectContaining({
@@ -231,14 +237,17 @@ describe(prepared.name, () => {
         await new Project(OPTIONS)
             .addSystem(
                 "setup",
-                prepared({
-                    prepare: async () => {
+                prepared(
+                    async () => {
                         await delay(5);
                         return "slow";
                     },
-                    run: (_, data) => seen.push(data),
-                }),
-                prepared({ prepare: async () => "fast", run: (_, data) => seen.push(data) }),
+                    (_, data) => seen.push(data),
+                ),
+                prepared(
+                    async () => "fast",
+                    (_, data) => seen.push(data),
+                ),
             )
             .run();
         expect(seen).toStrictEqual(["slow", "fast"]);
@@ -250,12 +259,12 @@ describe(prepared.name, () => {
             .addSystem("setup", () => order.push("system"))
             .addSystem(
                 "finalize",
-                prepared({
-                    prepare: async () => {
+                prepared(
+                    async () => {
                         order.push("prepare");
                     },
-                    run: () => order.push("run"),
-                }),
+                    () => order.push("run"),
+                ),
             )
             .run();
         expect(order).toStrictEqual(["prepare", "system", "run"]);
@@ -266,8 +275,14 @@ describe(prepared.name, () => {
         // The first step waits for the second, so the run would never end if they ran in turn.
         await new Project(OPTIONS)
             .addSystem(
-                prepared({ prepare: () => gate.promise, run: () => {} }),
-                prepared({ prepare: async () => gate.resolve(), run: () => {} }),
+                prepared(
+                    () => gate.promise,
+                    () => {},
+                ),
+                prepared(
+                    async () => gate.resolve(),
+                    () => {},
+                ),
             )
             .run();
     });
@@ -279,7 +294,10 @@ describe(prepared.name, () => {
             .addSystem("setup", () => (ran = true))
             .addSystem(
                 "finalize",
-                prepared({ prepare: () => Promise.reject(cause), run: () => {} }),
+                prepared(
+                    () => Promise.reject(cause),
+                    () => {},
+                ),
             );
         await expect(project.run()).rejects.toThrow(
             expect.objectContaining({
@@ -294,14 +312,17 @@ describe(prepared.name, () => {
     test("rejects only after every prepare step ends", async () => {
         let finished = false;
         const project = new Project(OPTIONS).addSystem(
-            prepared({ prepare: () => Promise.reject(new Error("offline")), run: () => {} }),
-            prepared({
-                prepare: async () => {
+            prepared(
+                () => Promise.reject(new Error("offline")),
+                () => {},
+            ),
+            prepared(
+                async () => {
                     await delay(5);
                     finished = true;
                 },
-                run: () => {},
-            }),
+                () => {},
+            ),
         );
         await expect(project.run()).rejects.toThrow(SystemFailedError);
         expect(finished).toBe(true);
@@ -312,14 +333,17 @@ describe(prepared.name, () => {
         await expect(
             new Project(OPTIONS)
                 .addSystem(
-                    prepared({
-                        prepare: async () => {
+                    prepared(
+                        async () => {
                             await delay(5);
                             throw first;
                         },
-                        run: () => {},
-                    }),
-                    prepared({ prepare: () => Promise.reject(new Error("second")), run: () => {} }),
+                        () => {},
+                    ),
+                    prepared(
+                        () => Promise.reject(new Error("second")),
+                        () => {},
+                    ),
                 )
                 .run(),
         ).rejects.toThrow(
@@ -336,9 +360,7 @@ describe(prepared.name, () => {
             throw cause;
         };
         await expect(
-            new Project(OPTIONS)
-                .addSystem(prepared({ prepare: async () => [], run: addBiomes }))
-                .run(),
+            new Project(OPTIONS).addSystem(prepared(async () => [], addBiomes)).run(),
         ).rejects.toThrow(
             expect.objectContaining({ message: "System 0 (addBiomes) on transform failed in run" }),
         );
@@ -347,7 +369,12 @@ describe(prepared.name, () => {
     test("rejects a run function that returns a promise", async () => {
         await expect(
             new Project(OPTIONS)
-                .addSystem(prepared({ prepare: async () => 1, run: () => Promise.resolve() }))
+                .addSystem(
+                    prepared(
+                        async () => 1,
+                        () => Promise.resolve(),
+                    ),
+                )
                 .run(),
         ).rejects.toThrow(AsyncSystemError);
     });

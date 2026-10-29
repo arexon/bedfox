@@ -32,14 +32,17 @@ export interface PreparedSystem<T> {
  * @example
  *     project.addSystem(
  *         "setup",
- *         prepared({
- *             prepare: () => readBiomes(),
- *             run: (reg, biomes) => reg.add(...biomes.map(toFeature)),
- *         }),
+ *         prepared(
+ *             () => readBiomes(),
+ *             (reg, biomes) => reg.add(...biomes.map(toFeature)),
+ *         ),
  *     );
  */
-export function prepared<T>(system: PreparedSystem<T>): PreparedSystem<T> {
-    return system;
+export function prepared<T>(
+    prepare: () => Promise<T>,
+    run: (reg: Registry, data: T) => unknown,
+): PreparedSystem<T> {
+    return { prepare, run };
 }
 
 /**
