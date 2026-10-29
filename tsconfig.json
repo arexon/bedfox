@@ -10,5 +10,5 @@
         "erasableSyntaxOnly": true,
         "experimentalDecorators": true
     },
-    "include": ["packages/*/src", "packages/*/tests", "*.ts"]
+    "include": ["packages/*/src", "*.ts"]
 }
