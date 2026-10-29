@@ -6,7 +6,7 @@ export default defineConfig({
     },
     pack: {
         dts: true,
-        entry: ["src/*/index.ts", "src/*.ts"],
+        entry: ["src/*/index.ts", "src/*.ts", "!src/**/*.test.ts"],
         exports: { devExports: true },
         unbundle: true,
     },
