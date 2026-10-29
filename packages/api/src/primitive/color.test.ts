@@ -1,13 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import {
-    Color,
-    FormatVersion,
-    InvalidColorChannelError,
-    InvalidHexColorError,
-    Range,
-    Vec3,
-} from "#/primitive/index";
+import { Color, InvalidColorChannelError, InvalidHexColorError } from "#/primitive/color";
 
 describe(Color.name, () => {
     test("RGBA rounds channels to u8", () => {
@@ -47,33 +40,5 @@ describe(Color.name, () => {
                 expect(color.toHex()).toBe(hex);
             });
         }
-    });
-});
-
-describe(Vec3.name, () => {
-    test("direct", () => {
-        expect(JSON.stringify(new Vec3(1, 2.5, -3))).toBe("[1,2.5,-3]");
-    });
-});
-
-describe(Range.name, () => {
-    test("direct", () => {
-        expect(JSON.stringify(new Range(2, 9))).toBe("[2,9]");
-    });
-
-    test("from()", () => {
-        expect(JSON.stringify(Range.from(4))).toBe("[0,3]");
-    });
-
-    test("values object", () => {
-        expect(JSON.stringify(new Range(2, 9).toValuesObject())).toBe(
-            '{"values":{"min":2,"max":9}}',
-        );
-    });
-});
-
-describe(FormatVersion.name, () => {
-    test("direct", () => {
-        expect(JSON.stringify(new FormatVersion(1, 21, 0))).toBe('"1.21.0"');
     });
 });
