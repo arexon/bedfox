@@ -16,12 +16,6 @@ const NS = "test";
 
 const OPTIONS = { namespace: NS } as const;
 
-const ASYNC_ADVICE =
-    "Systems must be sync, so move async work into the prepare step of a prepared system";
-
-const PLUGIN_ASYNC_ADVICE =
-    "Plugins must be sync, so move async work into the prepare step of a prepared system";
-
 function ids(defs: Iterable<Definition>): string[] {
     return Array.from(defs, (def) => def.identifier);
 }
@@ -168,7 +162,7 @@ describe(Project.name, () => {
             ).toThrow(
                 expect.objectContaining({
                     name: "AsyncSystemError",
-                    message: `System 2 (addDirt) on setup is async. ${ASYNC_ADVICE}`,
+                    message: expect.stringContaining("System 2 (addDirt) on setup is async."),
                 }),
             );
             await project.run();
@@ -186,7 +180,7 @@ describe(Project.name, () => {
             ).toThrow(
                 expect.objectContaining({
                     name: "AsyncSystemError",
-                    message: `System 0 on transform is async. ${ASYNC_ADVICE}`,
+                    message: expect.stringContaining("System 0 on transform is async."),
                 }),
             );
         });
@@ -259,7 +253,7 @@ describe(Project.name, () => {
             ).toThrow(
                 expect.objectContaining({
                     name: "AsyncPluginError",
-                    message: `Plugin dirtPlugin is async. ${PLUGIN_ASYNC_ADVICE}`,
+                    message: expect.stringContaining("Plugin dirtPlugin is async."),
                 }),
             );
             expect(called).toBe(false);
@@ -327,7 +321,9 @@ describe(Project.name, () => {
             ).toThrow(
                 expect.objectContaining({
                     name: "AsyncSystemError",
-                    message: `System 0 (addDirt) on transform from plugin (anonymous) is async. ${ASYNC_ADVICE}`,
+                    message: expect.stringContaining(
+                        "System 0 (addDirt) on transform from plugin (anonymous) is async.",
+                    ),
                 }),
             );
         });

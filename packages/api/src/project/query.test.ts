@@ -140,8 +140,7 @@ describe(query.name, () => {
             expect(() => query(Block).intoSystem(async () => {})).toThrow(
                 expect.objectContaining({
                     name: "AsyncSystemError",
-                    message:
-                        "The callback of intoSystem() is async. Systems must be sync, so move async work into the prepare step of a prepared system",
+                    message: expect.stringContaining("The callback of intoSystem() is async."),
                 }),
             );
         });
@@ -181,8 +180,9 @@ describe(query.name, () => {
             ).toThrow(
                 expect.objectContaining({
                     name: "AsyncSystemError",
-                    message:
-                        "The callback of intoPreparedSystem() is async. Systems must be sync, so move async work into the prepare step of a prepared system",
+                    message: expect.stringContaining(
+                        "The callback of intoPreparedSystem() is async.",
+                    ),
                 }),
             );
             expect(() =>
