@@ -1,3 +1,5 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
 exports[`DataModule > can set its own uuid, version and description 1`] = `
 {
   "format_version": 3,

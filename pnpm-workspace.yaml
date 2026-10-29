@@ -2,7 +2,6 @@ packages:
     - packages/*
 catalogMode: strict
 catalog:
-    "@oxc-node/core": 1.0.0
     "@types/node": ^26.6.4
     typescript: ^7.0.2
     vite: npm:@voidzero-dev/vite-plus-core@1.4.0

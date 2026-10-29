@@ -1,3 +1,5 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
 exports[`BiomeFilter > all of any of 1`] = `
 [
   {
@@ -58,9 +60,7 @@ exports[`BiomeFilter > direct > single 1`] = `
 }
 `;
 
-exports[`BiomeFilter > empty 1`] = `
-[]
-`;
+exports[`BiomeFilter > empty 1`] = `[]`;
 
 exports[`BiomeFilter > multiple 1`] = `
 [

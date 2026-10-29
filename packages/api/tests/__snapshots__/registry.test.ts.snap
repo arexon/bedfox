@@ -1,3 +1,5 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
 exports[`Registry > manifests > are derived from the namespace 1`] = `
 {
   "bp": {

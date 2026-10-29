@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, test } from "node:test";
+import { describe, expect, test } from "vite-plus/test";
 
 import {
     DataModule,
@@ -34,9 +33,9 @@ function resourcePack(): Manifest {
 }
 
 describe(Manifest.name, () => {
-    test("full", (t) => {
+    test("full", () => {
         const rp = resourcePack().version("2.0.0");
-        t.assert.snapshot(
+        expect(
             new Manifest(NS)
                 .authors("arexon")
                 .name("Test BP")
@@ -59,72 +58,72 @@ describe(Manifest.name, () => {
                 .generatedWith("mctools", "0.12.0")
                 .setting(new ToggleSetting("test:enabled", "Enabled").default(true))
                 .subpack("hd", "HD", 3),
-        );
+        ).toMatchSnapshot();
     });
 
     describe("authors()", () => {
-        test("adds to the constructor's", (t) => {
-            t.assert.snapshot(ready().authors("other"));
+        test("adds to the constructor's", () => {
+            expect(ready().authors("other")).toMatchSnapshot();
         });
     });
 
     describe("kind", () => {
         test("comes from the modules", () => {
-            assert.equal(resourcePack().kind, "resource");
-            assert.equal(new Manifest(NS).module(new DataModule()).kind, "behavior");
-            assert.equal(new Manifest(NS).module(new ScriptModule("main.js")).kind, "behavior");
+            expect(resourcePack().kind).toBe("resource");
+            expect(new Manifest(NS).module(new DataModule()).kind).toBe("behavior");
+            expect(new Manifest(NS).module(new ScriptModule("main.js")).kind).toBe("behavior");
         });
 
         test("rejects a resources module with data or scripts", () => {
             const mixed = resourcePack().module(new ScriptModule("main.js"));
-            assert.throws(() => mixed.kind, InvalidModulesError);
-            assert.throws(() => JSON.stringify(mixed), InvalidModulesError);
+            expect(() => mixed.kind).toThrow(InvalidModulesError);
+            expect(() => JSON.stringify(mixed)).toThrow(InvalidModulesError);
         });
 
         test("rejects a manifest without modules", () => {
-            assert.throws(() => new Manifest(NS).kind, InvalidModulesError);
+            expect(() => new Manifest(NS).kind).toThrow(InvalidModulesError);
         });
     });
 
     describe("module()", () => {
         test("rejects two modules with the same uuid", () => {
             const bp = new Manifest(NS).module(new DataModule(), new DataModule());
-            assert.throws(() => JSON.stringify(bp), DuplicateModuleUuidError);
+            expect(() => JSON.stringify(bp)).toThrow(DuplicateModuleUuidError);
         });
 
-        test("ignores a module added twice", (t) => {
+        test("ignores a module added twice", () => {
             const data = new DataModule();
-            t.assert.snapshot(new Manifest(NS).authors("test").module(data, data));
+            expect(new Manifest(NS).authors("test").module(data, data)).toMatchSnapshot();
         });
     });
 
     describe("dependsOn()", () => {
-        test("reads the pack's uuid and version when serialized", (t) => {
+        test("reads the pack's uuid and version when serialized", () => {
             const rp = resourcePack();
             const bp = ready().dependsOn(rp);
             rp.uuid(OTHER_PACK_UUID).version("2.0.0");
-            t.assert.snapshot(bp);
+            expect(bp).toMatchSnapshot();
         });
 
-        test("ignores the same pack twice", (t) => {
+        test("ignores the same pack twice", () => {
             const rp = resourcePack();
-            t.assert.snapshot(ready().dependsOn(rp).dependsOn(rp));
+            expect(ready().dependsOn(rp).dependsOn(rp)).toMatchSnapshot();
         });
     });
 
     describe("generatedWith()", () => {
-        test("can't replace bedfox's own entry", (t) => {
-            t.assert.snapshot(ready().generatedWith("bedfox", "0.0.1"));
+        test("can't replace bedfox's own entry", () => {
+            expect(ready().generatedWith("bedfox", "0.0.1")).toMatchSnapshot();
         });
 
-        test("keeps tool names as written", (t) => {
-            t.assert.snapshot(ready().generatedWith("myTool", "1"));
+        test("keeps tool names as written", () => {
+            expect(ready().generatedWith("myTool", "1")).toMatchSnapshot();
         });
     });
 
     describe("setting()", () => {
-        test("every kind", (t) => {
-            t.assert.snapshot(
+        test("every kind", () => {
+            expect(
                 ready().setting(
                     new LabelSetting("Tune it"),
                     new ToggleSetting("test:enabled", "Enabled").default(true),
@@ -139,101 +138,103 @@ describe(Manifest.name, () => {
                         .defaults("low")
                         .selectionText("Extras picked"),
                 ),
-            );
+            ).toMatchSnapshot();
         });
 
-        test("keep their order across calls", (t) => {
-            t.assert.snapshot(
+        test("keep their order across calls", () => {
+            expect(
                 ready().setting(new LabelSetting("first")).setting(new LabelSetting("second")),
-            );
+            ).toMatchSnapshot();
         });
 
-        test("ignores a setting added twice", (t) => {
+        test("ignores a setting added twice", () => {
             const label = new LabelSetting("once");
-            t.assert.snapshot(ready().setting(label, label));
+            expect(ready().setting(label, label)).toMatchSnapshot();
         });
 
-        test("default toggles to off and multiselects to nothing", (t) => {
-            t.assert.snapshot(
+        test("default toggles to off and multiselects to nothing", () => {
+            expect(
                 ready().setting(
                     new ToggleSetting("test:on", "On"),
                     new MultiSelectSetting("test:extras", "Extras")
                         .option("low", "Low")
                         .option("high", "High"),
                 ),
-            );
+            ).toMatchSnapshot();
         });
 
-        test("default sliders to steps of 1 from min, and dropdowns to their first option", (t) => {
-            t.assert.snapshot(
+        test("default sliders to steps of 1 from min, and dropdowns to their first option", () => {
+            expect(
                 ready().setting(
                     new SliderSetting("test:power", "Power", 2, 8),
                     new DropdownSetting("test:level", "Level")
                         .option("low", "Low")
                         .option("high", "High"),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("toJSON()", () => {
-        test("derives what isn't set from the namespace", (t) => {
-            t.assert.snapshot(resourcePack());
+        test("derives what isn't set from the namespace", () => {
+            expect(resourcePack()).toMatchSnapshot();
         });
     });
 });
 
 describe(DataModule.name, () => {
-    test("can set its own uuid, version and description", (t) => {
-        t.assert.snapshot(
+    test("can set its own uuid, version and description", () => {
+        expect(
             new Manifest(NS)
                 .authors("test")
                 .uuid(PACK_UUID)
                 .module(new DataModule().uuid(MODULE_UUID).version("2.0.0").description("Logic")),
-        );
+        ).toMatchSnapshot();
     });
 });
 
 describe(ScriptModule.name, () => {
-    test("derives its uuid from the header uuid and its entry", (t) => {
-        t.assert.snapshot(ready().module(new ScriptModule("main.js")));
+    test("derives its uuid from the header uuid and its entry", () => {
+        expect(ready().module(new ScriptModule("main.js"))).toMatchSnapshot();
     });
 
     describe("dependsOn()", () => {
-        test("replaces the version of a module depended on again", (t) => {
-            t.assert.snapshot(
+        test("replaces the version of a module depended on again", () => {
+            expect(
                 ready().module(
                     new ScriptModule("main.js")
                         .dependsOn("@minecraft/server", "1.0.0")
                         .dependsOn("@minecraft/server", "2.1.0"),
                 ),
-            );
+            ).toMatchSnapshot();
         });
 
-        test("is written in the manifest's dependencies, after packs and once per module", (t) => {
-            t.assert.snapshot(
+        test("is written in the manifest's dependencies, after packs and once per module", () => {
+            expect(
                 ready()
                     .module(
                         new ScriptModule("a.js").dependsOn("@minecraft/server", "1.0.0"),
                         new ScriptModule("b.js").dependsOn("@minecraft/server", "2.1.0"),
                     )
                     .dependsOn(resourcePack()),
-            );
+            ).toMatchSnapshot();
         });
     });
 });
 
 describe(deriveUuid.name, () => {
     test("is the same for the same name", () => {
-        assert.equal(deriveUuid("test/behavior/header"), deriveUuid("test/behavior/header"));
+        expect(deriveUuid("test/behavior/header")).toBe(deriveUuid("test/behavior/header"));
     });
 
     test("differs by name", () => {
-        assert.notEqual(deriveUuid("test/behavior/header"), deriveUuid("test/resource/header"));
+        expect(deriveUuid("test/behavior/header")).not.toBe(deriveUuid("test/resource/header"));
     });
 
     test("is a version 5 uuid", () => {
         const uuid = deriveUuid("test");
-        assert.match(uuid, /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+        expect(uuid).toMatch(
+            /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+        );
     });
 });

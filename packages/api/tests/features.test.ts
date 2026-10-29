@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, test } from "node:test";
+import { describe, expect, test } from "vite-plus/test";
 
 import {
     AggregateFeature,
@@ -34,12 +33,12 @@ import {
 import { Range, Vec3 } from "#/primitive/index";
 
 describe(BiomeFilter.name, () => {
-    test("single", (t) => {
-        t.assert.snapshot(new BiomeFilter().hasTag("forest"));
+    test("single", () => {
+        expect(new BiomeFilter().hasTag("forest")).toMatchSnapshot();
     });
 
-    test("multiple", (t) => {
-        t.assert.snapshot(
+    test("multiple", () => {
+        expect(
             new BiomeFilter()
                 .hasTag("overworld")
                 .isBiome("minecraft:plains")
@@ -47,59 +46,59 @@ describe(BiomeFilter.name, () => {
                 .isHumid(false)
                 .isTemperatureType("cold")
                 .isTemperatureValue("0.5"),
-        );
+        ).toMatchSnapshot();
     });
 
-    test("all of any of", (t) => {
-        t.assert.snapshot(
+    test("all of any of", () => {
+        expect(
             new BiomeFilter()
                 .allOf((b) => b.hasTag("overworld").isSnowCovered(false))
                 .anyOf((b) => b.hasTag("forest").hasTag("taiga")),
-        );
+        ).toMatchSnapshot();
     });
 
     describe("not", () => {
-        test("negates a test", (t) => {
-            t.assert.snapshot(new BiomeFilter().not.hasTag("ocean"));
+        test("negates a test", () => {
+            expect(new BiomeFilter().not.hasTag("ocean")).toMatchSnapshot();
         });
 
-        test("only negates the next test", (t) => {
-            t.assert.snapshot(new BiomeFilter().not.hasTag("ocean").hasTag("forest"));
+        test("only negates the next test", () => {
+            expect(new BiomeFilter().not.hasTag("ocean").hasTag("forest")).toMatchSnapshot();
         });
 
         test("is only followed by a test", () => {
             const filter = new BiomeFilter();
             // @ts-expect-error groups can't be negated
-            assert.throws(() => filter.not.allOf(() => {}), TypeError);
+            expect(() => filter.not.allOf(() => {})).toThrow(TypeError);
             // @ts-expect-error double negation
-            assert.equal(filter.not.not, undefined);
+            expect(filter.not.not).toBe(undefined);
         });
     });
 
-    test("empty", (t) => {
-        t.assert.snapshot(new BiomeFilter());
+    test("empty", () => {
+        expect(new BiomeFilter()).toMatchSnapshot();
     });
 
     describe("direct", () => {
-        test("single", (t) => {
-            t.assert.snapshot(new BiomeFilterSingle("is_biome", "!=", "minecraft:desert"));
+        test("single", () => {
+            expect(new BiomeFilterSingle("is_biome", "!=", "minecraft:desert")).toMatchSnapshot();
         });
 
-        test("multi", (t) => {
-            t.assert.snapshot(
+        test("multi", () => {
+            expect(
                 new BiomeFilterMulti({
                     anyOf: [new BiomeFilterSingle("has_biome_tag", "==", "hills")],
                     allOf: [new BiomeFilterSingle("is_humid", "!=", "true")],
                 }),
-            );
+            ).toMatchSnapshot();
         });
     });
 });
 
 describe("features", () => {
     describe("aggregate", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new AggregateFeature("aggregate", {
                     features: [
                         new OreFeature("live_ore", { count: 4 }).add("minecraft:diamond_ore", [
@@ -110,13 +109,13 @@ describe("features", () => {
                     ],
                     earlyOut: "first_success",
                 }),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("cave_carver", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new CaveCarverFeature("cave_carver", {
                     fillWith: "minecraft:air",
                     widthModifier: "q.noise(1, 2)",
@@ -127,37 +126,37 @@ describe("features", () => {
                     verticalRadiusMultiplier: 1.2,
                     floorLevel: new Range(-1, -0.4),
                 }),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("conditional_list", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ConditionalListFeature("conditional", {
                     features: [{ placesFeature: "test:live_ore", condition: "q.is_snow_covered" }],
                     earlyOut: "placement_success",
                 })
                     .add("test:string_feature")
                     .add(new SequenceFeature("live_sequence", { features: [] }), "v.x > 0"),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("fossil", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new FossilFeature("fossil", {
                     oreBlock: "minecraft:coal_ore",
                     maxEmptyCorners: 4,
                 }),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("geode", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new GeodeFeature("geode", {
                     filler: "minecraft:air",
                     innerLayer: "minecraft:amethyst_block",
@@ -187,13 +186,13 @@ describe("features", () => {
                     placementsRequireLayer0Alternate: true,
                     invalidBlocksThreshold: 1,
                 }),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("growing_plant", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new GrowingPlantFeature("growing_plant", {
                     heightDistribution: [
                         [new Range(1, 13), 2],
@@ -208,13 +207,13 @@ describe("features", () => {
                     headBlocks: [["minecraft:cave_vines_head_with_berries", 1]],
                     allowWater: true,
                 }),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("height_difference_filter", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new HeightDifferenceFilterFeature("hdf", {
                     placesFeature: "test:live_ore",
                     searchRadius: 3,
@@ -223,25 +222,25 @@ describe("features", () => {
                     maxAllowedUpwardHeightDiff: 5,
                     maxAllowedDownwardHeightDiff: 6,
                 }),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("horizontal_tree_decoration", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new HorizontalTreeDecorationFeature("htd", {
                     placesBlock: { name: "minecraft:stone", states: { stone_type: "granite" } },
                     allowAdjacent: true,
                     barkSideOnly: false,
                 }),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("multi_block", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new MultiBlockFeature("multi_block", {
                     placesBlock: "minecraft:tall_grass",
                     enforcePlacementRules: true,
@@ -251,13 +250,13 @@ describe("features", () => {
                         { name: "minecraft:stone", states: { stone_type: "granite" } },
                     ],
                 }),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("multiface", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new MultifaceFeature("multiface", {
                     placesBlock: "minecraft:glow_lichen",
                     searchRange: 20,
@@ -270,13 +269,13 @@ describe("features", () => {
                         { name: "minecraft:stone", states: { stone_type: "granite" } },
                     ],
                 }),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("multipart_block_column", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new MultipartBlockColumnFeature("column", {
                     tipBlock: "minecraft:pointed_dripstone",
                     frustumBlock: { name: "minecraft:stone", states: { stone_type: "granite" } },
@@ -291,13 +290,13 @@ describe("features", () => {
                         { name: "minecraft:stone", states: { stone_type: "granite" } },
                     ],
                 }),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("nether_cave_carver", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new NetherCaveCarverFeature("nether_carver", {
                     fillWith: "minecraft:air",
                     widthModifier: "q.noise(1, 2)",
@@ -308,13 +307,13 @@ describe("features", () => {
                     verticalRadiusMultiplier: 1.2,
                     floorLevel: new Range(-1, -0.4),
                 }),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("ore", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new OreFeature("ore", {
                     count: 8,
                     discardChanceOnAirExposure: 0.5,
@@ -336,26 +335,26 @@ describe("features", () => {
                 })
                     .add("minecraft:deepslate_iron_ore", ["minecraft:deepslate"])
                     .add("minecraft:gold_ore"),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("partially_exposed_blob", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new PartiallyExposedBlobFeature("blob", {
                     placesBlock: { name: "minecraft:stone", states: { stone_type: "granite" } },
                     placementRadiusAroundFloor: 2,
                     placementProbabilityPerValidPosition: 0.5,
                     exposedFace: "up",
                 }),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("scatter", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ScatterFeature("scatter", {
                     placesFeature: "test:live_ore",
                     iterations: "math.random_integer(1, 4)",
@@ -371,26 +370,26 @@ describe("features", () => {
                     scatterChance: { numerator: 1, denominator: 4 },
                     projectInputToFloor: true,
                 }),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("search", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new SearchFeature("search", {
                     placesFeature: "test:live_ore",
                     searchVolume: { min: new Vec3(-3, -3, -3), max: new Vec3(3, 3, 3) },
                     searchAxis: "-y",
                     requiredSuccesses: 2,
                 }),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("sequence", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new SequenceFeature("sequence", {
                     features: [
                         "test:live_ore",
@@ -398,13 +397,13 @@ describe("features", () => {
                         new AggregateFeature("live_aggregate", { features: [] }),
                     ],
                 }),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("single_block", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new SingleBlockFeature("single", {
                     placesBlock: { name: "minecraft:stone", states: { stone_type: "granite" } },
                     enforcePlacementRules: true,
@@ -432,11 +431,11 @@ describe("features", () => {
                         { name: "minecraft:stone", states: { stone_type: "granite" } },
                     ],
                 }),
-            );
+            ).toMatchSnapshot();
         });
 
-        test("weighted", (t) => {
-            t.assert.snapshot(
+        test("weighted", () => {
+            expect(
                 new SingleBlockFeature("single_weighted", {
                     placesBlock: [
                         { weight: 2, block: "minecraft:poppy" },
@@ -447,13 +446,13 @@ describe("features", () => {
                         { block: "minecraft:dandelion", weight: 3 },
                     ],
                 }),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("snap_to_surface", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new SnapToSurfaceFeature("snap", {
                     featureToSnap: "test:live_ore",
                     searchRange: 12,
@@ -469,13 +468,13 @@ describe("features", () => {
                     ],
                     embedInSurface: true,
                 }),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("structure_template", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new StructureTemplateFeature("structure", {
                     structureName: "mystructure:house",
                     grounded: true,
@@ -493,11 +492,11 @@ describe("features", () => {
                     rotateAroundCenter: true,
                     groundLevel: 1,
                 }),
-            );
+            ).toMatchSnapshot();
         });
 
-        test("boolean constraints", (t) => {
-            t.assert.snapshot(
+        test("boolean constraints", () => {
+            expect(
                 new StructureTemplateFeature("structure_bool", {
                     structureName: "mystructure:hut",
                     grounded: false,
@@ -505,34 +504,34 @@ describe("features", () => {
                     leveled: true,
                     blockIntersection: true,
                 }),
-            );
+            ).toMatchSnapshot();
         });
 
-        test("empty constraint objects", (t) => {
-            t.assert.snapshot(
+        test("empty constraint objects", () => {
+            expect(
                 new StructureTemplateFeature("structure_empty", {
                     structureName: "mystructure:tower",
                     leveled: {},
                     blockIntersection: {},
                 }),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("surface_relative_threshold", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new SurfaceRelativeThresholdFeature("srt", {
                     featureToPlace: "test:live_ore",
                     minimumDistanceBelowSurface: 4,
                 }),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("underwater_cave_carver", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new UnderwaterCaveCarverFeature("uw_carver", {
                     fillWith: "minecraft:air",
                     widthModifier: "q.noise(1, 2)",
@@ -544,13 +543,13 @@ describe("features", () => {
                     floorLevel: new Range(-1, -0.4),
                     replaceAirWith: { name: "minecraft:stone", states: { stone_type: "granite" } },
                 }),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("vegetation_patch", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new VegetationPatchFeature("veg", {
                     replaceableBlocks: [
                         "minecraft:stone",
@@ -567,26 +566,26 @@ describe("features", () => {
                     extraEdgeColumnChance: 0.3,
                     waterlogged: true,
                 }),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("weighted_random", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new WeightedRandomFeature("weighted", {
                     features: [["test:live_ore", 3]],
                 })
                     .add("test:string_feature", 1)
                     .add(new SequenceFeature("live_sequence", { features: [] }), 0.5),
-            );
+            ).toMatchSnapshot();
         });
     });
 });
 
 describe(FeatureRules.name, () => {
-    test("full instance", (t) => {
-        t.assert.snapshot(
+    test("full instance", () => {
+        expect(
             new FeatureRules("rules", {
                 placesFeature: new OreFeature("live_ore", { count: 4 }),
                 placementPass: "underground_pass",
@@ -603,15 +602,15 @@ describe(FeatureRules.name, () => {
                 coordinateEvalOrder: "yxz",
                 scatterChance: { numerator: 1, denominator: 3 },
             }),
-        );
+        ).toMatchSnapshot();
     });
 
-    test("empty biome filter", (t) => {
-        t.assert.snapshot(
+    test("empty biome filter", () => {
+        expect(
             new FeatureRules("rules_empty_filter", {
                 placesFeature: "test:string_feature",
                 biomeFilter: new BiomeFilter(),
             }),
-        );
+        ).toMatchSnapshot();
     });
 });

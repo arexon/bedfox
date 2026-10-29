@@ -1,4 +1,4 @@
-import { describe, test } from "node:test";
+import { describe, expect, test } from "vite-plus/test";
 
 import {
     Block,
@@ -52,27 +52,27 @@ import { ComponentCollection } from "#/core/index";
 import { Color, Range, Vec3 } from "#/primitive/index";
 
 describe(Block.name, () => {
-    test("minimal", (t) => {
-        t.assert.snapshot(new Block("minimal"));
+    test("minimal", () => {
+        expect(new Block("minimal")).toMatchSnapshot();
     });
 
-    test("defaults explicit", (t) => {
-        t.assert.snapshot(
+    test("defaults explicit", () => {
+        expect(
             new Block("defaults", {
                 category: "none",
                 isHiddenInCommands: false,
                 states: {},
                 permutations: [],
             }),
-        );
+        ).toMatchSnapshot();
     });
 
-    test("category only", (t) => {
-        t.assert.snapshot(new Block("category", { category: "nature" }));
+    test("category only", () => {
+        expect(new Block("category", { category: "nature" })).toMatchSnapshot();
     });
 
-    test("full", (t) => {
-        t.assert.snapshot(
+    test("full", () => {
+        expect(
             new Block("full", {
                 category: "construction",
                 group: "minecraft:itemGroup.name.planks",
@@ -114,26 +114,26 @@ describe(Block.name, () => {
                     new TransformationBlockComponent({ rotation: new Vec3(0, 90, 0) }),
                 )
                 .pushPermutation("q.block_state('test:level') == 0"),
-        );
+        ).toMatchSnapshot();
     });
 
     describe("permutation", () => {
-        test("with components", (t) => {
-            t.assert.snapshot(
+        test("with components", () => {
+            expect(
                 new BlockPermutation(
                     "q.block_state('test:lit')",
                     new LightEmissionBlockComponent(15),
                     new FrictionBlockComponent(0.2),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 });
 
 describe("components", () => {
     describe("block_entity", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new BlockEntityBlockComponent({
                         dynamicProperties: true,
@@ -141,105 +141,105 @@ describe("components", () => {
                         entityStorage: true,
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("chest_obstruction", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new ChestObstructionBlockComponent({ obstructionRule: "always" }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("collision_box", () => {
-        test("transparent true", (t) => {
-            t.assert.snapshot(new ComponentCollection(new CollisionBoxBlockComponent(true)));
+        test("transparent true", () => {
+            expect(new ComponentCollection(new CollisionBoxBlockComponent(true))).toMatchSnapshot();
         });
 
-        test("boxes instances", (t) => {
-            t.assert.snapshot(
+        test("boxes instances", () => {
+            expect(
                 new ComponentCollection(
                     new CollisionBoxBlockComponent(BoundingBox.cube(), BoundingBox.slab(), {
                         origin: new Vec3(-4, 2, -4),
                         size: new Vec3(8, 4, 8),
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("connection_rule", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new ConnectionRuleBlockComponent({
                         acceptsConnectionsFrom: "only_fences",
                         enabledDirections: ["north", "south"],
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("crafting_table", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new CraftingTableBlockComponent({
                         craftingTags: ["crafting_table", "test:workbench"],
                         tableName: "Test Workbench",
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("destructible_by_explosion", () => {
-        test("transparent only", (t) => {
-            t.assert.snapshot(
+        test("transparent only", () => {
+            expect(
                 new ComponentCollection(new DestructibleByExplosionBlockComponent(true)),
-            );
+            ).toMatchSnapshot();
         });
 
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new DestructibleByExplosionBlockComponent({
                         enabled: true,
                         explosionResistance: 30,
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
 
-        test("extra only", (t) => {
-            t.assert.snapshot(
+        test("extra only", () => {
+            expect(
                 new ComponentCollection(
                     new DestructibleByExplosionBlockComponent({ explosionResistance: 12 }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("destructible_by_mining", () => {
-        test("transparent only", (t) => {
-            t.assert.snapshot(
+        test("transparent only", () => {
+            expect(
                 new ComponentCollection(new DestructibleByMiningBlockComponent(true)),
-            );
+            ).toMatchSnapshot();
         });
 
-        test("transparent with extra", (t) => {
+        test("transparent with extra", () => {
             const component = new DestructibleByMiningBlockComponent(true);
             component.secondsToDestroy = 2;
-            t.assert.snapshot(new ComponentCollection(component));
+            expect(new ComponentCollection(component)).toMatchSnapshot();
         });
 
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new DestructibleByMiningBlockComponent({
                         secondsToDestroy: 1.5,
@@ -249,13 +249,13 @@ describe("components", () => {
                         ],
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("destruction_particles", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new DestructionParticlesBlockComponent({
                         texture: "stone",
@@ -263,21 +263,21 @@ describe("components", () => {
                         particleCount: 50,
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("display_name", () => {
-        test("transparent only", (t) => {
-            t.assert.snapshot(
+        test("transparent only", () => {
+            expect(
                 new ComponentCollection(new DisplayNameBlockComponent("tile.test:block.name")),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("embedded_visual", () => {
-        test("geometry string", (t) => {
-            t.assert.snapshot(
+        test("geometry string", () => {
+            expect(
                 new ComponentCollection(
                     new EmbeddedVisualBlockComponent({
                         geometry: "geometry.test",
@@ -286,21 +286,21 @@ describe("components", () => {
                         }),
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
 
-        test("geometry component identifier only", (t) => {
-            t.assert.snapshot(
+        test("geometry component identifier only", () => {
+            expect(
                 new ComponentCollection(
                     new EmbeddedVisualBlockComponent({
                         geometry: new GeometryBlockComponent("geometry.test"),
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
 
-        test("geometry component full", (t) => {
-            t.assert.snapshot(
+        test("geometry component full", () => {
+            expect(
                 new ComponentCollection(
                     new EmbeddedVisualBlockComponent({
                         geometry: new GeometryBlockComponent({
@@ -317,25 +317,25 @@ describe("components", () => {
                         }),
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("entity_fall_on", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(new EntityFallOnBlockComponent({ minFallDistance: 3 })),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("flammable", () => {
-        test("transparent only", (t) => {
-            t.assert.snapshot(new ComponentCollection(new FlammableBlockComponent(true)));
+        test("transparent only", () => {
+            expect(new ComponentCollection(new FlammableBlockComponent(true))).toMatchSnapshot();
         });
 
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new FlammableBlockComponent({
                         enabled: true,
@@ -344,43 +344,45 @@ describe("components", () => {
                         lavaFlammable: "always",
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
 
-        test("extra only", (t) => {
-            t.assert.snapshot(
+        test("extra only", () => {
+            expect(
                 new ComponentCollection(new FlammableBlockComponent({ catchChanceModifier: 1 })),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("flower_pottable", () => {
-        test("minimal", (t) => {
-            t.assert.snapshot(new ComponentCollection(new FlowerPottableBlockComponent()));
+        test("minimal", () => {
+            expect(new ComponentCollection(new FlowerPottableBlockComponent())).toMatchSnapshot();
         });
     });
 
     describe("friction", () => {
-        test("transparent only", (t) => {
-            t.assert.snapshot(new ComponentCollection(new FrictionBlockComponent(0.4)));
+        test("transparent only", () => {
+            expect(new ComponentCollection(new FrictionBlockComponent(0.4))).toMatchSnapshot();
         });
     });
 
     describe("geometry", () => {
-        test("keeps bone names", (t) => {
+        test("keeps bone names", () => {
             const geometry = new GeometryBlockComponent({
                 identifier: "geometry.chest",
                 boneVisibility: { leftLid: "true" },
             });
-            t.assert.snapshot(geometry);
+            expect(geometry).toMatchSnapshot();
         });
 
-        test("transparent only", (t) => {
-            t.assert.snapshot(new ComponentCollection(new GeometryBlockComponent("geometry.test")));
+        test("transparent only", () => {
+            expect(
+                new ComponentCollection(new GeometryBlockComponent("geometry.test")),
+            ).toMatchSnapshot();
         });
 
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new GeometryBlockComponent({
                         identifier: "geometry.test",
@@ -392,11 +394,11 @@ describe("components", () => {
                         nWayVisualRotation: { x: "test:x", y: "test:y", z: "test:z" },
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
 
-        test("uv lock array plain rotation", (t) => {
-            t.assert.snapshot(
+        test("uv lock array plain rotation", () => {
+            expect(
                 new ComponentCollection(
                     new GeometryBlockComponent({
                         identifier: "geometry.test",
@@ -404,26 +406,26 @@ describe("components", () => {
                         nWayVisualRotation: { y: "minecraft:cardinal_direction" },
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("instrument_sound", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new InstrumentSoundBlockComponent({
                         up: "note.bell",
                         down: "note.banjo",
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("item_visual", () => {
-        test("geometry string", (t) => {
-            t.assert.snapshot(
+        test("geometry string", () => {
+            expect(
                 new ComponentCollection(
                     new ItemVisualBlockComponent({
                         geometry: "geometry.test_item",
@@ -432,11 +434,11 @@ describe("components", () => {
                         }),
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
 
-        test("geometry component full", (t) => {
-            t.assert.snapshot(
+        test("geometry component full", () => {
+            expect(
                 new ComponentCollection(
                     new ItemVisualBlockComponent({
                         geometry: new GeometryBlockComponent({
@@ -453,35 +455,35 @@ describe("components", () => {
                         }),
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("leashable", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new LeashableBlockComponent({ offset: new Vec3(0.5, 1, -0.5) }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("light_dampening", () => {
-        test("transparent only", (t) => {
-            t.assert.snapshot(new ComponentCollection(new LightDampeningBlockComponent(15)));
+        test("transparent only", () => {
+            expect(new ComponentCollection(new LightDampeningBlockComponent(15))).toMatchSnapshot();
         });
     });
 
     describe("light_emission", () => {
-        test("transparent only", (t) => {
-            t.assert.snapshot(new ComponentCollection(new LightEmissionBlockComponent(10)));
+        test("transparent only", () => {
+            expect(new ComponentCollection(new LightEmissionBlockComponent(10))).toMatchSnapshot();
         });
     });
 
     describe("liquid_detection", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new LiquidDetectionBlockComponent({
                         detectionRules: [
@@ -500,47 +502,47 @@ describe("components", () => {
                         ],
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("loot", () => {
-        test("transparent only", (t) => {
-            t.assert.snapshot(
+        test("transparent only", () => {
+            expect(
                 new ComponentCollection(new LootBlockComponent("loot_tables/blocks/test.json")),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("map_color", () => {
-        test("transparent only rgb", (t) => {
-            t.assert.snapshot(
+        test("transparent only rgb", () => {
+            expect(
                 new ComponentCollection(new MapColorBlockComponent(new Color(255, 0, 0))),
-            );
+            ).toMatchSnapshot();
         });
 
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new MapColorBlockComponent({
                         color: new Color("#336699"),
                         tintMethod: "water",
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("material_instances", () => {
-        test("keeps instance names, but snake_cases the instances", (t) => {
+        test("keeps instance names, but snake_cases the instances", () => {
             const materials = new MaterialInstancesBlockComponent({
                 sideFace: { texture: "oak", renderMethod: "blend" },
             });
-            t.assert.snapshot(materials);
+            expect(materials).toMatchSnapshot();
         });
 
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new MaterialInstancesBlockComponent({
                         "*": {
@@ -556,23 +558,23 @@ describe("components", () => {
                         down: { texture: "test_bottom" },
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("movable", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new MovableBlockComponent({ movementType: "push", sticky: "same" }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("placement_filter", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new PlacementFilterBlockComponent(
                         {
@@ -587,30 +589,32 @@ describe("components", () => {
                         { allowedFaces: ["north"], blockFilter: ["minecraft:sand"] },
                     ),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("precipitation_interactions", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new PrecipitationInteractionsBlockComponent({
                         precipitationBehavior: "obstruct_rain_accumulate_snow",
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("random_offset", () => {
-        test("writes ranges as objects, omitting unset ones", (t) => {
-            t.assert.snapshot(new RandomOffsetBlockComponent({ x: { steps: 4 } }));
-            t.assert.snapshot(new RandomOffsetBlockComponent({ x: { range: new Range(-1, 1) } }));
+        test("writes ranges as objects, omitting unset ones", () => {
+            expect(new RandomOffsetBlockComponent({ x: { steps: 4 } })).toMatchSnapshot();
+            expect(
+                new RandomOffsetBlockComponent({ x: { range: new Range(-1, 1) } }),
+            ).toMatchSnapshot();
         });
 
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new RandomOffsetBlockComponent({
                         x: { range: new Range(-4, 4), steps: 16 },
@@ -618,40 +622,40 @@ describe("components", () => {
                         z: { range: new Range(-4, 4), steps: 8 },
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
 
-        test("minimal", (t) => {
-            t.assert.snapshot(new ComponentCollection(new RandomOffsetBlockComponent({})));
+        test("minimal", () => {
+            expect(new ComponentCollection(new RandomOffsetBlockComponent({}))).toMatchSnapshot();
         });
     });
 
     describe("redstone_conductivity", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new RedstoneConductivityBlockComponent({
                         redstoneConductor: true,
                         allowsWireToStepDown: false,
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("redstone_consumer", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new RedstoneConsumerBlockComponent({ minPower: 5, propagatesPower: true }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("redstone_producer", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new RedstoneProducerBlockComponent({
                         power: 15,
@@ -660,67 +664,69 @@ describe("components", () => {
                         transformRelative: false,
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("replaceable", () => {
-        test("minimal", (t) => {
-            t.assert.snapshot(new ComponentCollection(new ReplaceableBlockComponent()));
+        test("minimal", () => {
+            expect(new ComponentCollection(new ReplaceableBlockComponent())).toMatchSnapshot();
         });
     });
 
     describe("selection_box", () => {
-        test("transparent true", (t) => {
-            t.assert.snapshot(new ComponentCollection(new SelectionBoxBlockComponent(true)));
+        test("transparent true", () => {
+            expect(new ComponentCollection(new SelectionBoxBlockComponent(true))).toMatchSnapshot();
         });
 
-        test("box instance", (t) => {
-            t.assert.snapshot(
+        test("box instance", () => {
+            expect(
                 new ComponentCollection(new SelectionBoxBlockComponent(BoundingBox.slab())),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("sound", () => {
-        test("full", (t) => {
-            t.assert.snapshot(new ComponentCollection(new SoundBlockComponent({ sound: "stone" })));
+        test("full", () => {
+            expect(
+                new ComponentCollection(new SoundBlockComponent({ sound: "stone" })),
+            ).toMatchSnapshot();
         });
     });
 
     describe("support", () => {
-        test("full fence", (t) => {
-            t.assert.snapshot(
+        test("full fence", () => {
+            expect(
                 new ComponentCollection(new SupportBlockComponent({ shape: "fence" })),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("tags", () => {
-        test("transparent only", (t) => {
-            t.assert.snapshot(
+        test("transparent only", () => {
+            expect(
                 new ComponentCollection(
                     new TagsBlockComponent({
                         value: ["minecraft:is_pickaxe_item_destructible", "test:tag"],
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("tick", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new TickBlockComponent({ intervalRange: new Range(10, 20), looping: false }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("transformation", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new ComponentCollection(
                     new TransformationBlockComponent({
                         translation: new Vec3(1, 2, 3),
@@ -730,43 +736,43 @@ describe("components", () => {
                         rotationPivot: new Vec3(0, 8, 0),
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("collection", () => {
-        test("multiple", (t) => {
-            t.assert.snapshot(
+        test("multiple", () => {
+            expect(
                 new ComponentCollection(
                     new FrictionBlockComponent(0.1),
                     new LightEmissionBlockComponent(4),
                     new ReplaceableBlockComponent(),
                 ),
-            );
+            ).toMatchSnapshot();
         });
 
-        test("empty", (t) => {
-            t.assert.snapshot(new ComponentCollection());
+        test("empty", () => {
+            expect(new ComponentCollection()).toMatchSnapshot();
         });
     });
 });
 
 describe("traits", () => {
     describe("connection", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new BlockTraitCollection(
                     new ConnectionBlockTrait({
                         enabledStates: ["minecraft:cardinal_connections"],
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("multi_block", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new BlockTraitCollection(
                     new MultiBlockBlockTrait({
                         enabledStates: ["minecraft:multi_block_part"],
@@ -774,15 +780,15 @@ describe("traits", () => {
                         parts: 3,
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("placement_direction", () => {
         describe("y rotation offset", () => {
             for (const direction of ["north", "east", "west"] as const) {
-                test(direction, (t) => {
-                    t.assert.snapshot(
+                test(direction, () => {
+                    expect(
                         new BlockTraitCollection(
                             new PlacementDirectionBlockTrait({
                                 enabledStates: ["minecraft:corner_and_cardinal_direction"],
@@ -790,13 +796,13 @@ describe("traits", () => {
                                 yRotationOffset: direction,
                             }),
                         ),
-                    );
+                    ).toMatchSnapshot();
                 });
             }
         });
 
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new BlockTraitCollection(
                     new PlacementDirectionBlockTrait({
                         enabledStates: [
@@ -811,36 +817,36 @@ describe("traits", () => {
                         yRotationOffset: "south",
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
 
-        test("minimal", (t) => {
-            t.assert.snapshot(
+        test("minimal", () => {
+            expect(
                 new BlockTraitCollection(
                     new PlacementDirectionBlockTrait({
                         enabledStates: ["minecraft:sixteen_way_rotation"],
                         blocksToCornerWith: [],
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("placement_position", () => {
-        test("full", (t) => {
-            t.assert.snapshot(
+        test("full", () => {
+            expect(
                 new BlockTraitCollection(
                     new PlacementPositionBlockTrait({
                         enabledStates: ["minecraft:block_face", "minecraft:vertical_half"],
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 
     describe("collection", () => {
-        test("multiple", (t) => {
-            t.assert.snapshot(
+        test("multiple", () => {
+            expect(
                 new BlockTraitCollection(
                     new PlacementPositionBlockTrait({
                         enabledStates: ["minecraft:block_face"],
@@ -849,7 +855,7 @@ describe("traits", () => {
                         enabledStates: ["minecraft:cardinal_connections"],
                     }),
                 ),
-            );
+            ).toMatchSnapshot();
         });
     });
 });

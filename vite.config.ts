@@ -1,6 +1,10 @@
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
+    test: {
+        include: ["packages/*/tests/**/*.test.ts"],
+        snapshotSerializers: ["./packages/api/tests/_json_serializer.ts"],
+    },
     pack: {
         dts: true,
         entry: ["src/*/index.ts", "src/*.ts"],
@@ -20,10 +24,7 @@ export default defineConfig({
             perf: "warn",
             suspicious: "warn",
         },
-        options: {
-            typeAware: true,
-            typeCheck: true,
-        },
+        options: { typeAware: true, typeCheck: true },
         plugins: ["eslint", "jsdoc", "oxc", "typescript", "unicorn"],
         overrides: [
             {
@@ -50,28 +51,11 @@ export default defineConfig({
             },
         ],
         rules: {
-            "typescript/no-floating-promises": [
-                "warn",
-                {
-                    allowForKnownSafeCalls: [
-                        {
-                            from: "package",
-                            package: "node:test",
-                            name: ["describe", "it", "suite", "test"],
-                        },
-                    ],
-                },
-            ],
             "no-shadow": "off",
             "no-underscore-dangle": "off",
             "typescript/no-unsafe-type-assertion": "off",
             "unicorn/custom-error-definition": ["warn"],
-            "unicorn/filename-case": [
-                "warn",
-                {
-                    case: "snakeCase",
-                },
-            ],
+            "unicorn/filename-case": ["warn", { case: "snakeCase" }],
         },
     },
 });

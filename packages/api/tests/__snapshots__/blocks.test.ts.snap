@@ -1,3 +1,5 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
 exports[`Block > category only 1`] = `
 {
   "format_version": "1.26.40",
@@ -176,9 +178,7 @@ exports[`components > chest_obstruction > full 1`] = `
 }
 `;
 
-exports[`components > collection > empty 1`] = `
-{}
-`;
+exports[`components > collection > empty 1`] = `{}`;
 
 exports[`components > collection > multiple 1`] = `
 {

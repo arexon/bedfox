@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, test } from "node:test";
+import { describe, expect, test } from "vite-plus/test";
 
 import { Block } from "#/block/index";
 import {
@@ -30,7 +29,7 @@ describe("@serialize defaults", () => {
     describe("values", () => {
         test("primitives and null pass through", () => {
             const row = Object.assign(new Shared(), { list: [null, "a", false, 0] });
-            assert.equal(JSON.stringify(row), '{"list":[null,"a",false,0]}');
+            expect(JSON.stringify(row)).toBe('{"list":[null,"a",false,0]}');
         });
 
         test("referenceable values serialize as their reference when nested", () => {
@@ -39,7 +38,7 @@ describe("@serialize defaults", () => {
                 toJSON: () => ({ full: true }),
             };
             const row = Object.assign(new Shared(), { list: [def, [def, 3]] });
-            assert.equal(JSON.stringify(row), '{"list":["my:feature",["my:feature",3]]}');
+            expect(JSON.stringify(row)).toBe('{"list":["my:feature",["my:feature",3]]}');
         });
 
         test("toJSON() results are never re-cased", () => {
@@ -50,12 +49,12 @@ describe("@serialize defaults", () => {
                 }
             }
             const row = Object.assign(new Shared(), { list: [new Override()] });
-            assert.equal(JSON.stringify(row), '{"list":[{"bone_visibility":{"leftArm":true}}]}');
+            expect(JSON.stringify(row)).toBe('{"list":[{"bone_visibility":{"leftArm":true}}]}');
         });
 
         test("functions inside plain objects are skipped", () => {
             const row = Object.assign(new Shared(), { nested: { a: 1, f: () => 1 } });
-            assert.equal(JSON.stringify(row), '{"nested":{"a":1}}');
+            expect(JSON.stringify(row)).toBe('{"nested":{"a":1}}');
         });
     });
 
@@ -63,7 +62,7 @@ describe("@serialize defaults", () => {
         describe("fields", () => {
             test("own fields become snake_case keys", () => {
                 const row = Object.assign(new Shared(), { itemName: "x", destroySpeed: 2 });
-                assert.equal(JSON.stringify(row), '{"item_name":"x","destroy_speed":2}');
+                expect(JSON.stringify(row)).toBe('{"item_name":"x","destroy_speed":2}');
             });
 
             test("inherited fields are included", () => {
@@ -71,7 +70,7 @@ describe("@serialize defaults", () => {
                     extraField = 1;
                 }
                 const child = Object.assign(new Child(), { itemName: "x" });
-                assert.equal(JSON.stringify(child), '{"item_name":"x","extra_field":1}');
+                expect(JSON.stringify(child)).toBe('{"item_name":"x","extra_field":1}');
             });
 
             test("getters, methods, symbols and #private fields are skipped", () => {
@@ -86,15 +85,14 @@ describe("@serialize defaults", () => {
                     }
                     method(): void {}
                 }
-                assert.equal(JSON.stringify(new Hidden()), '{"shown":3}');
+                expect(JSON.stringify(new Hidden())).toBe('{"shown":3}');
             });
 
             test("casing applies to plain objects inside a field", () => {
                 const row = Object.assign(new Shared(), {
                     list: [{ destroySpeed: 2, "minecraft:axis": "y" }],
                 });
-                assert.equal(
-                    JSON.stringify(row),
+                expect(JSON.stringify(row)).toBe(
                     '{"list":[{"destroy_speed":2,"minecraft:axis":"y"}]}',
                 );
             });
@@ -107,12 +105,12 @@ describe("@serialize defaults", () => {
                     nested: {},
                     list: [],
                 });
-                assert.equal(JSON.stringify(row), "{}");
+                expect(JSON.stringify(row)).toBe("{}");
             });
 
             test("empties inside records and arrays are kept", () => {
                 const row = Object.assign(new Shared(), { nested: { marker: {} }, list: [[], {}] });
-                assert.equal(JSON.stringify(row), '{"nested":{"marker":{}},"list":[[],{}]}');
+                expect(JSON.stringify(row)).toBe('{"nested":{"marker":{}},"list":[[],{}]}');
             });
         });
 
@@ -120,13 +118,13 @@ describe("@serialize defaults", () => {
             test("nested instances serialize their own fields", () => {
                 const inner = Object.assign(new Shared(), { itemName: "inner" });
                 const row = Object.assign(new Shared(), { list: [inner] });
-                assert.equal(JSON.stringify(row), '{"list":[{"item_name":"inner"}]}');
+                expect(JSON.stringify(row)).toBe('{"list":[{"item_name":"inner"}]}');
             });
 
             test("the same instance twice is fine", () => {
                 const inner = Object.assign(new Shared(), { itemName: "x" });
                 const row = Object.assign(new Shared(), { list: [inner, inner] });
-                assert.equal(JSON.stringify(row), '{"list":[{"item_name":"x"},{"item_name":"x"}]}');
+                expect(JSON.stringify(row)).toBe('{"list":[{"item_name":"x"},{"item_name":"x"}]}');
             });
         });
     });
@@ -139,10 +137,12 @@ describe("@serialize defaults", () => {
         for (const [name, value] of unsupported) {
             test(`a ${name} throws`, () => {
                 const row = Object.assign(new Shared(), { nested: { value } });
-                assert.throws(() => JSON.stringify(row), {
-                    name: "UnsupportedJsonValueError",
-                    message: `${name} can't be serialized to JSON`,
-                });
+                expect(() => JSON.stringify(row)).toThrow(
+                    expect.objectContaining({
+                        name: "UnsupportedJsonValueError",
+                        message: `${name} can't be serialized to JSON`,
+                    }),
+                );
             });
         }
     });
@@ -160,8 +160,7 @@ describe("@serialize with options", () => {
                     last = 2;
                 }
                 const grouped = Object.assign(new Grouped(), { a: 3, b: 4 });
-                assert.equal(
-                    JSON.stringify(grouped),
+                expect(JSON.stringify(grouped)).toBe(
                     '{"first":1,"group":{"a":3,"inner":{"b":4}},"last":2}',
                 );
             });
@@ -172,7 +171,7 @@ describe("@serialize with options", () => {
                     @serialize({ within: "group" }) a?: number;
                     @serialize({ within: "group" }) b: number[] = [];
                 }
-                assert.equal(JSON.stringify(new Grouped()), "{}");
+                expect(JSON.stringify(new Grouped())).toBe("{}");
             });
         });
 
@@ -183,8 +182,7 @@ describe("@serialize with options", () => {
                     @serialize({ rename: "minecraft:biome_filter" }) biomeFilter = "x";
                     @serialize({ rename: "early_out_scheme" }) earlyOut = "none";
                 }
-                assert.equal(
-                    JSON.stringify(new Renamed()),
+                expect(JSON.stringify(new Renamed())).toBe(
                     '{"minecraft:biome_filter":"x","early_out_scheme":"none"}',
                 );
             });
@@ -200,8 +198,7 @@ describe("@serialize with options", () => {
                 const keyed = Object.assign(new Keyed(), {
                     byName: { leftArm: { renderMethod: "blend" } },
                 });
-                assert.equal(
-                    JSON.stringify(keyed),
+                expect(JSON.stringify(keyed)).toBe(
                     '{"by_name":{"leftArm":{"render_method":"blend"}},"other":{"camel_key":1}}',
                 );
             });
@@ -215,7 +212,7 @@ describe("@serialize with options", () => {
                     @serialize({ override: (_, pair: Pair) => pair.left + 1 })
                     right = 0;
                 }
-                assert.equal(JSON.stringify(new Pair()), '{"left":1,"right":2}');
+                expect(JSON.stringify(new Pair())).toBe('{"left":1,"right":2}');
             });
 
             test("is called for unset fields, and its result is serialized but kept when empty", () => {
@@ -232,12 +229,11 @@ describe("@serialize with options", () => {
                     @serialize({ override: () => ({ camelKey: [] }) })
                     raw?: string;
                 }
-                assert.equal(JSON.stringify(new Overridden()), '{"raw":{"camel_key":[]}}');
-                assert.equal(
-                    JSON.stringify(Object.assign(new Overridden(), { flag: true })),
+                expect(JSON.stringify(new Overridden())).toBe('{"raw":{"camel_key":[]}}');
+                expect(JSON.stringify(Object.assign(new Overridden(), { flag: true }))).toBe(
                     '{"flag":{},"raw":{"camel_key":[]}}',
                 );
-                assert.deepStrictEqual(seen, [undefined, true]);
+                expect(seen).toStrictEqual([undefined, true]);
             });
         });
 
@@ -249,12 +245,12 @@ describe("@serialize with options", () => {
             }
 
             test("collapses to the field when it's the only one set", () => {
-                assert.equal(JSON.stringify(Object.assign(new Light(), { level: 4 })), "4");
+                expect(JSON.stringify(Object.assign(new Light(), { level: 4 }))).toBe("4");
             });
 
             test("stays an object when other fields are set", () => {
                 const light = Object.assign(new Light(), { level: 4, color: "red" });
-                assert.equal(JSON.stringify(light), '{"level":4,"color":"red"}');
+                expect(JSON.stringify(light)).toBe('{"level":4,"color":"red"}');
             });
 
             test("a renamed field still collapses", () => {
@@ -262,7 +258,7 @@ describe("@serialize with options", () => {
                 class Renamed extends Component {
                     @serialize({ transparent: true, rename: "lvl" }) level = 1;
                 }
-                assert.equal(JSON.stringify(new Renamed()), "1");
+                expect(JSON.stringify(new Renamed())).toBe("1");
             });
 
             describe("misuse", () => {
@@ -272,8 +268,7 @@ describe("@serialize with options", () => {
                         @serialize({ transparent: true }) a?: number;
                         @serialize({ transparent: true }) b?: number;
                     }
-                    assert.throws(
-                        () => JSON.stringify(new Twice()),
+                    expect(() => JSON.stringify(new Twice())).toThrow(
                         MultipleTransparentFieldsError,
                     );
                 });
@@ -283,7 +278,7 @@ describe("@serialize with options", () => {
                     class Nested {
                         @serialize({ transparent: true, within: "group" }) a?: number;
                     }
-                    assert.throws(() => JSON.stringify(new Nested()), NestedTransparentFieldError);
+                    expect(() => JSON.stringify(new Nested())).toThrow(NestedTransparentFieldError);
                 });
 
                 test("inherited conflicts throw when serialized", () => {
@@ -297,11 +292,10 @@ describe("@serialize with options", () => {
                     class Nested extends Base {
                         @serialize({ within: "group" }) override a?: number = 1;
                     }
-                    assert.throws(
-                        () => JSON.stringify(new Twice()),
+                    expect(() => JSON.stringify(new Twice())).toThrow(
                         MultipleTransparentFieldsError,
                     );
-                    assert.throws(() => JSON.stringify(new Nested()), NestedTransparentFieldError);
+                    expect(() => JSON.stringify(new Nested())).toThrow(NestedTransparentFieldError);
                 });
             });
         });
@@ -316,8 +310,8 @@ describe("@serialize with options", () => {
                     @serialize({ within: "group" }) b = 2;
                     @serialize({ rename: "c_key" }) c = 3;
                 }
-                assert.equal(JSON.stringify(new Sub()), '{"group":{"a":1,"b":2},"c_key":3}');
-                assert.equal(JSON.stringify(new Base()), '{"group":{"a":1}}');
+                expect(JSON.stringify(new Sub())).toBe('{"group":{"a":1,"b":2},"c_key":3}');
+                expect(JSON.stringify(new Base())).toBe('{"group":{"a":1}}');
             });
         });
 
@@ -339,9 +333,11 @@ describe("@serialize with options", () => {
                     @serialize({ rename: "a" }) b = 2;
                 }
                 for (const Ctor of [GroupThenField, FieldThenGroup, Renamed]) {
-                    assert.throws(() => JSON.stringify(new Ctor()), {
-                        name: "DuplicateJsonKeyError",
-                    });
+                    expect(() => JSON.stringify(new Ctor())).toThrow(
+                        expect.objectContaining({
+                            name: "DuplicateJsonKeyError",
+                        }),
+                    );
                 }
             });
 
@@ -351,35 +347,37 @@ describe("@serialize with options", () => {
                     @serialize({ override: () => ({}) }) a?: number;
                     @serialize({ within: "a", rename: "b_key" }) b = 2;
                 }
-                assert.throws(() => JSON.stringify(new Overridden()), {
-                    name: "DuplicateJsonKeyError",
-                });
+                expect(() => JSON.stringify(new Overridden())).toThrow(
+                    expect.objectContaining({
+                        name: "DuplicateJsonKeyError",
+                    }),
+                );
             });
         });
 
         describe("misuse", () => {
             test("decorating a static field throws", () => {
-                assert.throws(() => {
+                expect(() => {
                     class _Static {
                         @serialize({ rename: "x" }) static x = 1;
                         y = 2;
                     }
-                }, DecoratedNonFieldError);
+                }).toThrow(DecoratedNonFieldError);
             });
 
             test("decorating a method or accessor throws", () => {
-                assert.throws(() => {
+                expect(() => {
                     class _Method {
                         @serialize({ rename: "x" }) method(): void {}
                     }
-                }, DecoratedNonFieldError);
-                assert.throws(() => {
+                }).toThrow(DecoratedNonFieldError);
+                expect(() => {
                     class _Accessor {
                         @serialize({ rename: "x" }) get accessor(): number {
                             return 1;
                         }
                     }
-                }, DecoratedNonFieldError);
+                }).toThrow(DecoratedNonFieldError);
             });
         });
     });
@@ -391,8 +389,8 @@ describe("@serialize with options", () => {
             class Repeated extends Block {}
             const expected =
                 '{"format_version":"1.26.40","minecraft:block":{"description":{"identifier":"b"}}}';
-            assert.equal(JSON.stringify(new Inherited("b")), expected);
-            assert.equal(JSON.stringify(new Repeated("b")), expected);
+            expect(JSON.stringify(new Inherited("b"))).toBe(expected);
+            expect(JSON.stringify(new Repeated("b"))).toBe(expected);
         });
     });
 });
@@ -423,7 +421,7 @@ describe("definitions", () => {
 
     test("reject identifiers that can't name a file", () => {
         for (const id of ["test:dirt", "../dirt", "Dirt", ""]) {
-            assert.throws(() => new Block(id), InvalidIdentifierError, id);
+            expect(() => new Block(id), id).toThrow(InvalidIdentifierError);
         }
     });
 
@@ -434,7 +432,7 @@ describe("definitions", () => {
                 new OreFeature("ore"),
                 new FeatureRules("rules", { placesFeature: "test:ore" }),
             ].map((def) => `${def.kind}/${def.path}`);
-            assert.deepEqual(outputs, [
+            expect(outputs).toStrictEqual([
                 "behavior/blocks/dirt.json",
                 "behavior/features/ore.json",
                 "behavior/feature_rules/rules.json",
@@ -444,16 +442,14 @@ describe("definitions", () => {
 
     describe("file layout", () => {
         test("serializes as a definition file", () => {
-            assert.equal(
-                JSON.stringify(new Thing("thing")),
+            expect(JSON.stringify(new Thing("thing"))).toBe(
                 '{"format_version":"1.2.3","test:thing":{"description":{"identifier":"thing"}}}',
             );
         });
 
         test("description comes first, with the identifier first inside it", () => {
             const thing = Object.assign(new Thing("thing"), { note: "n", label: "l" });
-            assert.equal(
-                JSON.stringify(thing),
+            expect(JSON.stringify(thing)).toBe(
                 '{"format_version":"1.2.3","test:thing":{"description":{"identifier":"thing","label":"l"},"note":"n"}}',
             );
         });
@@ -462,8 +458,7 @@ describe("definitions", () => {
             const thing = Object.assign(new Thing("thing"), {
                 formatVersion: new FormatVersion(1, 0, 0),
             });
-            assert.equal(
-                JSON.stringify(thing),
+            expect(JSON.stringify(thing)).toBe(
                 '{"format_version":"1.0.0","test:thing":{"description":{"identifier":"thing"}}}',
             );
         });
@@ -474,9 +469,8 @@ describe("definitions", () => {
             const scatter = new ScatterFeature("scatter", {
                 placesFeature: "test:feature",
             });
-            assert.ok(scatter instanceof Feature);
-            assert.equal(
-                JSON.stringify(scatter),
+            expect(scatter).toBeInstanceOf(Feature);
+            expect(JSON.stringify(scatter)).toBe(
                 '{"format_version":"1.26.50","minecraft:scatter_feature":{"description":{"identifier":"scatter"},"places_feature":"test:feature"}}',
             );
         });
