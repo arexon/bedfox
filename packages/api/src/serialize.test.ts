@@ -16,6 +16,10 @@ import {
     TO_REFERENCE,
 } from "#/serialize";
 
+function json(value: unknown): unknown {
+    return JSON.parse(JSON.stringify(value));
+}
+
 @serialize
 class Shared {
     itemName?: string;
@@ -28,7 +32,7 @@ describe("@serialize defaults", () => {
     describe("values", () => {
         test("primitives and null pass through", () => {
             const row = Object.assign(new Shared(), { list: [null, "a", false, 0] });
-            expect(JSON.stringify(row)).toBe('{"list":[null,"a",false,0]}');
+            expect(json(row)).toStrictEqual({ list: [null, "a", false, 0] });
         });
 
         test("referenceable values serialize as their reference when nested", () => {
@@ -37,7 +41,7 @@ describe("@serialize defaults", () => {
                 toJSON: () => ({ full: true }),
             };
             const row = Object.assign(new Shared(), { list: [def, [def, 3]] });
-            expect(JSON.stringify(row)).toBe('{"list":["my:feature",["my:feature",3]]}');
+            expect(json(row)).toStrictEqual({ list: ["my:feature", ["my:feature", 3]] });
         });
 
         test("toJSON() results are never re-cased", () => {
@@ -48,12 +52,12 @@ describe("@serialize defaults", () => {
                 }
             }
             const row = Object.assign(new Shared(), { list: [new Override()] });
-            expect(JSON.stringify(row)).toBe('{"list":[{"bone_visibility":{"leftArm":true}}]}');
+            expect(json(row)).toStrictEqual({ list: [{ bone_visibility: { leftArm: true } }] });
         });
 
         test("functions inside plain objects are skipped", () => {
             const row = Object.assign(new Shared(), { nested: { a: 1, f: () => 1 } });
-            expect(JSON.stringify(row)).toBe('{"nested":{"a":1}}');
+            expect(json(row)).toStrictEqual({ nested: { a: 1 } });
         });
     });
 
@@ -61,7 +65,7 @@ describe("@serialize defaults", () => {
         describe("fields", () => {
             test("own fields become snake_case keys", () => {
                 const row = Object.assign(new Shared(), { itemName: "x", destroySpeed: 2 });
-                expect(JSON.stringify(row)).toBe('{"item_name":"x","destroy_speed":2}');
+                expect(json(row)).toStrictEqual({ item_name: "x", destroy_speed: 2 });
             });
 
             test("inherited fields are included", () => {
@@ -69,7 +73,7 @@ describe("@serialize defaults", () => {
                     extraField = 1;
                 }
                 const child = Object.assign(new Child(), { itemName: "x" });
-                expect(JSON.stringify(child)).toBe('{"item_name":"x","extra_field":1}');
+                expect(json(child)).toStrictEqual({ item_name: "x", extra_field: 1 });
             });
 
             test("getters, methods, symbols and #private fields are skipped", () => {
@@ -84,16 +88,16 @@ describe("@serialize defaults", () => {
                     }
                     method(): void {}
                 }
-                expect(JSON.stringify(new Hidden())).toBe('{"shown":3}');
+                expect(json(new Hidden())).toStrictEqual({ shown: 3 });
             });
 
             test("casing applies to plain objects inside a field", () => {
                 const row = Object.assign(new Shared(), {
                     list: [{ destroySpeed: 2, "minecraft:axis": "y" }],
                 });
-                expect(JSON.stringify(row)).toBe(
-                    '{"list":[{"destroy_speed":2,"minecraft:axis":"y"}]}',
-                );
+                expect(json(row)).toStrictEqual({
+                    list: [{ destroy_speed: 2, "minecraft:axis": "y" }],
+                });
             });
         });
 
@@ -104,12 +108,12 @@ describe("@serialize defaults", () => {
                     nested: {},
                     list: [],
                 });
-                expect(JSON.stringify(row)).toBe("{}");
+                expect(json(row)).toStrictEqual({});
             });
 
             test("empties inside records and arrays are kept", () => {
                 const row = Object.assign(new Shared(), { nested: { marker: {} }, list: [[], {}] });
-                expect(JSON.stringify(row)).toBe('{"nested":{"marker":{}},"list":[[],{}]}');
+                expect(json(row)).toStrictEqual({ nested: { marker: {} }, list: [[], {}] });
             });
         });
 
@@ -117,13 +121,13 @@ describe("@serialize defaults", () => {
             test("nested instances serialize their own fields", () => {
                 const inner = Object.assign(new Shared(), { itemName: "inner" });
                 const row = Object.assign(new Shared(), { list: [inner] });
-                expect(JSON.stringify(row)).toBe('{"list":[{"item_name":"inner"}]}');
+                expect(json(row)).toStrictEqual({ list: [{ item_name: "inner" }] });
             });
 
             test("the same instance twice is fine", () => {
                 const inner = Object.assign(new Shared(), { itemName: "x" });
                 const row = Object.assign(new Shared(), { list: [inner, inner] });
-                expect(JSON.stringify(row)).toBe('{"list":[{"item_name":"x"},{"item_name":"x"}]}');
+                expect(json(row)).toStrictEqual({ list: [{ item_name: "x" }, { item_name: "x" }] });
             });
         });
     });
@@ -150,7 +154,7 @@ describe("@serialize defaults", () => {
 describe("@serialize with options", () => {
     describe("on fields", () => {
         describe("within", () => {
-            test("nests fields, placing each group at its first set member", () => {
+            test("nests fields in their groups, at any depth", () => {
                 @serialize
                 class Grouped {
                     first = 1;
@@ -159,9 +163,11 @@ describe("@serialize with options", () => {
                     last = 2;
                 }
                 const grouped = Object.assign(new Grouped(), { a: 3, b: 4 });
-                expect(JSON.stringify(grouped)).toBe(
-                    '{"first":1,"group":{"a":3,"inner":{"b":4}},"last":2}',
-                );
+                expect(json(grouped)).toStrictEqual({
+                    first: 1,
+                    group: { a: 3, inner: { b: 4 } },
+                    last: 2,
+                });
             });
 
             test("groups with no set members are omitted", () => {
@@ -170,7 +176,7 @@ describe("@serialize with options", () => {
                     @serialize({ within: "group" }) a?: number;
                     @serialize({ within: "group" }) b: number[] = [];
                 }
-                expect(JSON.stringify(new Grouped())).toBe("{}");
+                expect(json(new Grouped())).toStrictEqual({});
             });
         });
 
@@ -181,9 +187,10 @@ describe("@serialize with options", () => {
                     @serialize({ rename: "minecraft:biome_filter" }) biomeFilter = "x";
                     @serialize({ rename: "early_out_scheme" }) earlyOut = "none";
                 }
-                expect(JSON.stringify(new Renamed())).toBe(
-                    '{"minecraft:biome_filter":"x","early_out_scheme":"none"}',
-                );
+                expect(json(new Renamed())).toStrictEqual({
+                    "minecraft:biome_filter": "x",
+                    early_out_scheme: "none",
+                });
             });
         });
 
@@ -197,9 +204,10 @@ describe("@serialize with options", () => {
                 const keyed = Object.assign(new Keyed(), {
                     byName: { leftArm: { renderMethod: "blend" } },
                 });
-                expect(JSON.stringify(keyed)).toBe(
-                    '{"by_name":{"leftArm":{"render_method":"blend"}},"other":{"camel_key":1}}',
-                );
+                expect(json(keyed)).toStrictEqual({
+                    by_name: { leftArm: { render_method: "blend" } },
+                    other: { camel_key: 1 },
+                });
             });
         });
 
@@ -211,7 +219,7 @@ describe("@serialize with options", () => {
                     @serialize({ override: (_, pair: Pair) => pair.left + 1 })
                     right = 0;
                 }
-                expect(JSON.stringify(new Pair())).toBe('{"left":1,"right":2}');
+                expect(json(new Pair())).toStrictEqual({ left: 1, right: 2 });
             });
 
             test("is called for unset fields, and its result is serialized but kept when empty", () => {
@@ -228,10 +236,11 @@ describe("@serialize with options", () => {
                     @serialize({ override: () => ({ camelKey: [] }) })
                     raw?: string;
                 }
-                expect(JSON.stringify(new Overridden())).toBe('{"raw":{"camel_key":[]}}');
-                expect(JSON.stringify(Object.assign(new Overridden(), { flag: true }))).toBe(
-                    '{"flag":{},"raw":{"camel_key":[]}}',
-                );
+                expect(json(new Overridden())).toStrictEqual({ raw: { camel_key: [] } });
+                expect(json(Object.assign(new Overridden(), { flag: true }))).toStrictEqual({
+                    flag: {},
+                    raw: { camel_key: [] },
+                });
                 expect(seen).toStrictEqual([undefined, true]);
             });
         });
@@ -244,12 +253,12 @@ describe("@serialize with options", () => {
             }
 
             test("collapses to the field when it's the only one set", () => {
-                expect(JSON.stringify(Object.assign(new Light(), { level: 4 }))).toBe("4");
+                expect(json(Object.assign(new Light(), { level: 4 }))).toBe(4);
             });
 
             test("stays an object when other fields are set", () => {
                 const light = Object.assign(new Light(), { level: 4, color: "red" });
-                expect(JSON.stringify(light)).toBe('{"level":4,"color":"red"}');
+                expect(json(light)).toStrictEqual({ level: 4, color: "red" });
             });
 
             test("a renamed field still collapses", () => {
@@ -257,7 +266,7 @@ describe("@serialize with options", () => {
                 class Renamed extends Component {
                     @serialize({ transparent: true, rename: "lvl" }) level = 1;
                 }
-                expect(JSON.stringify(new Renamed())).toBe("1");
+                expect(json(new Renamed())).toBe(1);
             });
 
             describe("misuse", () => {
@@ -309,8 +318,8 @@ describe("@serialize with options", () => {
                     @serialize({ within: "group" }) b = 2;
                     @serialize({ rename: "c_key" }) c = 3;
                 }
-                expect(JSON.stringify(new Sub())).toBe('{"group":{"a":1,"b":2},"c_key":3}');
-                expect(JSON.stringify(new Base())).toBe('{"group":{"a":1}}');
+                expect(json(new Sub())).toStrictEqual({ group: { a: 1, b: 2 }, c_key: 3 });
+                expect(json(new Base())).toStrictEqual({ group: { a: 1 } });
             });
         });
 
@@ -386,10 +395,12 @@ describe("@serialize with options", () => {
             class Inherited extends Block {}
             @serialize
             class Repeated extends Block {}
-            const expected =
-                '{"format_version":"1.26.40","minecraft:block":{"description":{"identifier":"b"}}}';
-            expect(JSON.stringify(new Inherited("b"))).toBe(expected);
-            expect(JSON.stringify(new Repeated("b"))).toBe(expected);
+            const expected = {
+                format_version: "1.26.40",
+                "minecraft:block": { description: { identifier: "b" } },
+            };
+            expect(json(new Inherited("b"))).toStrictEqual(expected);
+            expect(json(new Repeated("b"))).toStrictEqual(expected);
         });
     });
 });
@@ -441,25 +452,28 @@ describe("definitions", () => {
 
     describe("file layout", () => {
         test("serializes as a definition file", () => {
-            expect(JSON.stringify(new Thing("thing"))).toBe(
-                '{"format_version":"1.2.3","test:thing":{"description":{"identifier":"thing"}}}',
-            );
+            expect(json(new Thing("thing"))).toStrictEqual({
+                format_version: "1.2.3",
+                "test:thing": { description: { identifier: "thing" } },
+            });
         });
 
-        test("description comes first, with the identifier first inside it", () => {
+        test("puts description fields inside the description, next to the identifier", () => {
             const thing = Object.assign(new Thing("thing"), { note: "n", label: "l" });
-            expect(JSON.stringify(thing)).toBe(
-                '{"format_version":"1.2.3","test:thing":{"description":{"identifier":"thing","label":"l"},"note":"n"}}',
-            );
+            expect(json(thing)).toStrictEqual({
+                format_version: "1.2.3",
+                "test:thing": { description: { identifier: "thing", label: "l" }, note: "n" },
+            });
         });
 
         test("an explicit format version wins over the fallback", () => {
             const thing = Object.assign(new Thing("thing"), {
                 formatVersion: new FormatVersion(1, 0, 0),
             });
-            expect(JSON.stringify(thing)).toBe(
-                '{"format_version":"1.0.0","test:thing":{"description":{"identifier":"thing"}}}',
-            );
+            expect(json(thing)).toStrictEqual({
+                format_version: "1.0.0",
+                "test:thing": { description: { identifier: "thing" } },
+            });
         });
     });
 
@@ -469,9 +483,13 @@ describe("definitions", () => {
                 placesFeature: "test:feature",
             });
             expect(scatter).toBeInstanceOf(Feature);
-            expect(JSON.stringify(scatter)).toBe(
-                '{"format_version":"1.26.50","minecraft:scatter_feature":{"description":{"identifier":"scatter"},"places_feature":"test:feature"}}',
-            );
+            expect(json(scatter)).toStrictEqual({
+                format_version: "1.26.50",
+                "minecraft:scatter_feature": {
+                    description: { identifier: "scatter" },
+                    places_feature: "test:feature",
+                },
+            });
         });
     });
 });

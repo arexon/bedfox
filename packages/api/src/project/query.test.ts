@@ -27,10 +27,6 @@ function ids(defs: Iterable<Definition>): string[] {
     return Array.from(defs, (def) => def.identifier);
 }
 
-/**
- * Runs a new project with `systems` on `setup`, and returns the run's closed registry. If a system
- * fails, it rethrows the cause, so that tests can expect the original error.
- */
 async function runSetup(...systems: (System | PreparedSystem<unknown>)[]): Promise<Registry> {
     const registry = Promise.withResolvers<Registry>();
     const project = new Project({ namespace: NS }).addSystem("setup", registry.resolve, ...systems);
@@ -42,12 +38,10 @@ async function runSetup(...systems: (System | PreparedSystem<unknown>)[]): Promi
     return registry.promise;
 }
 
-/** Adds `defs` in a new project's run, and returns the run's closed registry. */
 function registryWith(...defs: Definition[]): Promise<Registry> {
     return runSetup((reg) => reg.add(...defs));
 }
 
-/** The identifiers that `q` matches in `reg`. A closed registry can still be queried. */
 function collect<T extends Definition>(reg: Registry, q: Query<T>): string[] {
     let result: string[] = [];
     q.intoSystem((_, defs) => (result = ids(defs)))(reg);

@@ -2,6 +2,10 @@ import { describe, expect, test } from "vite-plus/test";
 
 import { Color, InvalidColorChannelError, InvalidHexColorError } from "#/primitive/color";
 
+function json(value: unknown): unknown {
+    return JSON.parse(JSON.stringify(value));
+}
+
 describe(Color.name, () => {
     test("RGBA rounds channels to u8", () => {
         const color = new Color(12.4, 127.5, 254.6, 4.4);
@@ -22,7 +26,7 @@ describe(Color.name, () => {
     });
 
     test("direct rgb", () => {
-        expect(JSON.stringify(new Color(10, 20, 30))).toBe('"#0a141e"');
+        expect(json(new Color(10, 20, 30))).toBe("#0a141e");
     });
 
     describe("converts", () => {

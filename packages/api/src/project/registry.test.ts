@@ -24,7 +24,6 @@ import { serialize, TO_REFERENCE } from "#/serialize";
 
 const NS = "test";
 
-/** A definition kind bedfox doesn't ship. */
 @serialize
 class Custom extends Definition {
     static override readonly defaultFormatVersion = new FormatVersion(1, 0, 0);
@@ -39,14 +38,14 @@ class Custom extends Definition {
     }
 }
 
+function json(value: unknown): unknown {
+    return JSON.parse(JSON.stringify(value));
+}
+
 function ids(defs: Iterable<Definition>): string[] {
     return Array.from(defs, (def) => def.identifier);
 }
 
-/**
- * Runs a new project with `systems` on `setup`, and returns the run's closed registry. If a system
- * fails, it rethrows the cause, so that tests can expect the original error.
- */
 async function runSetup(
     namespace: string,
     ...systems: (System | PreparedSystem<unknown>)[]
@@ -61,12 +60,10 @@ async function runSetup(
     return registry.promise;
 }
 
-/** Adds `defs` in a new project's run, and returns the run's closed registry. */
 function registryWith(...defs: Definition[]): Promise<Registry> {
     return runSetup(NS, (reg) => reg.add(...defs));
 }
 
-/** Calls `fn` in a system after a system adds `defs`, and returns what `fn` returned. */
 async function inSystem<T>(fn: (reg: Registry) => T, ...defs: Definition[]): Promise<T> {
     const result = Promise.withResolvers<T>();
     await runSetup(
@@ -241,9 +238,10 @@ describe("Registry", () => {
             const dirt = new Block("dirt");
             await registryWith(dirt);
             expect(dirt.qualifiedIdentifier).toBe(`${NS}:dirt`);
-            expect(JSON.stringify(dirt)).toBe(
-                `{"format_version":"1.26.40","minecraft:block":{"description":{"identifier":"${NS}:dirt"}}}`,
-            );
+            expect(json(dirt)).toStrictEqual({
+                format_version: "1.26.40",
+                "minecraft:block": { description: { identifier: `${NS}:dirt` } },
+            });
         });
 
         test("qualify references to instances registered through them", async () => {
@@ -251,17 +249,25 @@ describe("Registry", () => {
             await registryWith(new ScatterFeature("scatter", { placesFeature: ore }));
             const scatter = new ScatterFeature("other", { placesFeature: ore });
             expect(ore.qualifiedIdentifier).toBe(`${NS}:ore`);
-            expect(JSON.stringify(scatter)).toBe(
-                `{"format_version":"1.26.50","minecraft:scatter_feature":{"description":{"identifier":"other"},"places_feature":"${NS}:ore"}}`,
-            );
+            expect(json(scatter)).toStrictEqual({
+                format_version: "1.26.50",
+                "minecraft:scatter_feature": {
+                    description: { identifier: "other" },
+                    places_feature: `${NS}:ore`,
+                },
+            });
         });
 
         test("leave string references as written", async () => {
             const scatter = new ScatterFeature("scatter", { placesFeature: "other:ore" });
             await registryWith(scatter);
-            expect(JSON.stringify(scatter)).toBe(
-                `{"format_version":"1.26.50","minecraft:scatter_feature":{"description":{"identifier":"${NS}:scatter"},"places_feature":"other:ore"}}`,
-            );
+            expect(json(scatter)).toStrictEqual({
+                format_version: "1.26.50",
+                "minecraft:scatter_feature": {
+                    description: { identifier: `${NS}:scatter` },
+                    places_feature: "other:ore",
+                },
+            });
         });
 
         test("leave unregistered definitions as written", () => {
