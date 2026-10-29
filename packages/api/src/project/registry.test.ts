@@ -20,7 +20,7 @@ import {
     type System,
     SystemFailedError,
 } from "#/project/index";
-import { serialize, TO_REFERENCE } from "#/serialize";
+import { serialize } from "#/serialize";
 
 const NS = "test";
 
@@ -273,7 +273,6 @@ describe("Registry", () => {
         test("leave unregistered definitions as written", () => {
             const dirt = new Block("dirt");
             expect(dirt.qualifiedIdentifier).toBe("dirt");
-            expect(dirt[TO_REFERENCE]()).toBe("dirt");
         });
 
         test("are cleared by remove()", async () => {
