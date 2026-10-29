@@ -27,6 +27,7 @@
         "./feature": "./src/feature/index.ts",
         "./manifest": "./src/manifest/index.ts",
         "./primitive": "./src/primitive/index.ts",
+        "./project": "./src/project/index.ts",
         "./registry": "./src/registry/index.ts",
         "./serialize": "./src/serialize.ts",
         "./package.json": "./package.json"
@@ -38,6 +39,7 @@
             "./feature": "./dist/feature/index.mjs",
             "./manifest": "./dist/manifest/index.mjs",
             "./primitive": "./dist/primitive/index.mjs",
+            "./project": "./dist/project/index.mjs",
             "./registry": "./dist/registry/index.mjs",
             "./serialize": "./dist/serialize.mjs",
             "./package.json": "./package.json"

@@ -4,7 +4,9 @@ import type { Definition, DefinitionCtor, ReferenceTarget } from "#/core/definit
 import { Feature, type FeatureReference } from "#/feature/base";
 import { FeatureRules } from "#/feature/rules";
 import type { BlockDescriptorRef } from "#/primitive/index";
-import type { Registry, System } from "#/registry/index";
+import { AsyncSystemError } from "#/project/errors";
+import type { PreparedSystem, System } from "#/project/index";
+import type { Registry } from "#/registry/registry";
 
 /** Whether a query keeps `def`. */
 export type Filter<T extends Definition = Definition> = (def: T, reg: Registry) => boolean;
@@ -13,6 +15,13 @@ export type Filter<T extends Definition = Definition> = (def: T, reg: Registry) 
 export type SystemCallback<T extends Definition> = (
     reg: Registry,
     defs: Generator<T, void, unknown>,
+) => unknown;
+
+/** A prepared system that receives the definitions its query matched and its prepared data. */
+export type PreparedSystemCallback<T extends Definition, D> = (
+    reg: Registry,
+    defs: Generator<T, void, unknown>,
+    data: D,
 ) => unknown;
 
 /** Whether a query over `T` could yield a `K`: some member of `T` is a `K`, or `K` extends `T`. */
@@ -35,15 +44,41 @@ interface BaseQuery<T extends Definition> {
      * definitions that the query matches. If nothing matches, the system doesn't call `callback`.
      *
      * @example
-     *     reg.addSystem(
+     *     project.addSystem(
      *         query(Block).intoSystem((reg, blocks) => {
      *             for (const block of blocks) {
      *                 block.setComponent(new LightEmissionBlockComponent(15));
      *             }
      *         }),
      *     );
+     *
+     * @throws - {@link AsyncSystemError} if `callback` is an `async` function.
      */
     intoSystem(callback: SystemCallback<T>): System;
+
+    /**
+     * Converts the query to a prepared system. Each run starts `prepare` before any system runs. At
+     * the system's turn, it calls `callback` with the definitions that the query matches and the
+     * value from `prepare`. If nothing matches, the system doesn't call `callback`, but `prepare`
+     * still runs, since it starts before the query can match.
+     *
+     * @example
+     *     project.addSystem(
+     *         query(Block).intoPreparedSystem(
+     *             () => readColors(),
+     *             (reg, blocks, colors) => {
+     *                 for (const block of blocks) paint(block, colors);
+     *             },
+     *         ),
+     *     );
+     *
+     * @throws - {@link AsyncSystemError} if `callback` is an `async` function. `prepare` may be
+     *   one.
+     */
+    intoPreparedSystem<D>(
+        prepare: () => Promise<D>,
+        callback: PreparedSystemCallback<T, D>,
+    ): PreparedSystem<D>;
 }
 
 // Each kind's filters keep definitions of other kinds, so one query can mix kinds.
@@ -127,13 +162,34 @@ class QueryImpl {
         );
     }
 
+    // Without these checks, an async callback would only fail in runs where the query matches.
+
     intoSystem(callback: SystemCallback<Definition>): System {
-        return (reg) => {
-            const defs = this.#run(reg);
-            const first = defs.next();
-            if (first.done) return undefined;
-            return callback(reg, this.#withFirst(reg, first.value, defs));
+        if (callback.constructor.name === "AsyncFunction") {
+            throw new AsyncSystemError("The callback of intoSystem() is async");
+        }
+        return (reg) => this.#call(reg, (defs) => callback(reg, defs));
+    }
+
+    intoPreparedSystem<D>(
+        prepare: () => Promise<D>,
+        callback: PreparedSystemCallback<Definition, D>,
+    ): PreparedSystem<D> {
+        if (callback.constructor.name === "AsyncFunction") {
+            throw new AsyncSystemError("The callback of intoPreparedSystem() is async");
+        }
+        return {
+            prepare,
+            run: (reg, data) => this.#call(reg, (defs) => callback(reg, defs, data)),
         };
+    }
+
+    /** Calls `fn` with the definitions the query matches, unless nothing matches. */
+    #call(reg: Registry, fn: (defs: Generator<Definition, void, unknown>) => unknown): unknown {
+        const defs = this.#run(reg);
+        const first = defs.next();
+        if (first.done) return undefined;
+        return fn(this.#withFirst(reg, first.value, defs));
     }
 
     /**
