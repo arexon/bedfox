@@ -169,6 +169,49 @@ describe("Registry", () => {
             expect(scatter.qualifiedIdentifier).toBe("scatter");
         });
 
+        test("unregisters the whole tree when a nested reference is rejected", async () => {
+            const okOre = new OreFeature("ok_ore");
+            const seq = new SequenceFeature("seq", {
+                features: [okOre, new OreFeature("dup_ore")],
+            });
+            const scatter = new ScatterFeature("scatter", { placesFeature: seq });
+            const reg = await inSystem((reg) => {
+                expect(() => reg.add(scatter)).toThrow(DuplicateIdentifierError);
+                return reg;
+            }, new OreFeature("dup_ore"));
+            expect(ids(reg.all())).toStrictEqual(["dup_ore"]);
+            expect(okOre.qualifiedIdentifier).toBe("ok_ore");
+            expect(seq.qualifiedIdentifier).toBe("seq");
+        });
+
+        test("unregisters earlier arguments when a later one is rejected", async () => {
+            const dirt = new Block("dirt");
+            const reg = await inSystem((reg) => {
+                expect(() => reg.add(dirt, new Block("stone"))).toThrow(DuplicateIdentifierError);
+                return reg;
+            }, new Block("stone"));
+            expect(ids(reg.all())).toStrictEqual(["stone"]);
+            expect(dirt.qualifiedIdentifier).toBe("dirt");
+        });
+
+        test("keeps definitions registered before a rejected add", async () => {
+            const shared = new OreFeature("shared");
+            const scatter = new ScatterFeature("scatter", { placesFeature: shared });
+            const seq = new SequenceFeature("seq", {
+                features: [shared, new OreFeature("dup_ore")],
+            });
+            const reg = await inSystem(
+                (reg) => {
+                    expect(() => reg.add(seq)).toThrow(DuplicateIdentifierError);
+                    return reg;
+                },
+                scatter,
+                new OreFeature("dup_ore"),
+            );
+            expect(ids(reg.all())).toStrictEqual(["scatter", "shared", "dup_ore"]);
+            expect(shared.qualifiedIdentifier).toBe(`${NS}:shared`);
+        });
+
         test("does not register string references", async () => {
             const reg = await registryWith(
                 new ScatterFeature("scatter", { placesFeature: `${NS}:ore` }),

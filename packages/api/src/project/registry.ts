@@ -69,6 +69,9 @@ export class Registry {
      * Adding a definition that's already here does nothing. Definitions of different kinds, such as
      * a block and a feature, may share an identifier.
      *
+     * If it throws, it unregisters every definition that this call registered, and keeps the
+     * definitions that were already here.
+     *
      * @example
      *     const ore = new OreFeature("dirt_ore").add("example:dirt", ["minecraft:stone"]);
      *     // Registers `dirt_ore` too, since `scatter` holds the instance.
@@ -81,6 +84,18 @@ export class Registry {
      */
     add(...defs: Definition[]): this {
         this.#assertOpen();
+        const added: Definition[] = [];
+        try {
+            this.#register(defs, added);
+        } catch (error) {
+            this.#unregister(added);
+            throw error;
+        }
+        this.#invalidate();
+        return this;
+    }
+
+    #register(defs: Iterable<Definition>, added: Definition[]): void {
         for (const def of defs) {
             if (this.#members.has(def)) continue;
             const namespace = def[NAMESPACE];
@@ -93,15 +108,9 @@ export class Registry {
             paths.set(def.path, def);
             this.#members.add(def);
             def[NAMESPACE] = this.namespace;
-            try {
-                this.add(...def._referencedInstances());
-            } catch (error) {
-                this.remove(def);
-                throw error;
-            }
+            added.push(def);
+            this.#register(def._referencedInstances(), added);
         }
-        this.#invalidate();
-        return this;
     }
 
     /**
