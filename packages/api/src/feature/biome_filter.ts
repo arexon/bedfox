@@ -27,11 +27,13 @@ export class BiomeFilterSingle {
     }
 }
 
+export type BiomeFilterItem = BiomeFilterSingle | BiomeFilterMulti;
+
 @serialize
 export class BiomeFilterMulti {
-    anyOf?: BiomeFilterSingle[];
+    anyOf?: BiomeFilterItem[];
 
-    allOf?: BiomeFilterSingle[];
+    allOf?: BiomeFilterItem[];
 
     constructor(props: InstanceProps<BiomeFilterMulti>) {
         Object.assign(this, props);
@@ -71,7 +73,7 @@ export class BiomeFilterTests<R> {
 }
 
 export class BiomeFilter extends BiomeFilterTests<BiomeFilter> {
-    #items: (BiomeFilterSingle | BiomeFilterMulti)[] = [];
+    #items: BiomeFilterItem[] = [];
 
     constructor() {
         super((test, value) => this.#push(test, "==", value));
@@ -84,28 +86,25 @@ export class BiomeFilter extends BiomeFilterTests<BiomeFilter> {
     allOf(callback: (b: BiomeFilter) => void): this {
         const inner = new BiomeFilter();
         callback(inner);
-        this.#items.push(new BiomeFilterMulti({ allOf: inner.#singles() }));
+        this.#items.push(new BiomeFilterMulti({ allOf: inner.#items }));
         return this;
     }
 
     anyOf(callback: (b: BiomeFilter) => void): this {
         const inner = new BiomeFilter();
         callback(inner);
-        this.#items.push(new BiomeFilterMulti({ anyOf: inner.#singles() }));
+        this.#items.push(new BiomeFilterMulti({ anyOf: inner.#items }));
         return this;
     }
 
     toJSON(): unknown {
-        return this.#items.length === 1 ? this.#items[0] : this.#items;
+        if (this.#items.length !== 1) return this.#items;
+        // JSON.stringify() calls toJSON() once per value, so call the item's own toJSON() here.
+        return (this.#items[0] as unknown as { toJSON(): unknown }).toJSON();
     }
 
     #push(test: BiomeFilterTest, operator: BiomeFilterOperator, value: string): this {
         this.#items.push(new BiomeFilterSingle(test, operator, value));
         return this;
-    }
-
-    // TODO: Check whether biome filters allow nested groups, then keep or reject them
-    #singles(): BiomeFilterSingle[] {
-        return this.#items.filter((item) => item instanceof BiomeFilterSingle);
     }
 }
