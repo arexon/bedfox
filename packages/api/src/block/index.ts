@@ -47,9 +47,9 @@ export class Block extends Definition {
         Object.assign(this, props);
     }
 
-    setState(name: string, ...number: number[]): this;
-    setState(name: string, ...boolean: boolean[]): this;
-    setState(name: string, ...string: string[]): this;
+    setState(name: string, firstNumber: number, ...restNumber: number[]): this;
+    setState(name: string, firstBoolean: boolean, ...restBoolean: boolean[]): this;
+    setState(name: string, firstString: string, ...restString: string[]): this;
     setState(name: string, range: Range): this;
     setState(
         name: string,
