@@ -1,6 +1,6 @@
 import type { BRAND } from "#/core/brand";
 import { Component } from "#/core/component";
-import { Vec3 } from "#/primitive/vec3";
+import { Vec3 } from "#/primitive/index";
 import { serialize } from "#/serialize";
 
 /** A box in block-space pixels: `origin` is its minimum corner. */

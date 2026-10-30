@@ -3,8 +3,7 @@ import { type DefinitionProps, type Reference } from "#/core/definition";
 import { targets } from "#/core/references";
 import { Feature } from "#/feature/base";
 import type { FeatureReference } from "#/feature/base";
-import { FormatVersion } from "#/primitive/index";
-import { Vec3 } from "#/primitive/vec3";
+import { FormatVersion, Vec3 } from "#/primitive/index";
 import { serialize } from "#/serialize";
 
 export type SearchAxis = "-x" | "+x" | "-y" | "+y" | "-z" | "+z";

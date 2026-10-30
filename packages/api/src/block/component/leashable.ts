@@ -1,6 +1,6 @@
 import type { BRAND } from "#/core/brand";
 import { Component, type ComponentProps } from "#/core/component";
-import type { Vec3 } from "#/primitive/vec3";
+import type { Vec3 } from "#/primitive/index";
 import { serialize } from "#/serialize";
 
 @serialize
