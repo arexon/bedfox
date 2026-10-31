@@ -1,4 +1,4 @@
-import type { PreparedSystem, System } from "#/project/project";
+import type { PreparedSystem, System } from "#/project/system";
 
 /** When a system runs: `setup`, then `transform`, then `finalize`. */
 export type Schedule = "setup" | "transform" | "finalize";
@@ -11,14 +11,14 @@ export interface ScheduledSystem {
 }
 
 export class Schedules {
-    readonly default: Schedule = "transform";
+    static readonly default: Schedule = "transform";
 
     #schedules: readonly Schedule[] = ["setup", "transform", "finalize"];
     #systems = new Map<Schedule, Pick<ScheduledSystem, "system" | "plugins">[]>();
 
     add(
         schedule: Schedule,
-        systems: (System | PreparedSystem<unknown>)[],
+        systems: readonly (System | PreparedSystem<unknown>)[],
         plugins: readonly string[],
     ): void {
         const list = this.#systems.get(schedule) ?? [];
@@ -26,8 +26,10 @@ export class Schedules {
         this.#systems.set(schedule, list);
     }
 
-    size(schedule: Schedule): number {
-        return this.#systems.get(schedule)?.length ?? 0;
+    copy(): Schedules {
+        const copy = new Schedules();
+        for (const [schedule, list] of this.#systems) copy.#systems.set(schedule, [...list]);
+        return copy;
     }
 
     list(): ScheduledSystem[] {
@@ -40,4 +42,8 @@ export class Schedules {
             })),
         );
     }
+}
+
+export function describePlugins(plugins: readonly string[]): string {
+    return plugins.toReversed().join(" in ");
 }

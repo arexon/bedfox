@@ -14,36 +14,31 @@ export const INVALIDATE: unique symbol = Symbol("invalidate");
 export const CLOSE: unique symbol = Symbol("close");
 export const RELEASE: unique symbol = Symbol("release");
 
-/** A registry's pack manifests. */
+/** The pack manifests of a {@link Registry}. */
 export interface RegistryManifests {
+    /** The behavior pack manifest. */
     readonly bp: Manifest;
+    /** The resource pack manifest. */
     readonly rp: Manifest;
 }
 
 /**
- * Holds a project's definitions during one run. Systems get the registry as their parameter. Only a
- * `Project` creates registries: each run of a project gets a new one.
+ * The definitions of one project run.
  *
- * A registry stores definitions by identifier without a namespace, e.g. `dirt`. References to them
- * may use either form, e.g. `dirt` or `example:dirt`.
+ * Systems get the registry as their argument. They add definitions with {@link Registry.add}, find
+ * them with {@link Registry.resolve} or {@link query}, and remove them with {@link Registry.remove}.
  *
- * The registry closes when its run ends. After that, it can still be read, but `add()` and
- * `remove()` throw {@link RegistryClosedError}. The next run of the project empties it.
+ * Identifiers can include the namespace or not, e.g. `dirt` or `example:dirt`. Both find the same
+ * definition.
  *
- * @example
- *     // Remove features that nothing places.
- *     project.addSystem(
- *         "finalize",
- *         query(Feature)
- *             .orphan()
- *             .intoSystem((reg, features) => reg.remove(...features)),
- *     );
+ * Each run gets a new registry. When the run ends, the registry closes. You can still read it, but
+ * `add()` and `remove()` throw {@link RegistryClosedError}.
  */
 export class Registry {
-    /** The namespace of this registry's definitions, e.g. `example` in `example:dirt`. */
+    /** The project's namespace, e.g. `example` in `example:dirt`. */
     readonly namespace: string;
 
-    /** The behavior and resource pack manifests. */
+    /** The behavior pack and resource pack manifests. */
     readonly manifests: RegistryManifests;
 
     #members = new Set<Definition>();
@@ -64,23 +59,22 @@ export class Registry {
     }
 
     /**
-     * Registers definitions, along with any definition instances they reference. A definition
-     * belongs to one registry at a time, and serializes with its namespace, e.g. `example:dirt`.
-     * Adding a definition that's already here does nothing. Definitions of different kinds, such as
-     * a block and a feature, may share an identifier.
+     * Adds definitions, and the definitions that they hold.
      *
-     * If it throws, it unregisters every definition that this call registered, and keeps the
-     * definitions that were already here.
+     * A definition belongs to one registry at a time. Its identifier gets the namespace, e.g.
+     * `example:dirt`. Adding a definition again does nothing. A block and a feature can share an
+     * identifier, but two blocks can't.
+     *
+     * If it throws, the registry stays as it was before the call.
      *
      * @example
      *     const ore = new OreFeature("dirt_ore").add("example:dirt", ["minecraft:stone"]);
-     *     // Registers `dirt_ore` too, since `scatter` holds the instance.
      *     reg.add(new ScatterFeature("scatter", { placesFeature: ore }));
      *
-     * @throws - {@link AlreadyRegisteredError} if a definition is in another registry.
-     * @throws - {@link DuplicateIdentifierError} if another definition here uses the same file,
-     *   e.g. a second block called `dirt`.
-     * @throws - {@link RegistryClosedError} if the registry's run has ended.
+     * @throws - {@link AlreadyRegisteredError} if a definition is in another project.
+     * @throws - {@link DuplicateIdentifierError} if a definition has the same identifier as another
+     *   definition of its kind.
+     * @throws - {@link RegistryClosedError} after the run ends.
      */
     add(...defs: Definition[]): this {
         this.#assertOpen();
@@ -114,11 +108,11 @@ export class Registry {
     }
 
     /**
-     * Unregisters definitions. They then serialize without a namespace, and another registry can
-     * add them. Removing a definition that isn't here does nothing. Definitions that they reference
-     * stay registered.
+     * Removes definitions.
      *
-     * @throws - {@link RegistryClosedError} if the registry's run has ended.
+     * Their identifiers lose the namespace. Definitions that they hold stay in the registry.
+     *
+     * @throws - {@link RegistryClosedError} after the run ends.
      */
     remove(...defs: Definition[]): void {
         this.#assertOpen();
@@ -139,8 +133,10 @@ export class Registry {
     }
 
     /**
-     * @yields Each {@link Definition} in the registry when iteration starts, in the order that the
-     *   registry added them. It skips definitions added or removed during iteration.
+     * Iterates over every definition.
+     *
+     * @yields Each definition, in the order that you added them. It skips definitions that you add
+     *   or remove during the iteration.
      */
     *all(): Generator<Definition, void, unknown> {
         const snapshot = Array.from(this.#members);
@@ -150,9 +146,10 @@ export class Registry {
     }
 
     /**
-     * Finds definitions by class and identifier, with or without this registry's namespace, in the
-     * order that the registry added them. Each file holds only one definition, so a class like
-     * `Block` finds at most one. A base class like `Definition` may find a block and a feature.
+     * Finds definitions by class and identifier.
+     *
+     * A class like `Block` finds at most one definition. A base class like `Definition` can find a
+     * block and a feature with the same identifier.
      *
      * @example
      *     reg.resolve(Block, "dirt"); // [dirt]
@@ -165,9 +162,10 @@ export class Registry {
     }
 
     /**
-     * Whether `ref` points at `target`. A class matches when `ref` resolves to a registered
-     * instance of it. Any other target matches by identifier, and the match ignores this registry's
-     * namespace. A definition target must also be an instance of {@link Reference.ctor}.
+     * Whether `ref` points at `target`.
+     *
+     * A class matches any definition of that class. Other targets match by identifier, with or
+     * without the namespace.
      */
     matches(ref: Reference, target: DefinitionCtor | ReferenceTarget): boolean {
         const id = autoIdentifier(ref.target);
@@ -183,7 +181,7 @@ export class Registry {
         return id.startsWith(prefix) ? id.slice(prefix.length) : id;
     }
 
-    /** Whether any registered definition references `def`. */
+    /** Whether any definition in the registry references `def`. */
     isReferenced(def: Definition): boolean {
         this.#referenced ??= Map.groupBy(
             Iterator.from(this.all()).flatMap((def) => def._references()),
@@ -211,7 +209,7 @@ export class Registry {
     }
 }
 
-/** An error caused by adding a definition that another registry holds. */
+/** Thrown by {@link Registry.add} when a definition belongs to another project. */
 export class AlreadyRegisteredError extends TypeError {
     constructor(id: string, namespace: string) {
         super(
@@ -221,7 +219,7 @@ export class AlreadyRegisteredError extends TypeError {
     }
 }
 
-/** An error caused by changing a registry after its run ended. */
+/** Thrown when a system changes a registry after its run ended. */
 export class RegistryClosedError extends Error {
     constructor() {
         super(
@@ -231,7 +229,7 @@ export class RegistryClosedError extends Error {
     }
 }
 
-/** An error caused by adding a definition that uses the same file as another. */
+/** Thrown by {@link Registry.add} when two definitions of one kind have the same identifier. */
 export class DuplicateIdentifierError extends TypeError {
     constructor(existing: Definition, added: Definition) {
         super(

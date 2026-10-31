@@ -5,10 +5,13 @@ import { describe, expect, test } from "vite-plus/test";
 import { Block } from "#/block/index";
 import type { Definition } from "#/core/definition";
 import {
+    type Plugin,
+    PluginFailedError,
     prepared,
     Project,
     type Registry,
     RegistryClosedError,
+    SystemAddedDuringRunError,
     SystemFailedError,
 } from "#/project/index";
 
@@ -20,21 +23,29 @@ function ids(defs: Iterable<Definition>): string[] {
     return Array.from(defs, (def) => def.identifier);
 }
 
-function langPlugin(): void {}
-
-function defaultPlugins(project: Project): void {
-    project.addPlugin(langPlugin);
+class LangPlugin implements Plugin {
+    build(): void {}
 }
 
-function loop(project: Project): void {
-    project.addPlugin(loop);
+class DefaultPlugins implements Plugin {
+    build(project: Project): void {
+        project.addPlugin(new LangPlugin());
+    }
+}
+
+class Loop implements Plugin {
+    build(project: Project): void {
+        project.addPlugin(new Loop());
+    }
 }
 
 describe(Project.name, () => {
     describe("run()", () => {
         test("runs setup, transform, then finalize, each in insertion order", async () => {
             const order: string[] = [];
-            const push = (name: string) => () => order.push(name);
+            const push = (name: string) => () => {
+                order.push(name);
+            };
             const schedules = ["finalize", "transform", "setup"] as const;
             const project = new Project(OPTIONS);
             for (const schedule of schedules) {
@@ -54,9 +65,15 @@ describe(Project.name, () => {
         test("defaults to transform", async () => {
             const order: string[] = [];
             await new Project(OPTIONS)
-                .addSystem("finalize", () => order.push("finalize"))
-                .addSystem(() => order.push("default"))
-                .addSystem("setup", () => order.push("setup"))
+                .addSystem("finalize", () => {
+                    order.push("finalize");
+                })
+                .addSystem(() => {
+                    order.push("default");
+                })
+                .addSystem("setup", () => {
+                    order.push("setup");
+                })
                 .run();
             expect(order).toStrictEqual(["setup", "default", "finalize"]);
         });
@@ -64,15 +81,21 @@ describe(Project.name, () => {
         test("lets systems see definitions added by earlier systems", async () => {
             let found: Block[] = [];
             await new Project(OPTIONS)
-                .addSystem("setup", (reg) => reg.add(new Block("dirt")))
-                .addSystem((reg) => (found = reg.resolve(Block, "dirt")))
+                .addSystem("setup", (reg) => {
+                    reg.add(new Block("dirt"));
+                })
+                .addSystem((reg) => {
+                    found = reg.resolve(Block, "dirt");
+                })
                 .run();
             expect(ids(found)).toStrictEqual(["dirt"]);
         });
 
         test("uses a new registry on every run", async () => {
             const regs: Registry[] = [];
-            const project = new Project(OPTIONS).addSystem((reg) => regs.push(reg));
+            const project = new Project(OPTIONS).addSystem((reg) => {
+                regs.push(reg);
+            });
             await project.run();
             await project.run();
             expect(regs.length).toBe(2);
@@ -124,7 +147,9 @@ describe(Project.name, () => {
         test("closes the registry after a failed run", async () => {
             let kept: Registry;
             const project = new Project(OPTIONS).addSystem(
-                (reg) => (kept = reg),
+                (reg) => {
+                    kept = reg;
+                },
                 () => {
                     throw new Error("boom");
                 },
@@ -137,105 +162,189 @@ describe(Project.name, () => {
     describe("addSystem()", () => {
         test("rejects systems while the project runs", async () => {
             const project = new Project(OPTIONS);
-            project.addSystem("setup", () => project.addSystem(() => {}));
+            project.addSystem("setup", () => {
+                project.addSystem(() => {});
+            });
             await expect(project.run()).rejects.toThrow(
                 expect.objectContaining({
                     name: "SystemFailedError",
                     message: "System 0 on setup failed in run",
                     cause: expect.objectContaining({
                         name: "SystemAddedDuringRunError",
-                        message: "Can't add systems while the project runs. Add them before run()",
+                        message:
+                            "Can't add systems or plugins while the project runs. Add them before run(), or in a plugin's build() before it ends",
                     }),
                 }),
             );
         });
 
-        test("rejects async functions, and adds none of the systems", async () => {
+        test("waits for an async system before the next one", async () => {
             const order: string[] = [];
-            const project = new Project(OPTIONS).addSystem("setup", () => order.push("before"));
-            expect(() =>
-                project.addSystem(
+            await new Project(OPTIONS)
+                .addSystem(
                     "setup",
-                    () => order.push("rejected"),
-                    async function addDirt() {},
-                ),
-            ).toThrow(
-                expect.objectContaining({
-                    name: "AsyncSystemError",
-                    message: expect.stringContaining("System 2 (addDirt) on setup is async."),
-                }),
-            );
-            await project.run();
-            expect(order).toStrictEqual(["before"]);
+                    async (reg) => {
+                        await delay(1);
+                        reg.add(new Block("dirt"));
+                        order.push("async");
+                    },
+                    (reg) => {
+                        order.push(...ids(reg.all()));
+                    },
+                )
+                .run();
+            expect(order).toStrictEqual(["async", "dirt"]);
         });
 
-        test("rejects prepared systems with an async run function", () => {
-            expect(() =>
-                new Project(OPTIONS).addSystem(
+        test("waits for the async run function of a prepared system", async () => {
+            const order: string[] = [];
+            await new Project(OPTIONS)
+                .addSystem(
                     prepared(
-                        async () => 1,
-                        async () => {},
+                        async () => "data",
+                        async (_, data) => {
+                            await delay(1);
+                            order.push(data);
+                        },
                     ),
-                ),
-            ).toThrow(
-                expect.objectContaining({
-                    name: "AsyncSystemError",
-                    message: expect.stringContaining("System 0 on transform is async."),
-                }),
-            );
+                    () => {
+                        order.push("after");
+                    },
+                )
+                .run();
+            expect(order).toStrictEqual(["data", "after"]);
         });
     });
 
     describe("addPlugin()", () => {
-        test("calls the plugin at once with the project", () => {
+        test("calls plugins with the project only when it runs", async () => {
             const seen: Project[] = [];
-            const project = new Project(OPTIONS).addPlugin((p) => seen.push(p));
-            expect(seen).toHaveLength(1);
-            expect(seen[0]).toBe(project);
+            class SeenPlugin implements Plugin {
+                build(project: Project): void {
+                    seen.push(project);
+                }
+            }
+            const project = new Project(OPTIONS).addPlugin(new SeenPlugin());
+            expect(seen).toHaveLength(0);
+            await project.run();
+            expect(seen).toStrictEqual([project]);
         });
 
-        test("runs a plugin's systems where it was added, also for nested plugins", async () => {
+        test("calls plugins again on every run, and doesn't keep their systems", async () => {
+            let calls = 0;
+            const order: number[] = [];
+            class CountPlugin implements Plugin {
+                build(project: Project): void {
+                    const call = ++calls;
+                    project.addSystem(() => {
+                        order.push(call);
+                    });
+                }
+            }
+            const project = new Project(OPTIONS).addPlugin(new CountPlugin());
+            await project.run();
+            await project.run();
+            expect(order).toStrictEqual([1, 2]);
+        });
+
+        test("runs plugin systems after the project's, and a plugin's plugins before its next sibling", async () => {
             const order: string[] = [];
-            const push = (name: string) => () => order.push(name);
-            const inner = (project: Project) => project.addSystem(push("inner"));
-            const outer = (project: Project) =>
-                project.addSystem(push("outer 1")).addPlugin(inner).addSystem(push("outer 2"));
+            const push = (name: string) => () => {
+                order.push(name);
+            };
+            class Inner implements Plugin {
+                build(project: Project): void {
+                    project.addSystem(push("inner"));
+                }
+            }
+            class Outer implements Plugin {
+                build(project: Project): void {
+                    project
+                        .addSystem(push("outer 1"))
+                        .addPlugin(new Inner())
+                        .addSystem(push("outer 2"));
+                }
+            }
+            class Sibling implements Plugin {
+                build(project: Project): void {
+                    project.addSystem(push("sibling"));
+                }
+            }
             await new Project(OPTIONS)
                 .addSystem(push("before"))
-                .addPlugin(outer)
+                .addPlugin(new Outer(), new Sibling())
                 .addSystem(push("after"))
                 .run();
-            expect(order).toStrictEqual(["before", "outer 1", "inner", "outer 2", "after"]);
+            expect(order).toStrictEqual([
+                "before",
+                "after",
+                "outer 1",
+                "outer 2",
+                "inner",
+                "sibling",
+            ]);
         });
 
-        test("rejects a plugin added twice, and names the plugin that added it first", () => {
-            const project = new Project(OPTIONS).addPlugin(defaultPlugins);
-            expect(() => project.addPlugin(langPlugin)).toThrow(
+        test("waits for async plugins, and keeps their systems in order", async () => {
+            const order: string[] = [];
+            const push = (name: string) => () => {
+                order.push(name);
+            };
+            class Inner implements Plugin {
+                async build(project: Project): Promise<void> {
+                    await delay(5);
+                    project.addSystem(push("inner"));
+                }
+            }
+            class Outer implements Plugin {
+                async build(project: Project): Promise<void> {
+                    project.addSystem(push("outer 1")).addPlugin(new Inner());
+                    await delay(1);
+                    project.addSystem(push("outer 2"));
+                }
+            }
+            class After implements Plugin {
+                async build(project: Project): Promise<void> {
+                    project.addSystem(push("after"));
+                }
+            }
+            await new Project(OPTIONS).addPlugin(new Outer(), new After()).run();
+            expect(order).toStrictEqual(["outer 1", "outer 2", "inner", "after"]);
+        });
+
+        test("rejects two plugins of one class, and names the plugin that added the first", async () => {
+            await expect(
+                new Project(OPTIONS).addPlugin(new DefaultPlugins(), new LangPlugin()).run(),
+            ).rejects.toThrow(
                 expect.objectContaining({
                     name: "DuplicatePluginError",
-                    message: "Plugin langPlugin is already added by defaultPlugins",
+                    message: "Plugin LangPlugin is already added by DefaultPlugins",
                 }),
             );
-            expect(() => project.addPlugin(defaultPlugins)).toThrow(
+            await expect(
+                new Project(OPTIONS).addPlugin(new LangPlugin(), new LangPlugin()).run(),
+            ).rejects.toThrow(
                 expect.objectContaining({
                     name: "DuplicatePluginError",
-                    message: "Plugin defaultPlugins is already added",
+                    message: "Plugin LangPlugin is already added",
                 }),
             );
         });
 
-        test("rejects a plugin that adds itself", () => {
-            expect(() => new Project(OPTIONS).addPlugin(loop)).toThrow(
+        test("rejects a plugin that adds its own class", async () => {
+            await expect(new Project(OPTIONS).addPlugin(new Loop()).run()).rejects.toThrow(
                 expect.objectContaining({
                     name: "DuplicatePluginError",
-                    message: "Plugin loop is already added",
+                    message: "Plugin Loop is already added",
                 }),
             );
         });
 
         test("rejects plugins while the project runs", async () => {
             const project = new Project(OPTIONS);
-            project.addSystem("setup", () => project.addPlugin(() => {}));
+            project.addSystem("setup", () => {
+                project.addPlugin(new LangPlugin());
+            });
             await expect(project.run()).rejects.toThrow(
                 expect.objectContaining({
                     name: "SystemFailedError",
@@ -244,35 +353,36 @@ describe(Project.name, () => {
             );
         });
 
-        test("rejects async functions without calling them", () => {
-            let called = false;
-            expect(() =>
-                new Project(OPTIONS).addPlugin(async function dirtPlugin() {
-                    called = true;
-                }),
-            ).toThrow(
-                expect.objectContaining({
-                    name: "AsyncPluginError",
-                    message: expect.stringContaining("Plugin dirtPlugin is async."),
-                }),
-            );
-            expect(called).toBe(false);
+        test("rejects systems that a plugin adds after its build() ends, while systems run", async () => {
+            const late: Promise<unknown>[] = [];
+            class LatePlugin implements Plugin {
+                build(project: Project): void {
+                    late.push(delay(1).then(() => project.addSystem(() => {})));
+                }
+            }
+            const run = new Project(OPTIONS)
+                .addPlugin(new LatePlugin())
+                .addSystem(() => delay(5))
+                .run();
+            await expect(late[0]).rejects.toThrow(SystemAddedDuringRunError);
+            await run;
         });
 
-        test("doesn't name a failed plugin for systems added after it", async () => {
-            const cause = new Error("boom");
-            const project = new Project(OPTIONS);
-            expect(() =>
-                project.addPlugin(function broken() {
-                    throw new Error("broken");
-                }),
-            ).toThrow("broken");
-            project.addSystem("setup", function addDirt() {
-                throw cause;
-            });
-            await expect(project.run()).rejects.toThrow(
-                expect.objectContaining({ message: "System 0 (addDirt) on setup failed in run" }),
-            );
+        test("runs no system if a plugin fails", async () => {
+            let ran = false;
+            class OfflinePlugin implements Plugin {
+                async build(): Promise<void> {
+                    await delay(1);
+                    throw new Error("offline");
+                }
+            }
+            const project = new Project(OPTIONS)
+                .addSystem("setup", () => {
+                    ran = true;
+                })
+                .addPlugin(new OfflinePlugin());
+            await expect(project.run()).rejects.toThrow(PluginFailedError);
+            expect(ran).toBe(false);
         });
     });
 
@@ -293,37 +403,67 @@ describe(Project.name, () => {
             );
         });
 
-        test("name the plugins that added a system, from the innermost", async () => {
+        test("wrap what an async system rejects with", async () => {
             const cause = new Error("boom");
-            function blockPlugin(project: Project): void {
-                project.addSystem("setup", function addDirt() {
-                    throw cause;
-                });
-            }
-            function defaultPlugins(project: Project): void {
-                project.addPlugin(blockPlugin);
-            }
-            await expect(new Project(OPTIONS).addPlugin(defaultPlugins).run()).rejects.toThrow(
+            await expect(
+                new Project(OPTIONS)
+                    .addSystem("setup", async function addDirt() {
+                        await delay(1);
+                        throw cause;
+                    })
+                    .run(),
+            ).rejects.toThrow(
                 expect.objectContaining({
                     name: "SystemFailedError",
-                    message:
-                        "System 0 (addDirt) on setup from plugin blockPlugin in defaultPlugins failed in run",
+                    message: "System 0 (addDirt) on setup failed in run",
                     cause,
                 }),
             );
         });
 
-        test("name the plugin of an async system, also an anonymous one", () => {
-            expect(() =>
-                new Project(OPTIONS).addPlugin((project) => {
-                    project.addSystem(async function addDirt() {});
-                }),
-            ).toThrow(
+        test("name the plugins that added a system, from the innermost", async () => {
+            const cause = new Error("boom");
+            class BlockPlugin implements Plugin {
+                build(project: Project): void {
+                    project.addSystem("setup", function addDirt() {
+                        throw cause;
+                    });
+                }
+            }
+            class DefaultPlugins implements Plugin {
+                build(project: Project): void {
+                    project.addPlugin(new BlockPlugin());
+                }
+            }
+            await expect(
+                new Project(OPTIONS).addPlugin(new DefaultPlugins()).run(),
+            ).rejects.toThrow(
                 expect.objectContaining({
-                    name: "AsyncSystemError",
-                    message: expect.stringContaining(
-                        "System 0 (addDirt) on transform from plugin (anonymous) is async.",
-                    ),
+                    name: "SystemFailedError",
+                    message:
+                        "System 0 (addDirt) on setup from plugin BlockPlugin in DefaultPlugins failed in run",
+                    cause,
+                }),
+            );
+        });
+
+        test("wrap what a plugin throws, with the plugins that added it", async () => {
+            const cause = new Error("boom");
+            class BlockPlugin implements Plugin {
+                build(): void {
+                    throw cause;
+                }
+            }
+            const outer = new (class implements Plugin {
+                build(project: Project): void {
+                    project.addPlugin(new BlockPlugin());
+                }
+            })();
+            await expect(new Project(OPTIONS).addPlugin(outer).run()).rejects.toThrow(
+                expect.objectContaining({
+                    name: "PluginFailedError",
+                    message: "Plugin BlockPlugin in (anonymous) failed",
+                    cause,
                 }),
             );
         });
@@ -341,11 +481,15 @@ describe(prepared.name, () => {
                         await delay(5);
                         return "slow";
                     },
-                    (_, data) => seen.push(data),
+                    (_, data) => {
+                        seen.push(data);
+                    },
                 ),
                 prepared(
                     async () => "fast",
-                    (_, data) => seen.push(data),
+                    (_, data) => {
+                        seen.push(data);
+                    },
                 ),
             )
             .run();
@@ -355,14 +499,18 @@ describe(prepared.name, () => {
     test("prepares before any system runs", async () => {
         const order: string[] = [];
         await new Project(OPTIONS)
-            .addSystem("setup", () => order.push("system"))
+            .addSystem("setup", () => {
+                order.push("system");
+            })
             .addSystem(
                 "finalize",
                 prepared(
                     async () => {
                         order.push("prepare");
                     },
-                    () => order.push("run"),
+                    () => {
+                        order.push("run");
+                    },
                 ),
             )
             .run();
@@ -390,7 +538,9 @@ describe(prepared.name, () => {
         const cause = new Error("offline");
         let ran = false;
         const project = new Project(OPTIONS)
-            .addSystem("setup", () => (ran = true))
+            .addSystem("setup", () => {
+                ran = true;
+            })
             .addSystem(
                 "finalize",
                 prepared(

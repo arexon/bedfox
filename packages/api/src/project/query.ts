@@ -4,24 +4,24 @@ import type { Definition, DefinitionCtor, ReferenceTarget } from "#/core/definit
 import { Feature, type FeatureReference } from "#/feature/base";
 import { FeatureRules } from "#/feature/rules";
 import type { BlockDescriptorRef } from "#/primitive/index";
-import { AsyncSystemError, type PreparedSystem, type System } from "#/project/project";
 import type { Registry } from "#/project/registry";
+import type { PreparedSystem, System } from "#/project/system";
 
 /** Whether a query keeps `def`. */
 export type Filter<T extends Definition = Definition> = (def: T, reg: Registry) => boolean;
 
-/** A system that receives the definitions its query matched. */
+/** The callback of {@link Query.intoSystem}. It gets the matched definitions. */
 export type SystemCallback<T extends Definition> = (
     reg: Registry,
     defs: Generator<T, void, unknown>,
-) => void;
+) => void | Promise<void>;
 
-/** A prepared system that receives the definitions its query matched and its prepared data. */
+/** The callback of {@link Query.intoPreparedSystem}. It gets the matched definitions and the data. */
 export type PreparedSystemCallback<T extends Definition, D> = (
     reg: Registry,
     defs: Generator<T, void, unknown>,
     data: D,
-) => void;
+) => void | Promise<void>;
 
 type Overlaps<T, K> = [Extract<T, K>] extends [never] ? (K extends T ? true : false) : true;
 
@@ -34,12 +34,13 @@ interface BaseQuery<T extends Definition> {
      */
     filter(...filters: Filter<T>[]): Query<T>;
 
-    /** Matches definitions nothing else in the registry references. */
+    /** Matches definitions that nothing in the registry references. */
     orphan(): Query<T>;
 
     /**
-     * Converts the query to a system. When the system runs, it calls `callback` with the
-     * definitions that the query matches. If nothing matches, the system doesn't call `callback`.
+     * Converts the query to a system.
+     *
+     * If nothing matches, the system doesn't call `callback`.
      *
      * @example
      *     project.addSystem(
@@ -49,16 +50,13 @@ interface BaseQuery<T extends Definition> {
      *             }
      *         }),
      *     );
-     *
-     * @throws - {@link AsyncSystemError} if `callback` is an `async` function.
      */
     intoSystem(callback: SystemCallback<T>): System;
 
     /**
-     * Converts the query to a prepared system. Each run starts `prepare` before any system runs. At
-     * the system's turn, it calls `callback` with the definitions that the query matches and the
-     * value from `prepare`. If nothing matches, the system doesn't call `callback`, but `prepare`
-     * still runs, since it starts before the query can match.
+     * Converts the query to a {@link PreparedSystem}.
+     *
+     * If nothing matches, the system doesn't call `callback`, but `prepare` still runs.
      *
      * @example
      *     project.addSystem(
@@ -69,9 +67,6 @@ interface BaseQuery<T extends Definition> {
      *             },
      *         ),
      *     );
-     *
-     * @throws - {@link AsyncSystemError} if `callback` is an `async` function. `prepare` may be
-     *   one.
      */
     intoPreparedSystem<D>(
         prepare: () => Promise<D>,
@@ -101,7 +96,7 @@ interface FeatureRulesQuery<T extends Definition> {
     placing(target: DefinitionCtor<Feature> | FeatureReference): Query<T>;
 }
 
-/** A query over `T`, with the filters of every kind it could yield. */
+/** A query for definitions of type `T`. Create one with {@link query}. */
 export type Query<T extends Definition> = BaseQuery<T> &
     (Overlaps<T, Block> extends true ? BlockQuery<T> : unknown) &
     (Overlaps<T, Feature> extends true
@@ -111,8 +106,9 @@ export type Query<T extends Definition> = BaseQuery<T> &
           : unknown);
 
 /**
- * Queries registered definitions of the given classes. Filters are available only for the kinds
- * that the query can yield.
+ * Finds registered definitions of the given classes.
+ *
+ * A query has only the filters of the kinds that it can find.
  *
  * @example
  *     query(Block).withComponent(LightEmissionBlockComponent);
@@ -160,12 +156,7 @@ class QueryImpl {
         );
     }
 
-    // Without these checks, an async callback would only fail in runs where the query matches.
-
     intoSystem(callback: SystemCallback<Definition>): System {
-        if (callback.constructor.name === "AsyncFunction") {
-            throw new AsyncSystemError("The callback of intoSystem() is async");
-        }
         return (reg) => this.#call(reg, (defs) => callback(reg, defs));
     }
 
@@ -173,16 +164,16 @@ class QueryImpl {
         prepare: () => Promise<D>,
         callback: PreparedSystemCallback<Definition, D>,
     ): PreparedSystem<D> {
-        if (callback.constructor.name === "AsyncFunction") {
-            throw new AsyncSystemError("The callback of intoPreparedSystem() is async");
-        }
         return {
             prepare,
             run: (reg, data) => this.#call(reg, (defs) => callback(reg, defs, data)),
         };
     }
 
-    #call(reg: Registry, fn: (defs: Generator<Definition, void, unknown>) => unknown): unknown {
+    #call(
+        reg: Registry,
+        fn: (defs: Generator<Definition, void, unknown>) => void | Promise<void>,
+    ): void | Promise<void> {
         const defs = this.#run(reg);
         const first = defs.next();
         if (first.done) return undefined;

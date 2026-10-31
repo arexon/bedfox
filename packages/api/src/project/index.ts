@@ -1,17 +1,10 @@
 export {
-    AsyncPluginError,
-    AsyncSystemError,
     DuplicatePluginError,
     type Plugin,
-    type PreparedSystem,
-    prepared,
-    Project,
-    type ProjectOptions,
-    RunInProgressError,
-    type System,
+    PluginFailedError,
     SystemAddedDuringRunError,
-    SystemFailedError,
-} from "#/project/project";
+} from "#/project/plugin";
+export { Project, type ProjectOptions, RunInProgressError } from "#/project/project";
 export * from "#/project/query";
 export {
     AlreadyRegisteredError,
@@ -21,3 +14,4 @@ export {
     type RegistryManifests,
 } from "#/project/registry";
 export type { Schedule } from "#/project/schedule";
+export { type PreparedSystem, prepared, type System, SystemFailedError } from "#/project/system";

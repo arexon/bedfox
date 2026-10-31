@@ -1,3 +1,5 @@
+import { setTimeout as delay } from "node:timers/promises";
+
 import { describe, expect, test } from "vite-plus/test";
 
 import {
@@ -39,12 +41,16 @@ async function runSetup(...systems: (System | PreparedSystem<unknown>)[]): Promi
 }
 
 function registryWith(...defs: Definition[]): Promise<Registry> {
-    return runSetup((reg) => reg.add(...defs));
+    return runSetup((reg) => {
+        reg.add(...defs);
+    });
 }
 
 function collect<T extends Definition>(reg: Registry, q: Query<T>): string[] {
     let result: string[] = [];
-    q.intoSystem((_, defs) => (result = ids(defs)))(reg);
+    void q.intoSystem((_, defs) => {
+        result = ids(defs);
+    })(reg);
     return result;
 }
 
@@ -73,8 +79,12 @@ describe(query.name, () => {
         test("skips the callback when nothing matches", async () => {
             let calls = 0;
             await runSetup(
-                (reg) => reg.add(new OreFeature("ore")),
-                query(Block).intoSystem(() => calls++),
+                (reg) => {
+                    reg.add(new OreFeature("ore"));
+                },
+                query(Block).intoSystem(() => {
+                    calls++;
+                }),
             );
             expect(calls).toBe(0);
         });
@@ -84,7 +94,9 @@ describe(query.name, () => {
             const b = new OreFeature("b");
             let orphans: string[] = [];
             await runSetup(
-                (reg) => reg.add(a, b),
+                (reg) => {
+                    reg.add(a, b);
+                },
                 query(Feature)
                     .orphan()
                     .intoSystem((reg, features) => {
@@ -102,7 +114,9 @@ describe(query.name, () => {
             const a = new OreFeature("a");
             let features: string[] = [];
             await runSetup(
-                (reg) => reg.add(a, new OreFeature("b")),
+                (reg) => {
+                    reg.add(a, new OreFeature("b"));
+                },
                 query(Feature).intoSystem((reg, defs) => {
                     reg.remove(a);
                     features = ids(defs);
@@ -114,7 +128,9 @@ describe(query.name, () => {
         test("doesn't yield definitions added while iterating", async () => {
             const seen: string[] = [];
             const reg = await runSetup(
-                (reg) => reg.add(new Block("oak")),
+                (reg) => {
+                    reg.add(new Block("oak"));
+                },
                 query(Block).intoSystem((reg, blocks) => {
                     for (const block of blocks) {
                         seen.push(block.identifier);
@@ -128,7 +144,9 @@ describe(query.name, () => {
 
         test("allows removing definitions while iterating", async () => {
             const reg = await runSetup(
-                (reg) => reg.add(new Block("a"), new Block("b"), new Block("c")),
+                (reg) => {
+                    reg.add(new Block("a"), new Block("b"), new Block("c"));
+                },
                 query(Block).intoSystem((r, blocks) => {
                     for (const block of blocks) r.remove(block);
                 }),
@@ -136,13 +154,21 @@ describe(query.name, () => {
             expect([...reg.all()]).toStrictEqual([]);
         });
 
-        test("rejects async callbacks, even before anything matches", () => {
-            expect(() => query(Block).intoSystem(async () => {})).toThrow(
-                expect.objectContaining({
-                    name: "AsyncSystemError",
-                    message: expect.stringContaining("The callback of intoSystem() is async."),
+        test("waits for an async callback before the next system", async () => {
+            const order: string[] = [];
+            await runSetup(
+                (reg) => {
+                    reg.add(new Block("dirt"));
+                },
+                query(Block).intoSystem(async (_, blocks) => {
+                    await delay(1);
+                    order.push(...ids(blocks));
                 }),
+                () => {
+                    order.push("after");
+                },
             );
+            expect(order).toStrictEqual(["dirt", "after"]);
         });
     });
 
@@ -150,10 +176,14 @@ describe(query.name, () => {
         test("passes the matched definitions and the prepared value", async () => {
             let seen: unknown[] = [];
             await runSetup(
-                (reg) => reg.add(new Block("dirt"), new OreFeature("ore")),
+                (reg) => {
+                    reg.add(new Block("dirt"), new OreFeature("ore"));
+                },
                 query(Block).intoPreparedSystem(
                     async () => "colors",
-                    (_, blocks, colors) => (seen = [ids(blocks), colors]),
+                    (_, blocks, colors) => {
+                        seen = [ids(blocks), colors];
+                    },
                 ),
             );
             expect(seen).toStrictEqual([["dirt"], "colors"]);
@@ -165,32 +195,32 @@ describe(query.name, () => {
             await runSetup(
                 query(Block).intoPreparedSystem(
                     async () => prepares++,
-                    () => calls++,
+                    () => {
+                        calls++;
+                    },
                 ),
             );
             expect([prepares, calls]).toStrictEqual([1, 0]);
         });
 
-        test("rejects async callbacks, but not an async prepare step", () => {
-            expect(() =>
+        test("waits for an async callback before the next system", async () => {
+            const order: string[] = [];
+            await runSetup(
+                (reg) => {
+                    reg.add(new Block("dirt"));
+                },
                 query(Block).intoPreparedSystem(
-                    async () => 1,
-                    async () => {},
+                    async () => "colors",
+                    async (_, blocks, colors) => {
+                        await delay(1);
+                        order.push(...ids(blocks), colors);
+                    },
                 ),
-            ).toThrow(
-                expect.objectContaining({
-                    name: "AsyncSystemError",
-                    message: expect.stringContaining(
-                        "The callback of intoPreparedSystem() is async.",
-                    ),
-                }),
+                () => {
+                    order.push("after");
+                },
             );
-            expect(() =>
-                query(Block).intoPreparedSystem(
-                    async () => 1,
-                    () => {},
-                ),
-            ).not.toThrow();
+            expect(order).toStrictEqual(["dirt", "colors", "after"]);
         });
     });
 

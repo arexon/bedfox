@@ -61,14 +61,18 @@ async function runSetup(
 }
 
 function registryWith(...defs: Definition[]): Promise<Registry> {
-    return runSetup(NS, (reg) => reg.add(...defs));
+    return runSetup(NS, (reg) => {
+        reg.add(...defs);
+    });
 }
 
 async function inSystem<T>(fn: (reg: Registry) => T, ...defs: Definition[]): Promise<T> {
     const result = Promise.withResolvers<T>();
     await runSetup(
         NS,
-        (reg) => reg.add(...defs),
+        (reg) => {
+            reg.add(...defs);
+        },
         (reg) => result.resolve(fn(reg)),
     );
     return result.promise;
@@ -247,7 +251,9 @@ describe("Registry", () => {
         test("lets another project add the definition", async () => {
             const dirt = new Block("dirt");
             await inSystem((reg) => reg.remove(dirt), dirt);
-            await runSetup("other", (reg) => reg.add(dirt));
+            await runSetup("other", (reg) => {
+                reg.add(dirt);
+            });
             expect(dirt.qualifiedIdentifier).toBe("other:dirt");
         });
     });
@@ -267,12 +273,10 @@ describe("Registry", () => {
             expect([...reg.all()]).toStrictEqual([dirt]);
         });
 
-        test("rejects changes from a system's async work, also if the system returns it", async () => {
+        test("rejects changes from a system's async work", async () => {
             const late: Promise<unknown>[] = [];
             await runSetup(NS, (reg) => {
-                const work = delay(1).then(() => reg.add(new Block("dirt")));
-                late.push(work);
-                return work;
+                late.push(delay(1).then(() => reg.add(new Block("dirt"))));
             });
             await expect(late[0]).rejects.toThrow(RegistryClosedError);
         });
@@ -328,7 +332,9 @@ describe("Registry", () => {
 
         test("stay when remove() ignores another instance", async () => {
             const other = new Block("dirt");
-            await runSetup("other", (reg) => reg.add(other));
+            await runSetup("other", (reg) => {
+                reg.add(other);
+            });
             await inSystem((reg) => reg.remove(other), new Block("dirt"));
             expect(other.qualifiedIdentifier).toBe("other:dirt");
         });
@@ -351,9 +357,9 @@ describe("Registry", () => {
         });
 
         test("can be edited by systems", async () => {
-            const reg = await runSetup(NS, (reg) =>
-                reg.manifests.bp.module(new ScriptModule("scripts/main.js")),
-            );
+            const reg = await runSetup(NS, (reg) => {
+                reg.manifests.bp.module(new ScriptModule("scripts/main.js"));
+            });
             expect(JSON.stringify(reg.manifests.bp)).toContain('"entry":"scripts/main.js"');
         });
     });
@@ -496,12 +502,16 @@ describe("Registry", () => {
             const seen: boolean[] = [];
             await runSetup(
                 NS,
-                (reg) => reg.add(ore, rules),
+                (reg) => {
+                    reg.add(ore, rules);
+                },
                 (reg) => {
                     seen.push(reg.isReferenced(ore));
                     rules.placesFeature = `${NS}:elsewhere`;
                 },
-                (reg) => seen.push(reg.isReferenced(ore)),
+                (reg) => {
+                    seen.push(reg.isReferenced(ore));
+                },
             );
             expect(seen).toStrictEqual([true, false]);
         });
