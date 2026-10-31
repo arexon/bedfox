@@ -1,5 +1,5 @@
 import type { BRAND } from "#/core/brand";
-import { Component, type ComponentProps } from "#/core/component";
+import { Component } from "#/core/component";
 import { serialize } from "#/serialize";
 
 @serialize
@@ -11,8 +11,8 @@ export class TagsBlockComponent extends Component {
     @serialize({ transparent: true })
     value?: string[];
 
-    constructor(props: ComponentProps<TagsBlockComponent>) {
+    constructor(...value: string[]) {
         super();
-        Object.assign(this, props);
+        this.value = value;
     }
 }
