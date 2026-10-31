@@ -1,0 +1,52 @@
+{
+    "name": "@bedfox/api",
+    "version": "1.0.0",
+    "description": "Cute and programmatic MCBE Add-On framework for TypeScript",
+    "homepage": "https://github.com/arexon/bedfox#readme",
+    "bugs": {
+        "url": "https://github.com/arexon/bedfox/issues"
+    },
+    "license": "Apache-2.0",
+    "author": "arexon <me@arexon.dev>",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/arexon/bedfox.git",
+        "directory": "packages/api"
+    },
+    "files": [
+        "dist"
+    ],
+    "type": "module",
+    "imports": {
+        "#package.json": "./package.json",
+        "#/*": "./src/*.ts"
+    },
+    "exports": {
+        "./block": "./src/block/index.ts",
+        "./core": "./src/core/index.ts",
+        "./feature": "./src/feature/index.ts",
+        "./manifest": "./src/manifest/index.ts",
+        "./primitive": "./src/primitive/index.ts",
+        "./project": "./src/project/index.ts",
+        "./serialize": "./src/serialize.ts",
+        "./package.json": "./package.json"
+    },
+    "publishConfig": {
+        "exports": {
+            "./block": "./dist/block/index.mjs",
+            "./core": "./dist/core/index.mjs",
+            "./feature": "./dist/feature/index.mjs",
+            "./manifest": "./dist/manifest/index.mjs",
+            "./primitive": "./dist/primitive/index.mjs",
+            "./project": "./dist/project/index.mjs",
+            "./serialize": "./dist/serialize.mjs",
+            "./package.json": "./package.json"
+        },
+        "access": "public"
+    },
+    "scripts": {
+        "build": "vp pack",
+        "dev": "vp pack --watch",
+        "prepublishOnly": "pnpm -w build"
+    }
+}
