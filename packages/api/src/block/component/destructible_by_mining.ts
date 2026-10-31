@@ -15,7 +15,7 @@ export class DestructibleByMiningBlockComponent extends Component {
     declare readonly [BRAND]: typeof DestructibleByMiningBlockComponent.componentId;
 
     @serialize({ transparent: true })
-    private enabled?: boolean;
+    enabled?: boolean;
 
     secondsToDestroy?: number;
 
