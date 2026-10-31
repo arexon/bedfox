@@ -349,18 +349,94 @@ describe("Registry", () => {
 
         test("make the behavior pack depend on the resource pack", async () => {
             const { bp, rp } = (await registryWith()).manifests;
-            const rpUuid = "220a205f-0cf8-57cd-8ca3-b3a714e93a44";
-            expect(JSON.stringify(rp)).toContain(`"uuid":"${rpUuid}"`);
-            expect(JSON.stringify(bp)).toContain(
-                `"dependencies":[{"uuid":"${rpUuid}","version":"1.0.0"}]`,
-            );
+            expect(json(rp)).toStrictEqual({
+                format_version: 3,
+                header: {
+                    name: "test RP",
+                    uuid: "220a205f-0cf8-57cd-8ca3-b3a714e93a44",
+                    version: "1.0.0",
+                    min_engine_version: "1.26.50",
+                },
+                modules: [
+                    {
+                        type: "resources",
+                        uuid: "804ee873-8c54-5f00-9f8a-96b855a22a24",
+                        version: "1.0.0",
+                    },
+                ],
+                metadata: {
+                    generated_with: {
+                        bedfox: ["1.0.0"],
+                    },
+                },
+            });
+            expect(json(bp)).toStrictEqual({
+                format_version: 3,
+                header: {
+                    name: "test BP",
+                    uuid: "bcd6188d-467b-56e7-a79d-1cfd2dca7dc2",
+                    version: "1.0.0",
+                    min_engine_version: "1.26.50",
+                },
+                modules: [
+                    {
+                        type: "data",
+                        uuid: "820c330d-fc15-5a5c-a3d6-a84a35ccd916",
+                        version: "1.0.0",
+                    },
+                ],
+                dependencies: [
+                    {
+                        uuid: "220a205f-0cf8-57cd-8ca3-b3a714e93a44",
+                        version: "1.0.0",
+                    },
+                ],
+                metadata: {
+                    generated_with: {
+                        bedfox: ["1.0.0"],
+                    },
+                },
+            });
         });
 
         test("can be edited by systems", async () => {
             const reg = await runSetup(NS, (reg) => {
                 reg.manifests.bp.module(new ScriptModule("scripts/main.js"));
             });
-            expect(JSON.stringify(reg.manifests.bp)).toContain('"entry":"scripts/main.js"');
+            expect(json(reg.manifests.bp)).toStrictEqual({
+                format_version: 3,
+                header: {
+                    name: "test BP",
+                    uuid: "bcd6188d-467b-56e7-a79d-1cfd2dca7dc2",
+                    version: "1.0.0",
+                    min_engine_version: "1.26.50",
+                },
+                modules: [
+                    {
+                        type: "data",
+                        uuid: "820c330d-fc15-5a5c-a3d6-a84a35ccd916",
+                        version: "1.0.0",
+                    },
+                    {
+                        type: "script",
+                        uuid: "07b7ee6b-32d0-5d5f-9cc1-722470ca9a17",
+                        version: "1.0.0",
+                        language: "javascript",
+                        entry: "scripts/main.js",
+                    },
+                ],
+                dependencies: [
+                    {
+                        uuid: "220a205f-0cf8-57cd-8ca3-b3a714e93a44",
+                        version: "1.0.0",
+                    },
+                ],
+                metadata: {
+                    generated_with: {
+                        bedfox: ["1.0.0"],
+                    },
+                },
+            });
         });
     });
 
