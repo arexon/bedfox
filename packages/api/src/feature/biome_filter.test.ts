@@ -1,10 +1,7 @@
 import { describe, expect, test } from "vite-plus/test";
 
 import { BiomeFilter } from "#/feature/biome_filter";
-
-function json(value: unknown): unknown {
-    return JSON.parse(JSON.stringify(value));
-}
+import { json } from "#/test/helpers";
 
 describe("BiomeFilter", () => {
     test("a single test serializes as one object", () => {

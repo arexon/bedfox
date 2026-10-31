@@ -13,38 +13,8 @@ import { Feature } from "#/feature/base";
 import { OreFeature } from "#/feature/ore";
 import { FeatureRules } from "#/feature/rules";
 import { ScatterFeature } from "#/feature/scatter";
-import {
-    type PreparedSystem,
-    Project,
-    type Query,
-    query,
-    type Registry,
-    type System,
-    SystemFailedError,
-} from "#/project/index";
-
-const NS = "test";
-
-function ids(defs: Iterable<Definition>): string[] {
-    return Array.from(defs, (def) => def.identifier);
-}
-
-async function runSetup(...systems: (System | PreparedSystem<unknown>)[]): Promise<Registry> {
-    const registry = Promise.withResolvers<Registry>();
-    const project = new Project({ namespace: NS }).addSystem("setup", registry.resolve, ...systems);
-    try {
-        await project.run();
-    } catch (error) {
-        throw error instanceof SystemFailedError ? error.cause : error;
-    }
-    return registry.promise;
-}
-
-function registryWith(...defs: Definition[]): Promise<Registry> {
-    return runSetup((reg) => {
-        reg.add(...defs);
-    });
-}
+import { type Query, query, type Registry } from "#/project/index";
+import { ids, NS, registryWith, runSetup } from "#/test/helpers";
 
 function collect<T extends Definition>(reg: Registry, q: Query<T>): string[] {
     let result: string[] = [];
@@ -79,6 +49,7 @@ describe(query.name, () => {
         test("skips the callback when nothing matches", async () => {
             let calls = 0;
             await runSetup(
+                NS,
                 (reg) => {
                     reg.add(new OreFeature("ore"));
                 },
@@ -94,6 +65,7 @@ describe(query.name, () => {
             const b = new OreFeature("b");
             let orphans: string[] = [];
             await runSetup(
+                NS,
                 (reg) => {
                     reg.add(a, b);
                 },
@@ -114,6 +86,7 @@ describe(query.name, () => {
             const a = new OreFeature("a");
             let features: string[] = [];
             await runSetup(
+                NS,
                 (reg) => {
                     reg.add(a, new OreFeature("b"));
                 },
@@ -128,6 +101,7 @@ describe(query.name, () => {
         test("doesn't yield definitions added while iterating", async () => {
             const seen: string[] = [];
             const reg = await runSetup(
+                NS,
                 (reg) => {
                     reg.add(new Block("oak"));
                 },
@@ -144,6 +118,7 @@ describe(query.name, () => {
 
         test("allows removing definitions while iterating", async () => {
             const reg = await runSetup(
+                NS,
                 (reg) => {
                     reg.add(new Block("a"), new Block("b"), new Block("c"));
                 },
@@ -157,6 +132,7 @@ describe(query.name, () => {
         test("waits for an async callback before the next system", async () => {
             const order: string[] = [];
             await runSetup(
+                NS,
                 (reg) => {
                     reg.add(new Block("dirt"));
                 },
@@ -176,6 +152,7 @@ describe(query.name, () => {
         test("passes the matched definitions and the prepared value", async () => {
             let seen: unknown[] = [];
             await runSetup(
+                NS,
                 (reg) => {
                     reg.add(new Block("dirt"), new OreFeature("ore"));
                 },
@@ -193,6 +170,7 @@ describe(query.name, () => {
             let prepares = 0;
             let calls = 0;
             await runSetup(
+                NS,
                 query(Block).intoPreparedSystem(
                     async () => prepares++,
                     () => {
@@ -206,6 +184,7 @@ describe(query.name, () => {
         test("waits for an async callback before the next system", async () => {
             const order: string[] = [];
             await runSetup(
+                NS,
                 (reg) => {
                     reg.add(new Block("dirt"));
                 },

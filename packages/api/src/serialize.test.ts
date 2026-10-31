@@ -15,10 +15,7 @@ import {
     serialize,
     TO_REFERENCE,
 } from "#/serialize";
-
-function json(value: unknown): unknown {
-    return JSON.parse(JSON.stringify(value));
-}
+import { json } from "#/test/helpers";
 
 @serialize
 class Shared {

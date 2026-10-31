@@ -1,10 +1,7 @@
 import { describe, expect, test } from "vite-plus/test";
 
 import { Color, InvalidColorChannelError, InvalidHexColorError } from "#/primitive/color";
-
-function json(value: unknown): unknown {
-    return JSON.parse(JSON.stringify(value));
-}
+import { json } from "#/test/helpers";
 
 describe(Color.name, () => {
     test("RGBA rounds channels to u8", () => {

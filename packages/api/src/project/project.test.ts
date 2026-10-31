@@ -3,7 +3,6 @@ import { setTimeout as delay } from "node:timers/promises";
 import { describe, expect, test } from "vite-plus/test";
 
 import { Block } from "#/block/index";
-import type { Definition } from "#/core/definition";
 import {
     type Plugin,
     PluginFailedError,
@@ -14,14 +13,9 @@ import {
     SystemAddedDuringRunError,
     SystemFailedError,
 } from "#/project/index";
-
-const NS = "test";
+import { ids, NS } from "#/test/helpers";
 
 const OPTIONS = { namespace: NS } as const;
-
-function ids(defs: Iterable<Definition>): string[] {
-    return Array.from(defs, (def) => def.identifier);
-}
 
 class LangPlugin implements Plugin {
     build(): void {}
