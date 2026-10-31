@@ -9,14 +9,16 @@ import {
     LightEmissionBlockComponent,
 } from "#/block/index";
 import { Definition } from "#/core/definition";
+import type { Entry } from "#/core/entry";
 import { Feature } from "#/feature/base";
 import { OreFeature } from "#/feature/ore";
 import { FeatureRules } from "#/feature/rules";
 import { ScatterFeature } from "#/feature/scatter";
-import { type Query, query, type Registry } from "#/project/index";
+import type { Registry } from "#/project/index";
+import { type Query, query } from "#/query/index";
 import { ids, NS, registryWith, runSetup } from "#/test/helpers";
 
-function collect<T extends Definition>(reg: Registry, q: Query<T>): string[] {
+function collect<T extends Entry>(reg: Registry, q: Query<T>): string[] {
     let result: string[] = [];
     void q.intoSystem((_, defs) => {
         result = ids(defs);
@@ -113,7 +115,7 @@ describe(query.name, () => {
                 }),
             );
             expect(seen).toStrictEqual(["oak"]);
-            expect(ids(reg.all())).toStrictEqual(["oak", "oak_slab"]);
+            expect(ids(reg.entries())).toStrictEqual(["oak", "oak_slab"]);
         });
 
         test("allows removing definitions while iterating", async () => {
@@ -126,7 +128,7 @@ describe(query.name, () => {
                     for (const block of blocks) r.remove(block);
                 }),
             );
-            expect([...reg.all()]).toStrictEqual([]);
+            expect([...reg.entries()]).toStrictEqual([]);
         });
 
         test("waits for an async callback before the next system", async () => {
@@ -293,6 +295,9 @@ describe(query.name, () => {
                 const features = query(Feature);
                 expect(collect(reg, features.placing(dirt))).toStrictEqual(["dirt_ore"]);
                 expect(collect(reg, features.placing("minecraft:stone"))).toStrictEqual([
+                    "vanilla_ore",
+                ]);
+                expect(collect(reg, features.placing({ name: "minecraft:stone" }))).toStrictEqual([
                     "vanilla_ore",
                 ]);
                 expect(collect(reg, features.placing(Block))).toStrictEqual(["dirt_ore"]);

@@ -1,6 +1,7 @@
 import { Block } from "#/block/index";
 import type { BRAND } from "#/core/brand";
-import { type DefinitionProps, type Reference } from "#/core/definition";
+import type { DefinitionProps } from "#/core/definition";
+import type { Reference } from "#/core/entry";
 import { targets } from "#/core/references";
 import { Feature } from "#/feature/base";
 import { type BlockDescriptorRef, FormatVersion } from "#/primitive/index";
@@ -44,11 +45,11 @@ export class MultifaceFeature extends Feature {
         Object.assign(this, props);
     }
 
-    override _placements(): Reference[] {
+    override placements(): Reference[] {
         return targets(Block, this.placesBlock);
     }
 
-    override _references(): Reference[] {
-        return [...this._placements(), ...targets(Block, this.canPlaceOn)];
+    override references(): Reference[] {
+        return [...this.placements(), ...targets(Block, this.canPlaceOn)];
     }
 }

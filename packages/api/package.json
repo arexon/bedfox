@@ -26,8 +26,10 @@
         "./core": "./src/core/index.ts",
         "./feature": "./src/feature/index.ts",
         "./manifest": "./src/manifest/index.ts",
+        "./plugins": "./src/plugins/index.ts",
         "./primitive": "./src/primitive/index.ts",
         "./project": "./src/project/index.ts",
+        "./query": "./src/query/index.ts",
         "./serialize": "./src/serialize.ts",
         "./package.json": "./package.json"
     },
@@ -37,8 +39,10 @@
             "./core": "./dist/core/index.mjs",
             "./feature": "./dist/feature/index.mjs",
             "./manifest": "./dist/manifest/index.mjs",
+            "./plugins": "./dist/plugins/index.mjs",
             "./primitive": "./dist/primitive/index.mjs",
             "./project": "./dist/project/index.mjs",
+            "./query": "./dist/query/index.mjs",
             "./serialize": "./dist/serialize.mjs",
             "./package.json": "./package.json"
         },

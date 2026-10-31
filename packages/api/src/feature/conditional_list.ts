@@ -1,5 +1,6 @@
 import type { BRAND } from "#/core/brand";
-import { type DefinitionProps, type Reference } from "#/core/definition";
+import type { DefinitionProps } from "#/core/definition";
+import type { Reference } from "#/core/entry";
 import { targets } from "#/core/references";
 import { Feature } from "#/feature/base";
 import type { FeatureReference } from "#/feature/base";
@@ -41,7 +42,7 @@ export class ConditionalListFeature extends Feature {
         return this;
     }
 
-    override _placements(): Reference[] {
+    override placements(): Reference[] {
         return targets(
             Feature,
             this.features.map((entry) => entry.placesFeature),

@@ -1,5 +1,6 @@
 import type { BRAND } from "#/core/brand";
-import { Definition, type DefinitionLocation, type Reference } from "#/core/definition";
+import { Definition, type DefinitionLocation } from "#/core/definition";
+import type { Reference } from "#/core/entry";
 
 export abstract class Feature extends Definition {
     static override readonly location: DefinitionLocation = {
@@ -9,12 +10,13 @@ export abstract class Feature extends Definition {
 
     declare readonly [BRAND]: `minecraft:${string}_feature` | "minecraft:conditional_list";
 
-    _placements(): Reference[] {
+    /** Returns the blocks and features that this feature places. */
+    placements(): Reference[] {
         return [];
     }
 
-    override _references(): Reference[] {
-        return this._placements();
+    override references(): Reference[] {
+        return this.placements();
     }
 }
 

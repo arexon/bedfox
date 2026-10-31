@@ -4,16 +4,17 @@ import { beforeAll, describe, expect, test } from "vite-plus/test";
 
 import { Block } from "#/block/index";
 import { Definition, type DefinitionLocation } from "#/core/definition";
+import type { Emitted, PackKind } from "#/core/output";
+import { Resource } from "#/core/resource";
 import { Feature } from "#/feature/base";
 import { OreFeature } from "#/feature/ore";
 import { FeatureRules } from "#/feature/rules";
 import { ScatterFeature } from "#/feature/scatter";
 import { SequenceFeature } from "#/feature/sequence";
-import { ScriptModule } from "#/manifest/index";
 import { FormatVersion } from "#/primitive/index";
-import { DuplicateIdentifierError, type Registry, RegistryClosedError } from "#/project/index";
+import { DuplicatePathError, type Registry, RegistryClosedError } from "#/project/index";
 import { serialize } from "#/serialize";
-import { expectedManifest, ids, json, NS, registryWith, runSetup } from "#/test/helpers";
+import { ids, NS, registryWith, runSetup } from "#/test/helpers";
 
 @serialize
 class Custom extends Definition {
@@ -26,6 +27,40 @@ class Custom extends Definition {
     constructor(identifier: string) {
         super(identifier);
         this.identifier = identifier;
+    }
+}
+
+class Notes extends Resource {
+    lines: string[] = [];
+
+    get kind(): PackKind {
+        return "resource";
+    }
+
+    get path(): string {
+        return "notes.txt";
+    }
+
+    emit(): Emitted {
+        return { text: this.lines.join("\n") };
+    }
+
+    override isEmpty(): boolean {
+        return this.lines.length === 0;
+    }
+}
+
+class Clash extends Resource {
+    get kind(): PackKind {
+        return "behavior";
+    }
+
+    get path(): string {
+        return "custom/clash.json";
+    }
+
+    emit(): Emitted {
+        return { json: {} };
     }
 }
 
@@ -47,14 +82,14 @@ describe("Registry", () => {
             const block = new Block("dirt");
             await inSystem((reg) => {
                 expect(reg.add(block)).toBe(reg);
-                expect([...reg.all()]).toStrictEqual([block]);
+                expect([...reg.entries()]).toStrictEqual([block]);
             });
         });
 
         test("ignores the same instance added twice", async () => {
             const block = new Block("dirt");
             const reg = await inSystem((reg) => reg.add(block).add(block));
-            expect([...reg.all()]).toStrictEqual([block]);
+            expect([...reg.entries()]).toStrictEqual([block]);
         });
 
         test("rejects another definition written to the same file", async () => {
@@ -62,29 +97,27 @@ describe("Registry", () => {
                 (reg) => {
                     expect(() => reg.add(new Block("dirt"))).toThrow(
                         expect.objectContaining({
-                            name: "DuplicateIdentifierError",
+                            name: "DuplicatePathError",
                             message:
                                 "Can't add Block dirt, Block dirt is already written to blocks/dirt.json in the behavior pack",
                         }),
                     );
-                    expect(() => reg.add(new ScatterFeature("ore"))).toThrow(
-                        DuplicateIdentifierError,
-                    );
+                    expect(() => reg.add(new ScatterFeature("ore"))).toThrow(DuplicatePathError);
                     return reg;
                 },
                 new Block("dirt"),
                 new OreFeature("ore"),
             );
-            expect([...reg.all()].length).toBe(2);
+            expect([...reg.entries()].length).toBe(2);
         });
 
         test("accepts a definition at a file freed by a removal", async () => {
             const dirt = new Block("dirt");
             const reg = await inSystem((reg) => {
-                reg.remove(...reg.all());
+                reg.remove(...reg.entries());
                 return reg.add(dirt);
             }, new Block("dirt"));
-            expect([...reg.all()]).toStrictEqual([dirt]);
+            expect([...reg.entries()]).toStrictEqual([dirt]);
         });
 
         test("allows the same identifier across kinds", async () => {
@@ -93,23 +126,21 @@ describe("Registry", () => {
                 new OreFeature("thing"),
                 new FeatureRules("thing", { placesFeature: `${NS}:thing` }),
             );
-            expect([...reg.all()].length).toBe(3);
+            expect([...reg.entries()].length).toBe(3);
+        });
+
+        test("accepts a definition that another project holds", async () => {
+            const dirt = new Block("dirt");
+            await registryWith(dirt);
+            const reg = await runSetup("other", (reg) => {
+                reg.add(dirt);
+            });
+            expect([...reg.entries()]).toStrictEqual([dirt]);
         });
 
         test("registers any definition kind", async () => {
             const custom = new Custom("custom");
-            expect([...(await registryWith(custom)).all()]).toStrictEqual([custom]);
-        });
-
-        test("rejects a definition in another project, even with the same namespace", async () => {
-            const dirt = new Block("dirt");
-            await registryWith(dirt);
-            await expect(registryWith(dirt)).rejects.toThrow(
-                expect.objectContaining({
-                    name: "AlreadyRegisteredError",
-                    message: `Definition dirt is already in a ${NS} registry of another project. Create definitions inside systems, so that each project makes its own`,
-                }),
-            );
+            expect([...(await registryWith(custom)).entries()]).toStrictEqual([custom]);
         });
 
         test("registers nested definition instances", async () => {
@@ -117,23 +148,22 @@ describe("Registry", () => {
             const scatter = new ScatterFeature("scatter", { placesFeature: ore });
             const rules = new FeatureRules("rules", { placesFeature: scatter });
             const reg = await registryWith(rules);
-            expect(ids(reg.all())).toStrictEqual(["rules", "scatter", "ore"]);
+            expect(ids(reg.entries())).toStrictEqual(["rules", "scatter", "ore"]);
         });
 
         test("registers reference cycles", async () => {
             const a = new SequenceFeature("a", { features: [] });
             a.features.push(new SequenceFeature("b", { features: [a] }));
-            expect(ids((await registryWith(a)).all())).toStrictEqual(["a", "b"]);
+            expect(ids((await registryWith(a)).entries())).toStrictEqual(["a", "b"]);
         });
 
         test("unregisters a definition whose references are rejected", async () => {
             const scatter = new ScatterFeature("scatter", { placesFeature: new OreFeature("ore") });
             const reg = await inSystem((reg) => {
-                expect(() => reg.add(scatter)).toThrow(DuplicateIdentifierError);
+                expect(() => reg.add(scatter)).toThrow(DuplicatePathError);
                 return reg;
             }, new OreFeature("ore"));
-            expect(ids(reg.all())).toStrictEqual(["ore"]);
-            expect(scatter.qualifiedIdentifier).toBe("scatter");
+            expect(ids(reg.entries())).toStrictEqual(["ore"]);
         });
 
         test("unregisters the whole tree when a nested reference is rejected", async () => {
@@ -143,22 +173,19 @@ describe("Registry", () => {
             });
             const scatter = new ScatterFeature("scatter", { placesFeature: seq });
             const reg = await inSystem((reg) => {
-                expect(() => reg.add(scatter)).toThrow(DuplicateIdentifierError);
+                expect(() => reg.add(scatter)).toThrow(DuplicatePathError);
                 return reg;
             }, new OreFeature("dup_ore"));
-            expect(ids(reg.all())).toStrictEqual(["dup_ore"]);
-            expect(okOre.qualifiedIdentifier).toBe("ok_ore");
-            expect(seq.qualifiedIdentifier).toBe("seq");
+            expect(ids(reg.entries())).toStrictEqual(["dup_ore"]);
         });
 
         test("unregisters earlier arguments when a later one is rejected", async () => {
             const dirt = new Block("dirt");
             const reg = await inSystem((reg) => {
-                expect(() => reg.add(dirt, new Block("stone"))).toThrow(DuplicateIdentifierError);
+                expect(() => reg.add(dirt, new Block("stone"))).toThrow(DuplicatePathError);
                 return reg;
             }, new Block("stone"));
-            expect(ids(reg.all())).toStrictEqual(["stone"]);
-            expect(dirt.qualifiedIdentifier).toBe("dirt");
+            expect(ids(reg.entries())).toStrictEqual(["stone"]);
         });
 
         test("keeps definitions registered before a rejected add", async () => {
@@ -169,21 +196,20 @@ describe("Registry", () => {
             });
             const reg = await inSystem(
                 (reg) => {
-                    expect(() => reg.add(seq)).toThrow(DuplicateIdentifierError);
+                    expect(() => reg.add(seq)).toThrow(DuplicatePathError);
                     return reg;
                 },
                 scatter,
                 new OreFeature("dup_ore"),
             );
-            expect(ids(reg.all())).toStrictEqual(["scatter", "shared", "dup_ore"]);
-            expect(shared.qualifiedIdentifier).toBe(`${NS}:shared`);
+            expect(ids(reg.entries())).toStrictEqual(["scatter", "shared", "dup_ore"]);
         });
 
         test("does not register string references", async () => {
             const reg = await registryWith(
                 new ScatterFeature("scatter", { placesFeature: `${NS}:ore` }),
             );
-            expect(ids(reg.all())).toStrictEqual(["scatter"]);
+            expect(ids(reg.entries())).toStrictEqual(["scatter"]);
         });
     });
 
@@ -199,7 +225,7 @@ describe("Registry", () => {
                 dirt,
                 stone,
             );
-            expect([...reg.all()]).toStrictEqual([stone]);
+            expect([...reg.entries()]).toStrictEqual([stone]);
         });
 
         test("ignores another instance with the same identifier", async () => {
@@ -208,16 +234,7 @@ describe("Registry", () => {
                 reg.remove(new Block("dirt"));
                 return reg;
             }, dirt);
-            expect([...reg.all()]).toStrictEqual([dirt]);
-        });
-
-        test("lets another project add the definition", async () => {
-            const dirt = new Block("dirt");
-            await inSystem((reg) => reg.remove(dirt), dirt);
-            await runSetup("other", (reg) => {
-                reg.add(dirt);
-            });
-            expect(dirt.qualifiedIdentifier).toBe("other:dirt");
+            expect([...reg.entries()]).toStrictEqual([dirt]);
         });
     });
 
@@ -233,7 +250,7 @@ describe("Registry", () => {
                 }),
             );
             expect(() => reg.remove(dirt)).toThrow(RegistryClosedError);
-            expect([...reg.all()]).toStrictEqual([dirt]);
+            expect([...reg.entries()]).toStrictEqual([dirt]);
         });
 
         test("rejects changes from a system's async work", async () => {
@@ -245,123 +262,62 @@ describe("Registry", () => {
         });
     });
 
-    describe("namespaces", () => {
-        test("qualify registered definitions", async () => {
-            const dirt = new Block("dirt");
-            await registryWith(dirt);
-            expect(dirt.qualifiedIdentifier).toBe(`${NS}:dirt`);
-            expect(json(dirt)).toStrictEqual({
-                format_version: "1.26.40",
-                "minecraft:block": { description: { identifier: `${NS}:dirt` } },
+    describe("resource()", () => {
+        test("creates the resource on first use, then returns the same one", async () => {
+            await inSystem((reg) => {
+                const notes = reg.resource(Notes);
+                expect(notes).toBeInstanceOf(Notes);
+                expect(reg.resource(Notes)).toBe(notes);
             });
         });
 
-        test("qualify references to instances registered through them", async () => {
-            const ore = new OreFeature("ore");
-            await registryWith(new ScatterFeature("scatter", { placesFeature: ore }));
-            const scatter = new ScatterFeature("other", { placesFeature: ore });
-            expect(ore.qualifiedIdentifier).toBe(`${NS}:ore`);
-            expect(json(scatter)).toStrictEqual({
-                format_version: "1.26.50",
-                "minecraft:scatter_feature": {
-                    description: { identifier: "other" },
-                    places_feature: `${NS}:ore`,
-                },
+        test("creates a new resource in each registry", async () => {
+            const first = await inSystem((reg) => reg.resource(Notes));
+            const second = await inSystem((reg) => reg.resource(Notes));
+            expect(first).not.toBe(second);
+        });
+
+        test("rejects a path that another file in the pack has", async () => {
+            await inSystem((reg) => {
+                reg.add(new Custom("clash"));
+                expect(() => reg.resource(Clash)).toThrow(
+                    expect.objectContaining({
+                        name: "DuplicatePathError",
+                        message:
+                            "Can't add Clash, Custom clash is already written to custom/clash.json in the behavior pack",
+                    }),
+                );
+            });
+            await inSystem((reg) => {
+                reg.resource(Clash);
+                expect(() => reg.add(new Custom("clash"))).toThrow(DuplicatePathError);
             });
         });
 
-        test("leave string references as written", async () => {
-            const scatter = new ScatterFeature("scatter", { placesFeature: "other:ore" });
-            await registryWith(scatter);
-            expect(json(scatter)).toStrictEqual({
-                format_version: "1.26.50",
-                "minecraft:scatter_feature": {
-                    description: { identifier: `${NS}:scatter` },
-                    places_feature: "other:ore",
-                },
-            });
-        });
-
-        test("leave unregistered definitions as written", () => {
-            const dirt = new Block("dirt");
-            expect(dirt.qualifiedIdentifier).toBe("dirt");
-        });
-
-        test("are cleared by remove()", async () => {
-            const dirt = new Block("dirt");
-            await inSystem((reg) => reg.remove(dirt), dirt);
-            expect(dirt.qualifiedIdentifier).toBe("dirt");
-        });
-
-        test("stay when remove() ignores another instance", async () => {
-            const other = new Block("dirt");
-            await runSetup("other", (reg) => {
-                reg.add(other);
-            });
-            await inSystem((reg) => reg.remove(other), new Block("dirt"));
-            expect(other.qualifiedIdentifier).toBe("other:dirt");
-        });
-    });
-
-    describe("manifests", () => {
-        test("are a behavior and a resource pack for the namespace", async () => {
-            const { bp, rp } = (await registryWith()).manifests;
-            expect([bp.namespace, bp.kind]).toStrictEqual([NS, "behavior"]);
-            expect([rp.namespace, rp.kind]).toStrictEqual([NS, "resource"]);
-        });
-
-        test("make the behavior pack depend on the resource pack", async () => {
-            const { bp, rp } = (await registryWith()).manifests;
-            expect(json(rp)).toStrictEqual(
-                expectedManifest({
-                    header: { name: "test RP", uuid: "220a205f-0cf8-57cd-8ca3-b3a714e93a44" },
-                    modules: [
-                        {
-                            type: "resources",
-                            uuid: "804ee873-8c54-5f00-9f8a-96b855a22a24",
-                            version: "1.0.0",
-                        },
-                    ],
-                }),
-            );
-            expect(json(bp)).toStrictEqual(
-                expectedManifest({
-                    dependencies: [
-                        { uuid: "220a205f-0cf8-57cd-8ca3-b3a714e93a44", version: "1.0.0" },
-                    ],
-                }),
-            );
-        });
-
-        test("can be edited by systems", async () => {
+        test("after its run, returns existing resources and rejects new ones", async () => {
             const reg = await runSetup(NS, (reg) => {
-                reg.manifests.bp.module(new ScriptModule("scripts/main.js"));
+                reg.resource(Notes);
             });
-            expect(json(reg.manifests.bp)).toStrictEqual(
-                expectedManifest({
-                    modules: [
-                        {
-                            type: "data",
-                            uuid: "820c330d-fc15-5a5c-a3d6-a84a35ccd916",
-                            version: "1.0.0",
-                        },
-                        {
-                            type: "script",
-                            uuid: "07b7ee6b-32d0-5d5f-9cc1-722470ca9a17",
-                            version: "1.0.0",
-                            language: "javascript",
-                            entry: "scripts/main.js",
-                        },
-                    ],
-                    dependencies: [
-                        { uuid: "220a205f-0cf8-57cd-8ca3-b3a714e93a44", version: "1.0.0" },
-                    ],
-                }),
-            );
+            expect(reg.resource(Notes)).toBeInstanceOf(Notes);
+            expect(() => reg.resource(Clash)).toThrow(RegistryClosedError);
         });
     });
 
-    describe("all()", () => {
+    describe("outputs()", () => {
+        test("yields resources that aren't empty in creation order, then entries", async () => {
+            const dirt = new Block("dirt");
+            await inSystem((reg) => {
+                const notes = reg.resource(Notes);
+                const clash = reg.resource(Clash);
+                reg.add(dirt);
+                expect([...reg.outputs()]).toStrictEqual([clash, dirt]);
+                notes.lines.push("hello");
+                expect([...reg.outputs()]).toStrictEqual([notes, clash, dirt]);
+            });
+        });
+    });
+
+    describe("entries()", () => {
         test("yields definitions in the order they were added", async () => {
             const reg = await registryWith(
                 new FeatureRules("rules", { placesFeature: `${NS}:b_ore` }),
@@ -370,7 +326,13 @@ describe("Registry", () => {
                 new OreFeature("a_ore"),
                 new Block("a_block"),
             );
-            expect(ids(reg.all())).toStrictEqual(["rules", "b_ore", "b_block", "a_ore", "a_block"]);
+            expect(ids(reg.entries())).toStrictEqual([
+                "rules",
+                "b_ore",
+                "b_block",
+                "a_ore",
+                "a_block",
+            ]);
         });
     });
 
@@ -426,9 +388,8 @@ describe("Registry", () => {
             expect(reg.matches({ ctor: Block, target: "other:dirt" }, "dirt")).toBe(false);
         });
 
-        test("compares definitions and descriptors by identifier", () => {
+        test("compares definitions by identifier", () => {
             expect(reg.matches({ ctor: Block, target: dirt }, `${NS}:dirt`)).toBe(true);
-            expect(reg.matches({ ctor: Block, target: { name: `${NS}:dirt` } }, dirt)).toBe(true);
             expect(reg.matches({ ctor: Block, target: new Block("dirt") }, dirt)).toBe(true);
         });
 

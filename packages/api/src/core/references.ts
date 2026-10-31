@@ -1,21 +1,21 @@
-import {
-    Definition,
-    type DefinitionCtor,
-    type Reference,
-    type ReferenceTarget,
-} from "#/core/definition";
-
-export function autoIdentifier(target: ReferenceTarget): string {
-    if (typeof target === "string") return target;
-    return target instanceof Definition ? target.identifier : target.name;
-}
+import { Entry, type EntryCtor, type Reference } from "#/core/entry";
+import type { BlockDescriptor } from "#/primitive/index";
 
 export function targets(
-    ctor: DefinitionCtor,
-    ...values: (ReferenceTarget | ReferenceTarget[] | undefined)[]
+    ctor: EntryCtor,
+    ...values: (
+        | Entry
+        | BlockDescriptor
+        | string
+        | (Entry | BlockDescriptor | string)[]
+        | undefined
+    )[]
 ): Reference[] {
     return values
         .flat()
         .filter((value) => value !== undefined)
-        .map((target) => ({ ctor, target }));
+        .map((value) => ({
+            ctor,
+            target: typeof value === "string" || value instanceof Entry ? value : value.name,
+        }));
 }

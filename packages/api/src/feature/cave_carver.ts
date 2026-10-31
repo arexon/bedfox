@@ -1,6 +1,7 @@
 import { Block } from "#/block/index";
 import type { BRAND } from "#/core/brand";
-import { type DefinitionProps, type Reference } from "#/core/definition";
+import type { DefinitionProps } from "#/core/definition";
+import type { Reference } from "#/core/entry";
 import { targets } from "#/core/references";
 import { Feature } from "#/feature/base";
 import { type BlockDescriptorRef, FormatVersion, type Molang, Range } from "#/primitive/index";
@@ -47,7 +48,7 @@ export class CaveCarverFeature extends Feature {
         Object.assign(this, props);
     }
 
-    override _placements(): Reference[] {
+    override placements(): Reference[] {
         return targets(Block, this.fillWith);
     }
 }

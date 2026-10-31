@@ -1,4 +1,5 @@
-import type { Definition } from "#/core/definition";
+import type { Entry } from "#/core/entry";
+import type { PackOutput } from "#/core/output";
 import { Project } from "#/project/project";
 import type { Registry } from "#/project/registry";
 import { type PreparedSystem, type System, SystemFailedError } from "#/project/system";
@@ -9,8 +10,13 @@ export function json(value: unknown): unknown {
     return JSON.parse(JSON.stringify(value));
 }
 
-export function ids(defs: Iterable<Definition>): string[] {
-    return Array.from(defs, (def) => def.identifier);
+export function ids(entries: Iterable<Entry>): string[] {
+    return Array.from(entries, (entry) => entry.key());
+}
+
+export function emitted(output: PackOutput, namespace = NS): unknown {
+    const contents = output.emit({ namespace });
+    return "json" in contents ? json(contents.json) : contents.text;
 }
 
 export async function runSetup(
@@ -27,9 +33,9 @@ export async function runSetup(
     return registry.promise;
 }
 
-export function registryWith(...defs: Definition[]): Promise<Registry> {
+export function registryWith(...entries: Entry[]): Promise<Registry> {
     return runSetup(NS, (reg) => {
-        reg.add(...defs);
+        reg.add(...entries);
     });
 }
 

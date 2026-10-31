@@ -1,10 +1,6 @@
 import type { BRAND } from "#/core/brand";
-import {
-    Definition,
-    type DefinitionLocation,
-    type DefinitionProps,
-    type Reference,
-} from "#/core/definition";
+import { Definition, type DefinitionLocation, type DefinitionProps } from "#/core/definition";
+import type { Reference } from "#/core/entry";
 import { targets } from "#/core/references";
 import { Feature, type FeatureReference } from "#/feature/base";
 import type { BiomeFilter } from "#/feature/biome_filter";
@@ -74,11 +70,12 @@ export class FeatureRules extends Definition {
         Object.assign(this, props);
     }
 
-    _placements(): Reference[] {
+    /** Returns the feature that these rules place. */
+    placements(): Reference[] {
         return targets(Feature, this.placesFeature);
     }
 
-    override _references(): Reference[] {
-        return this._placements();
+    override references(): Reference[] {
+        return this.placements();
     }
 }

@@ -13,9 +13,9 @@ import {
     MultipleTransparentFieldsError,
     NestedTransparentFieldError,
     serialize,
-    TO_REFERENCE,
+    toJson,
 } from "#/serialize";
-import { json } from "#/test/helpers";
+import { emitted, json, NS } from "#/test/helpers";
 
 @serialize
 class Shared {
@@ -32,13 +32,29 @@ describe("@serialize defaults", () => {
             expect(json(row)).toStrictEqual({ list: [null, "a", false, 0] });
         });
 
-        test("referenceable values serialize as their reference when nested", () => {
-            const def = {
-                [TO_REFERENCE]: () => "my:feature",
-                toJSON: () => ({ full: true }),
-            };
-            const row = Object.assign(new Shared(), { list: [def, [def, 3]] });
-            expect(json(row)).toStrictEqual({ list: ["my:feature", ["my:feature", 3]] });
+        test("entries serialize as their reference when nested", () => {
+            const ore = new OreFeature("ore");
+            const row = Object.assign(new Shared(), { list: [ore, [ore, 3]] });
+            expect(json(row)).toStrictEqual({ list: ["ore", ["ore", 3]] });
+        });
+
+        test("toJson() passes its context to nested references", () => {
+            const row = Object.assign(new Shared(), { list: [new OreFeature("ore")] });
+            expect(toJson(row, { namespace: "my" })).toStrictEqual({ list: ["my:ore"] });
+        });
+
+        test("toJson() serializes a top-level entry in full", () => {
+            const ore = new OreFeature("ore");
+            expect(toJson(ore, { namespace: "my" })).toStrictEqual({
+                format_version: "1.26.50",
+                "minecraft:ore_feature": { description: { identifier: "my:ore" } },
+            });
+            expect(toJson([ore], { namespace: "my" })).toStrictEqual(["my:ore"]);
+        });
+
+        test("other values with a toReference() method serialize as objects", () => {
+            const row = Object.assign(new Shared(), { nested: { toReference: "my:ore" } });
+            expect(json(row)).toStrictEqual({ nested: { to_reference: "my:ore" } });
         });
 
         test("toJSON() results are never re-cased", () => {
@@ -217,6 +233,16 @@ describe("@serialize with options", () => {
                     right = 0;
                 }
                 expect(json(new Pair())).toStrictEqual({ left: 1, right: 2 });
+            });
+
+            test("receives the context of toJson(), if any", () => {
+                @serialize
+                class Named {
+                    @serialize({ override: (_, __, ctx) => ctx?.namespace })
+                    namespace?: string;
+                }
+                expect(toJson(new Named(), { namespace: "my" })).toStrictEqual({ namespace: "my" });
+                expect(json(new Named())).toStrictEqual({});
             });
 
             test("is called for unset fields, and its result is serialized but kept when empty", () => {
@@ -471,6 +497,46 @@ describe("definitions", () => {
                 format_version: "1.0.0",
                 "test:thing": { description: { identifier: "thing" } },
             });
+        });
+    });
+
+    describe("namespaces", () => {
+        test("qualify the identifier when emitted", () => {
+            expect(emitted(new Thing("thing"))).toStrictEqual({
+                format_version: "1.2.3",
+                "test:thing": { description: { identifier: `${NS}:thing` } },
+            });
+            expect(new Thing("thing").qualifiedIdentifier({ namespace: "other" })).toBe(
+                "other:thing",
+            );
+        });
+
+        test("qualify references to definition instances", () => {
+            const scatter = new ScatterFeature("scatter", { placesFeature: new OreFeature("ore") });
+            expect(emitted(scatter)).toStrictEqual({
+                format_version: "1.26.50",
+                "minecraft:scatter_feature": {
+                    description: { identifier: `${NS}:scatter` },
+                    places_feature: `${NS}:ore`,
+                },
+            });
+        });
+
+        test("leave string references as written", () => {
+            const scatter = new ScatterFeature("scatter", { placesFeature: "other:ore" });
+            expect(emitted(scatter)).toStrictEqual({
+                format_version: "1.26.50",
+                "minecraft:scatter_feature": {
+                    description: { identifier: `${NS}:scatter` },
+                    places_feature: "other:ore",
+                },
+            });
+        });
+
+        test("are removed from keys only when they are the given namespace", () => {
+            expect(Definition.normalizeKey(`${NS}:dirt`, NS)).toBe("dirt");
+            expect(Definition.normalizeKey("other:dirt", NS)).toBe("other:dirt");
+            expect(Definition.normalizeKey("dirt", NS)).toBe("dirt");
         });
     });
 

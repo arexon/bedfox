@@ -1,40 +1,41 @@
 import { Block } from "#/block/index";
 import type { ComponentCtor } from "#/core/component";
-import type { Definition, DefinitionCtor, ReferenceTarget } from "#/core/definition";
+import type { DefinitionCtor } from "#/core/definition";
+import { Entry, type EntryCtor } from "#/core/entry";
 import { Feature, type FeatureReference } from "#/feature/base";
 import { FeatureRules } from "#/feature/rules";
 import type { BlockDescriptorRef } from "#/primitive/index";
 import type { Registry } from "#/project/registry";
 import type { PreparedSystem, System } from "#/project/system";
 
-/** Whether a query keeps `def`. */
-export type Filter<T extends Definition = Definition> = (def: T, reg: Registry) => boolean;
+/** Whether a query keeps `entry`. */
+export type Filter<T extends Entry = Entry> = (entry: T, reg: Registry) => boolean;
 
-/** The callback of {@link Query.intoSystem}. It gets the matched definitions. */
-export type SystemCallback<T extends Definition> = (
+/** The callback of {@link Query.intoSystem}. It gets the matched entries. */
+export type SystemCallback<T extends Entry> = (
     reg: Registry,
-    defs: Generator<T, void, unknown>,
+    entries: Generator<T, void, unknown>,
 ) => void | Promise<void>;
 
-/** The callback of {@link Query.intoPreparedSystem}. It gets the matched definitions and the data. */
-export type PreparedSystemCallback<T extends Definition, D> = (
+/** The callback of {@link Query.intoPreparedSystem}. It gets the matched entries and the data. */
+export type PreparedSystemCallback<T extends Entry, D> = (
     reg: Registry,
-    defs: Generator<T, void, unknown>,
+    entries: Generator<T, void, unknown>,
     data: D,
 ) => void | Promise<void>;
 
 type Overlaps<T, K> = [Extract<T, K>] extends [never] ? (K extends T ? true : false) : true;
 
-interface BaseQuery<T extends Definition> {
+interface BaseQuery<T extends Entry> {
     /**
-     * Matches definitions that pass every filter.
+     * Matches entries that pass every filter.
      *
      * @example
      *     query(Block).filter((block) => block.identifier.endsWith("_ore"));
      */
     filter(...filters: Filter<T>[]): Query<T>;
 
-    /** Matches definitions that nothing in the registry references. */
+    /** Matches entries that nothing in the registry references. */
     orphan(): Query<T>;
 
     /**
@@ -74,9 +75,9 @@ interface BaseQuery<T extends Definition> {
     ): PreparedSystem<D>;
 }
 
-// Each kind's filters keep definitions of other kinds, so one query can mix kinds.
+// Each kind's filters keep entries of other kinds, so one query can mix kinds.
 
-interface BlockQuery<T extends Definition> {
+interface BlockQuery<T extends Entry> {
     /** Matches blocks that have every given component. */
     withComponent(first: ComponentCtor, ...rest: ComponentCtor[]): Query<T>;
 
@@ -84,20 +85,20 @@ interface BlockQuery<T extends Definition> {
     withoutComponent(first: ComponentCtor, ...rest: ComponentCtor[]): Query<T>;
 }
 
-interface FeatureQuery<T extends Definition> {
+interface FeatureQuery<T extends Entry> {
     /** Matches features and feature rules that place `target`. */
     placing(
         target: DefinitionCtor<Block | Feature> | Block | FeatureReference | BlockDescriptorRef,
     ): Query<T>;
 }
 
-interface FeatureRulesQuery<T extends Definition> {
+interface FeatureRulesQuery<T extends Entry> {
     /** Matches feature rules that place `target`. */
     placing(target: DefinitionCtor<Feature> | FeatureReference): Query<T>;
 }
 
-/** A query for definitions of type `T`. {@link query} creates one. */
-export type Query<T extends Definition> = BaseQuery<T> &
+/** A query for entries of type `T`. {@link query} creates one. */
+export type Query<T extends Entry> = BaseQuery<T> &
     (Overlaps<T, Block> extends true ? BlockQuery<T> : unknown) &
     (Overlaps<T, Feature> extends true
         ? FeatureQuery<T>
@@ -106,7 +107,7 @@ export type Query<T extends Definition> = BaseQuery<T> &
           : unknown);
 
 /**
- * Finds registered definitions of the given classes.
+ * Finds registered entries of the given classes.
  *
  * A query has only the filters of the kinds that it can find.
  *
@@ -114,17 +115,17 @@ export type Query<T extends Definition> = BaseQuery<T> &
  *     query(Block).withComponent(LightEmissionBlockComponent);
  *     query(Feature, FeatureRules).placing(Block);
  */
-export function query<T extends [Definition, ...Definition[]]>(
-    ...ctors: { [K in keyof T]: DefinitionCtor<T[K]> }
+export function query<T extends [Entry, ...Entry[]]>(
+    ...ctors: { [K in keyof T]: EntryCtor<T[K]> }
 ): Query<T[number]> {
     return new QueryImpl(ctors, []);
 }
 
 class QueryImpl {
-    #ctors: DefinitionCtor[];
+    #ctors: EntryCtor[];
     #filters: Filter[];
 
-    constructor(ctors: DefinitionCtor[], filters: Filter[]) {
+    constructor(ctors: EntryCtor[], filters: Filter[]) {
         this.#ctors = ctors;
         this.#filters = filters;
     }
@@ -134,35 +135,40 @@ class QueryImpl {
     }
 
     orphan(): QueryImpl {
-        return this.filter((def, reg) => !reg.isReferenced(def));
+        return this.filter((entry, reg) => !reg.isReferenced(entry));
     }
 
     withComponent(first: ComponentCtor, ...rest: ComponentCtor[]): QueryImpl {
-        return this.filter((def) => !(def instanceof Block) || def.components.has(first, ...rest));
+        return this.filter(
+            (entry) => !(entry instanceof Block) || entry.components.has(first, ...rest),
+        );
     }
 
     withoutComponent(first: ComponentCtor, ...rest: ComponentCtor[]): QueryImpl {
         const ctors = [first, ...rest];
         return this.filter(
-            (def) => !(def instanceof Block) || !ctors.some((ctor) => def.components.has(ctor)),
+            (entry) =>
+                !(entry instanceof Block) || !ctors.some((ctor) => entry.components.has(ctor)),
         );
     }
 
-    placing(target: DefinitionCtor | ReferenceTarget): QueryImpl {
+    placing(target: EntryCtor | Entry | BlockDescriptorRef): QueryImpl {
+        const resolved =
+            typeof target === "object" && !(target instanceof Entry) ? target.name : target;
         return this.filter(
-            (def, reg) =>
-                !(def instanceof Feature || def instanceof FeatureRules) ||
-                def._placements().some((ref) => reg.matches(ref, target)),
+            (entry, reg) =>
+                !(entry instanceof Feature || entry instanceof FeatureRules) ||
+                entry.placements().some((ref) => reg.matches(ref, resolved)),
         );
     }
 
-    intoSystem(callback: SystemCallback<Definition>): System {
+    intoSystem(callback: SystemCallback<Entry>): System {
         return (reg) => this.#call(reg, (defs) => callback(reg, defs));
     }
 
     intoPreparedSystem<D>(
         prepare: () => Promise<D>,
-        callback: PreparedSystemCallback<Definition, D>,
+        callback: PreparedSystemCallback<Entry, D>,
     ): PreparedSystem<D> {
         return {
             prepare,
@@ -172,7 +178,7 @@ class QueryImpl {
 
     #call(
         reg: Registry,
-        fn: (defs: Generator<Definition, void, unknown>) => void | Promise<void>,
+        fn: (defs: Generator<Entry, void, unknown>) => void | Promise<void>,
     ): void | Promise<void> {
         const defs = this.#run(reg);
         const first = defs.next();
@@ -182,23 +188,23 @@ class QueryImpl {
 
     *#withFirst(
         reg: Registry,
-        first: Definition,
-        rest: Iterable<Definition>,
-    ): Generator<Definition, void, unknown> {
-        const ctor = first.constructor as DefinitionCtor;
-        if (reg.resolve(ctor, first.identifier).includes(first) && this.#matches(first, reg)) {
+        first: Entry,
+        rest: Iterable<Entry>,
+    ): Generator<Entry, void, unknown> {
+        const ctor = first.constructor as EntryCtor;
+        if (reg.resolve(ctor, first.key()).includes(first) && this.#matches(first, reg)) {
             yield first;
         }
         yield* rest;
     }
 
-    *#run(reg: Registry): Generator<Definition, void, unknown> {
-        for (const def of reg.all()) {
+    *#run(reg: Registry): Generator<Entry, void, unknown> {
+        for (const def of reg.entries()) {
             if (this.#matches(def, reg)) yield def;
         }
     }
 
-    #matches(def: Definition, reg: Registry): boolean {
+    #matches(def: Entry, reg: Registry): boolean {
         return (
             this.#ctors.some((ctor) => def instanceof ctor) &&
             this.#filters.every((filter) => filter(def, reg))

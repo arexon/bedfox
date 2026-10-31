@@ -1,7 +1,10 @@
-import type { PackKind, PackOutput } from "#/core/output";
+import type { EmitContext, Emitted, PackKind } from "#/core/output";
+import { Resource } from "#/core/resource";
 import {
+    DataModule,
     type ManifestModule,
     type ModuleDependencyJson,
+    ResourcesModule,
     ScriptModule,
     type Version,
 } from "#/manifest/module";
@@ -10,6 +13,7 @@ import { deriveUuid } from "#/manifest/uuid";
 import pkg from "#package.json" with { type: "json" };
 
 export * from "#/manifest/module";
+export * from "#/manifest/plugin";
 export * from "#/manifest/settings";
 
 /** An optional engine feature that a pack can enable. */
@@ -35,27 +39,20 @@ interface SubpackJson {
  * The `manifest.json` file of a pack, in format version 3.
  *
  * The modules set the kind of pack. A {@link ResourcesModule} makes a resource pack. A
- * {@link DataModule} or a {@link ScriptModule} makes a behavior pack.
+ * {@link DataModule} or a {@link ScriptModule} makes a behavior pack. {@link BehaviorManifest} and
+ * {@link ResourceManifest} start with the module of their kind.
  *
- * The manifest derives its UUIDs from the namespace and the kind of pack. Thus the UUIDs stay the
- * same between builds.
+ * The manifest derives its UUIDs from the project's namespace and the kind of pack. Thus the UUIDs
+ * stay the same between builds.
  *
  * @example
- *     const rp = new Manifest("example").authors("arexon").module(new ResourcesModule());
- *     const bp = new Manifest("example")
- *         .authors("arexon")
- *         .module(
- *             new DataModule(),
- *             new ScriptModule("scripts/main.js").dependsOn("@minecraft/server", "2.1.0"),
- *         )
- *         .dependsOn(rp);
+ *     project.addSystem("setup", (reg) => {
+ *         reg.resource(BehaviorManifest)
+ *             .authors("Steve")
+ *             .module(new ScriptModule("scripts/main.js").dependsOn("@minecraft/server", "2.1.0"));
+ *     });
  */
-export class Manifest implements PackOutput {
-    /** The namespace that the manifest derives its UUIDs and its default name from. */
-    readonly namespace: string;
-
-    readonly path = "manifest.json";
-
+export class Manifest extends Resource {
     #name?: string;
     #description?: string;
     #version: Version = "1.0.0";
@@ -73,11 +70,6 @@ export class Manifest implements PackOutput {
     #settings: Setting[] = [];
     #subpacks: SubpackJson[] = [];
 
-    /** Creates a manifest for `namespace`. */
-    constructor(namespace: string) {
-        this.namespace = namespace;
-    }
-
     /**
      * The kind of pack that the modules make.
      *
@@ -94,6 +86,11 @@ export class Manifest implements PackOutput {
         }
         if (!resources && !behavior) throw new InvalidModulesError("a manifest needs a module");
         return resources ? "resource" : "behavior";
+    }
+
+    /** The path of the file from the pack's root: `manifest.json`. */
+    get path(): string {
+        return "manifest.json";
     }
 
     /**
@@ -155,8 +152,8 @@ export class Manifest implements PackOutput {
     /**
      * Adds another pack as a dependency.
      *
-     * The dependency uses the header UUID and the version that `pack` has when this manifest
-     * serializes. The manifest skips a pack that is already a dependency.
+     * The dependency uses the header UUID and the version that `pack` has when this manifest emits.
+     * The manifest skips a pack that is already a dependency.
      */
     dependsOn(pack: Manifest): this {
         if (!this.#dependencies.includes(pack)) this.#dependencies.push(pack);
@@ -248,13 +245,20 @@ export class Manifest implements PackOutput {
         return this;
     }
 
-    toJSON(): unknown {
+    /**
+     * Generates the JSON of the manifest.
+     *
+     * @throws - {@link InvalidModulesError} if the modules of this manifest or of a dependency
+     *   don't make a behavior or resource pack.
+     * @throws - {@link DuplicateModuleUuidError} if two modules have the same UUID.
+     */
+    emit(ctx: EmitContext): Emitted {
         const kind = this.kind;
 
         const header = {
-            name: this.#name ?? `${this.namespace} ${NAME_SUFFIXES[kind]}`,
+            name: this.#name ?? `${ctx.namespace} ${NAME_SUFFIXES[kind]}`,
             description: this.#description,
-            uuid: this.#headerUuid(),
+            uuid: this.#headerUuid(ctx),
             version: this.#version,
             min_engine_version: this.#minEngineVersion ?? DEFAULT_MIN_ENGINE_VERSION,
             pack_scope: this.#scope,
@@ -281,11 +285,11 @@ export class Manifest implements PackOutput {
         const dependencies = [
             ...this.#dependencies.map((pack) => {
                 try {
-                    return { uuid: pack.#headerUuid(), version: pack.#version };
+                    return { uuid: pack.#headerUuid(ctx), version: pack.#version };
                 } catch (error) {
                     if (!(error instanceof InvalidModulesError)) throw error;
                     throw new InvalidModulesError(
-                        `dependency ${pack.#name ?? pack.namespace} isn't a behavior or resource pack`,
+                        `dependency ${pack.#name ?? pack.constructor.name} isn't a behavior or resource pack`,
                         { cause: error },
                     );
                 }
@@ -294,31 +298,49 @@ export class Manifest implements PackOutput {
         ];
 
         return {
-            format_version: 3,
-            header,
-            modules,
-            dependencies: dependencies.length > 0 ? dependencies : undefined,
-            settings: this.#settings.length > 0 ? this.#settings : undefined,
-            subpacks: this.#subpacks.length > 0 ? this.#subpacks : undefined,
-            capabilities: this.#capabilities.length > 0 ? this.#capabilities : undefined,
-            metadata: {
-                authors: this.#authors.length > 0 ? this.#authors : undefined,
-                url: this.#url,
-                license: this.#license,
-                product_type: this.#productType,
-                generated_with: this.#generatedWith,
+            json: {
+                format_version: 3,
+                header,
+                modules,
+                dependencies: dependencies.length > 0 ? dependencies : undefined,
+                settings: this.#settings.length > 0 ? this.#settings : undefined,
+                subpacks: this.#subpacks.length > 0 ? this.#subpacks : undefined,
+                capabilities: this.#capabilities.length > 0 ? this.#capabilities : undefined,
+                metadata: {
+                    authors: this.#authors.length > 0 ? this.#authors : undefined,
+                    url: this.#url,
+                    license: this.#license,
+                    product_type: this.#productType,
+                    generated_with: this.#generatedWith,
+                },
             },
         };
     }
 
-    #headerUuid(): string {
-        return this.#uuid ?? deriveUuid(`${this.namespace}/${this.kind}/header`);
+    #headerUuid(ctx: EmitContext): string {
+        return this.#uuid ?? deriveUuid(`${ctx.namespace}/${this.kind}/header`);
+    }
+}
+
+/** The manifest of the behavior pack. It starts with a {@link DataModule}. */
+export class BehaviorManifest extends Manifest {
+    constructor() {
+        super();
+        this.module(new DataModule());
+    }
+}
+
+/** The manifest of the resource pack. It starts with a {@link ResourcesModule}. */
+export class ResourceManifest extends Manifest {
+    constructor() {
+        super();
+        this.module(new ResourcesModule());
     }
 }
 
 /**
- * Thrown by {@link Manifest.kind} and {@link Manifest.toJSON} when the modules don't make a behavior
- * or resource pack.
+ * Thrown by {@link Manifest.kind} and {@link Manifest.emit} when the modules don't make a behavior or
+ * resource pack.
  */
 export class InvalidModulesError extends TypeError {
     constructor(reason: string, options?: ErrorOptions) {
@@ -327,7 +349,7 @@ export class InvalidModulesError extends TypeError {
     }
 }
 
-/** Thrown by {@link Manifest.toJSON} when two modules have the same UUID. */
+/** Thrown by {@link Manifest.emit} when two modules have the same UUID. */
 export class DuplicateModuleUuidError extends TypeError {
     constructor(uuid: string) {
         super(`Found more than one module with UUID ${uuid}`);

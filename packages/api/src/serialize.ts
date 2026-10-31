@@ -1,9 +1,11 @@
+import { Entry } from "#/core/entry";
+import type { EmitContext } from "#/core/output";
+
 const OPTIONS = new WeakMap<object, Map<string, FieldOptions>>();
 
 const SCHEMAS = new WeakMap<object, Schema>();
 
-/** The method key for values that serialize as a reference when they are inside another value. */
-export const TO_REFERENCE: unique symbol = Symbol("to_reference");
+const DECORATED: unique symbol = Symbol("decorated");
 
 /** A field decorator that only accepts classes whose instances are `This`. */
 export type FieldDecorator<This extends object = object> = (prototype: This, name: string) => void;
@@ -37,13 +39,13 @@ export interface FieldOptions<T = unknown, This extends object = object> {
      * Maps the field's value before it serializes.
      *
      * The function also runs when the field is not set. It gets the instance that holds the field
-     * as its second argument. Its result serializes like a normal value, so its keys change to
-     * snake_case.
+     * and the {@link EmitContext}, if the serialization has one. Its result serializes like a
+     * normal value, so its keys change to snake_case.
      *
      * If the function returns `undefined`, the field is omitted. An empty array or object that it
      * returns stays in the JSON.
      */
-    override?: (value: T | undefined, instance: This) => unknown;
+    override?: (value: T | undefined, instance: This, ctx: EmitContext | undefined) => unknown;
 }
 
 /** Thrown by {@link serialize} when it decorates a static field, a method or an accessor. */
@@ -101,7 +103,7 @@ export class UnsupportedJsonValueError extends TypeError {
  *
  * The values in the fields serialize as follows:
  *
- * - A value with a {@link TO_REFERENCE} method serializes as the result of that method.
+ * - An {@link Entry} serializes as the result of its `toReference()` method.
  * - A value with a `toJSON()` method serializes as its result, with no change to its keys.
  * - A plain object gets snake_case keys. An array serializes each element.
  * - Other class instances serialize their instance fields, also if their class has no decorator.
@@ -152,11 +154,14 @@ export function serialize(
     arg: FieldOptions | (abstract new (...args: never[]) => object),
 ): FieldDecorator | undefined {
     if (typeof arg === "function") {
-        Object.defineProperty(arg.prototype, "toJSON", {
-            configurable: true,
-            writable: true,
-            value(this: object): unknown {
-                return serializeInstance(this);
+        Object.defineProperties(arg.prototype, {
+            [DECORATED]: { value: true },
+            toJSON: {
+                configurable: true,
+                writable: true,
+                value(this: object): unknown {
+                    return serializeInstance(this, undefined);
+                },
             },
         });
         return undefined;
@@ -180,7 +185,7 @@ export function serialize(
 interface FieldSchema {
     readonly key: string;
     readonly within: readonly string[];
-    readonly toJson: (value: unknown, instance: object) => unknown;
+    readonly toJson: (value: unknown, instance: object, ctx: EmitContext | undefined) => unknown;
 }
 
 class Schema {
@@ -215,14 +220,14 @@ class Schema {
     #add(name: string, options: FieldOptions): FieldSchema {
         const { keepKeys, override, rename, within } = options;
 
-        const convert = keepKeys ? keepKeysToJson : toJson;
+        const convert = keepKeys ? keepKeysToJson : valueToJson;
         const field: FieldSchema = {
             key: rename ?? toSnakeCase(name),
             within: typeof within === "string" ? [within] : (within ?? []),
             toJson:
                 override !== undefined
-                    ? (value, instance) => convert(override(value, instance))
-                    : (value) => omitEmpty(convert(value)),
+                    ? (value, instance, ctx) => convert(override(value, instance, ctx), ctx)
+                    : (value, _, ctx) => omitEmpty(convert(value, ctx)),
         };
 
         let path = "";
@@ -268,12 +273,12 @@ function resolveOptions(ctor: { readonly prototype: object }): Map<string, Field
     return resolved;
 }
 
-function serializeInstance(obj: object): unknown {
+function serializeInstance(obj: object, ctx: EmitContext | undefined): unknown {
     const schema = schemaOf(obj.constructor);
     const out: Record<string, unknown> = {};
     for (const name of Object.keys(obj)) {
         const field = schema.field(name);
-        const json = field.toJson((obj as Record<string, unknown>)[name], obj);
+        const json = field.toJson((obj as Record<string, unknown>)[name], obj, ctx);
         if (json === undefined) continue;
         let target = out;
         for (const segment of field.within) {
@@ -286,32 +291,51 @@ function serializeInstance(obj: object): unknown {
     return keys.length === 1 && keys[0] === transparentKey ? out[transparentKey] : out;
 }
 
-function toJson(value: unknown): unknown {
+/**
+ * Serializes `value` to a JSON value, with the rules of {@link serialize}.
+ *
+ * An instance of a class with `@serialize` serializes in full, also if it is an {@link Entry}. `ctx`
+ * goes to the `toReference()` methods of entries and to {@link FieldOptions.override} functions.
+ * Without `ctx`, definitions serialize their identifiers without a namespace.
+ *
+ * @example
+ *     toJson(new Block("dirt"), { namespace: "example" });
+ *     // { format_version: "1.26.40", "minecraft:block": { description: { identifier: "example:dirt" } } }
+ */
+export function toJson(value: unknown, ctx?: EmitContext): unknown {
+    return typeof value === "object" && value !== null && DECORATED in value
+        ? serializeInstance(value, ctx)
+        : valueToJson(value, ctx);
+}
+
+function valueToJson(value: unknown, ctx: EmitContext | undefined): unknown {
     if (typeof value === "function") return undefined;
     if (typeof value !== "object" || value === null) return value;
-    if (TO_REFERENCE in value) return (value as { [TO_REFERENCE](): unknown })[TO_REFERENCE]();
+    if (value instanceof Entry) return value.toReference(ctx);
+    if (DECORATED in value) return serializeInstance(value, ctx);
     if (typeof (value as { toJSON?: unknown }).toJSON === "function") {
         return (value as { toJSON(): unknown }).toJSON();
     }
-    if (Array.isArray(value)) return value.map(toJson);
-    if (isPlainObject(value)) return recordToJson(value, toSnakeCase);
+    if (Array.isArray(value)) return value.map((element) => valueToJson(element, ctx));
+    if (isPlainObject(value)) return recordToJson(value, toSnakeCase, ctx);
     if (value instanceof Map || value instanceof Set) {
         throw new UnsupportedJsonValueError(value.constructor.name);
     }
-    return serializeInstance(value);
+    return serializeInstance(value, ctx);
 }
 
-function keepKeysToJson(value: unknown): unknown {
-    return isPlainObject(value) ? recordToJson(value, (key) => key) : toJson(value);
+function keepKeysToJson(value: unknown, ctx: EmitContext | undefined): unknown {
+    return isPlainObject(value) ? recordToJson(value, (key) => key, ctx) : valueToJson(value, ctx);
 }
 
 function recordToJson(
     record: Record<string, unknown>,
     toKey: (key: string) => string,
+    ctx: EmitContext | undefined,
 ): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     for (const key in record) {
-        const json = toJson(record[key]);
+        const json = valueToJson(record[key], ctx);
         if (json !== undefined) out[toKey(key)] = json;
     }
     return out;

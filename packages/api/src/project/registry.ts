@@ -1,69 +1,46 @@
-import {
-    Definition,
-    type DefinitionCtor,
-    NAMESPACE,
-    type Reference,
-    type ReferenceTarget,
-} from "#/core/definition";
-import type { PackKind } from "#/core/output";
-import { autoIdentifier } from "#/core/references";
-import { Manifest } from "#/manifest/index";
-import { DataModule, ResourcesModule } from "#/manifest/module";
+import { Entry, type EntryCtor, type Reference } from "#/core/entry";
+import type { PackKind, PackOutput } from "#/core/output";
+import type { Resource, ResourceCtor } from "#/core/resource";
 
 export const INVALIDATE: unique symbol = Symbol("invalidate");
 export const CLOSE: unique symbol = Symbol("close");
-export const RELEASE: unique symbol = Symbol("release");
-
-/** The pack manifests of a {@link Registry}. */
-export interface RegistryManifests {
-    /** The behavior pack manifest. */
-    readonly bp: Manifest;
-    /** The resource pack manifest. */
-    readonly rp: Manifest;
-}
 
 /**
- * The definitions of one project run.
+ * The pack files of one project run.
  *
- * Systems get the registry as their argument. They add definitions with {@link Registry.add}, find
- * them with {@link Registry.resolve} or {@link query}, and remove them with {@link Registry.remove}.
+ * Systems get the registry as their argument. A registry holds two kinds of files:
  *
- * Identifiers can include the namespace or not, e.g. `dirt` or `example:dirt`. Both find the same
- * definition.
+ * - Entries, such as blocks and features. Systems add them with {@link Registry.add}, find them with
+ *   {@link Registry.resolve} or {@link query}, and remove them with {@link Registry.remove}.
+ * - Resources, such as manifests. A registry holds at most one resource of each class.
+ *   {@link Registry.resource} creates it the first time that a system asks for it.
  *
  * Each run gets a new registry. When the run ends, the registry closes. Reads still work, but
- * `add()` and `remove()` throw {@link RegistryClosedError}.
+ * changes throw {@link RegistryClosedError}.
  */
 export class Registry {
     /** The project's namespace, e.g. `example` in `example:dirt`. */
     readonly namespace: string;
 
-    /** The behavior pack and resource pack manifests. */
-    readonly manifests: RegistryManifests;
-
-    #members = new Set<Definition>();
+    #members = new Set<Entry>();
+    #resources = new Map<ResourceCtor, Resource>();
     #closed = false;
     #referenced?: Map<string, Reference[]>;
-    #byIdentifier?: Map<string, Definition[]>;
-    #byPath: Record<PackKind, Map<string, Definition>> = {
+    #byKey?: Map<string, Entry[]>;
+    #byPath: Record<PackKind, Map<string, PackOutput>> = {
         behavior: new Map(),
         resource: new Map(),
     };
 
     constructor(namespace: string) {
         this.namespace = namespace;
-
-        const rp = new Manifest(namespace).module(new ResourcesModule());
-        const bp = new Manifest(namespace).module(new DataModule()).dependsOn(rp);
-        this.manifests = { bp, rp };
     }
 
     /**
-     * Adds definitions, and the definitions that they hold.
+     * Adds entries, and the entries that they reference.
      *
-     * A definition belongs to one registry at a time. Its identifier gets the namespace, e.g.
-     * `example:dirt`. Adding a definition again does nothing. A block and a feature can share an
-     * identifier, but two blocks can't.
+     * Adding an entry again does nothing. Two files in one pack can't have the same path, so a
+     * block and a feature can share an identifier, but two blocks can't.
      *
      * If it throws, the registry stays as it was before the call.
      *
@@ -71,16 +48,15 @@ export class Registry {
      *     const ore = new OreFeature("dirt_ore").add("example:dirt", ["minecraft:stone"]);
      *     reg.add(new ScatterFeature("scatter", { placesFeature: ore }));
      *
-     * @throws - {@link AlreadyRegisteredError} if a definition is in another project.
-     * @throws - {@link DuplicateIdentifierError} if a definition has the same identifier as another
-     *   definition of its kind.
+     * @throws - {@link DuplicatePathError} if an entry has the same path as another file in its
+     *   pack.
      * @throws - {@link RegistryClosedError} after the run ends.
      */
-    add(...defs: Definition[]): this {
+    add(...entries: Entry[]): this {
         this.#assertOpen();
-        const added: Definition[] = [];
+        const added: Entry[] = [];
         try {
-            this.#register(defs, added);
+            this.#register(entries, added);
         } catch (error) {
             this.#unregister(added);
             throw error;
@@ -89,41 +65,42 @@ export class Registry {
         return this;
     }
 
-    #register(defs: Iterable<Definition>, added: Definition[]): void {
-        for (const def of defs) {
-            if (this.#members.has(def)) continue;
-            const namespace = def[NAMESPACE];
-            if (namespace !== undefined)
-                throw new AlreadyRegisteredError(def.identifier, namespace);
-            const paths = this.#byPath[def.kind];
-            const taken = paths.get(def.path);
-            if (taken !== undefined) throw new DuplicateIdentifierError(taken, def);
-            // Register the definition before its references, so that a reference cycle ends here.
-            paths.set(def.path, def);
-            this.#members.add(def);
-            def[NAMESPACE] = this.namespace;
-            added.push(def);
-            this.#register(def._referencedInstances(), added);
+    #register(entries: Iterable<Entry>, added: Entry[]): void {
+        for (const entry of entries) {
+            if (this.#members.has(entry)) continue;
+            const paths = this.#byPath[entry.kind];
+            const taken = paths.get(entry.path);
+            if (taken !== undefined) throw new DuplicatePathError(taken, entry);
+            // Register the entry before its references, so that a reference cycle ends here.
+            paths.set(entry.path, entry);
+            this.#members.add(entry);
+            added.push(entry);
+            this.#register(
+                entry
+                    .references()
+                    .map((ref) => ref.target)
+                    .filter((target) => target instanceof Entry),
+                added,
+            );
         }
     }
 
     /**
-     * Removes definitions.
+     * Removes entries.
      *
-     * Their identifiers lose the namespace. Definitions that they hold stay in the registry.
+     * The entries that they reference stay in the registry.
      *
      * @throws - {@link RegistryClosedError} after the run ends.
      */
-    remove(...defs: Definition[]): void {
+    remove(...entries: Entry[]): void {
         this.#assertOpen();
-        this.#unregister(defs);
+        this.#unregister(entries);
     }
 
-    #unregister(defs: Iterable<Definition>): void {
-        for (const def of defs) {
-            if (!this.#members.delete(def)) continue;
-            delete def[NAMESPACE];
-            this.#byPath[def.kind].delete(def.path);
+    #unregister(entries: Iterable<Entry>): void {
+        for (const entry of entries) {
+            if (!this.#members.delete(entry)) continue;
+            this.#byPath[entry.kind].delete(entry.path);
         }
         this.#invalidate();
     }
@@ -133,67 +110,111 @@ export class Registry {
     }
 
     /**
-     * Iterates over every definition.
+     * Iterates over every entry.
      *
-     * @yields Each definition, in the order that the registry added them. It skips definitions that
-     *   are added or removed during the iteration.
+     * @yields Each entry, in the order that the registry added them. It skips entries that are
+     *   added or removed during the iteration.
      */
-    *all(): Generator<Definition, void, unknown> {
+    *entries(): Generator<Entry, void, unknown> {
         const snapshot = Array.from(this.#members);
-        for (const def of snapshot) {
-            if (this.#members.has(def)) yield def;
+        for (const entry of snapshot) {
+            if (this.#members.has(entry)) yield entry;
         }
     }
 
     /**
-     * Finds definitions by class and identifier.
+     * Finds entries by class and key.
      *
-     * A class like `Block` finds at most one definition. A base class like `Definition` can find a
-     * block and a feature with the same identifier.
+     * The class converts `key` with its `normalizeKey()` first. Thus, for definitions, the key can
+     * include the namespace or not, e.g. `dirt` or `example:dirt`.
+     *
+     * A class like `Block` finds at most one entry. A base class like `Definition` can find a block
+     * and a feature with the same identifier.
      *
      * @example
      *     reg.resolve(Block, "dirt"); // [dirt]
      *     reg.resolve(Block, "example:dirt"); // Same block.
      */
-    resolve<T extends Definition>(ctor: DefinitionCtor<T>, id: string): T[] {
-        this.#byIdentifier ??= Map.groupBy(this.#members, (def) => def.identifier);
-        const defs = this.#byIdentifier.get(this.#stripNamespace(id)) ?? [];
-        return defs.filter((def): def is T => def instanceof ctor);
+    resolve<T extends Entry>(ctor: EntryCtor<T>, key: string): T[] {
+        this.#byKey ??= Map.groupBy(this.#members, (entry) => entry.key());
+        const entries = this.#byKey.get(ctor.normalizeKey(key, this.namespace)) ?? [];
+        return entries.filter((entry): entry is T => entry instanceof ctor);
     }
 
     /**
      * Whether `ref` points at `target`.
      *
-     * A class matches any definition of that class. Other targets match by identifier, with or
-     * without the namespace.
+     * A class matches any entry of that class. Other targets match by key.
      */
-    matches(ref: Reference, target: DefinitionCtor | ReferenceTarget): boolean {
-        const id = autoIdentifier(ref.target);
+    matches(ref: Reference, target: EntryCtor | Entry | string): boolean {
+        const key = this.#keyOf(ref);
         if (typeof target === "function") {
-            return this.resolve(ref.ctor, id).some((def) => def instanceof target);
+            return this.resolve(ref.ctor, key).some((entry) => entry instanceof target);
         }
-        if (target instanceof Definition && !(target instanceof ref.ctor)) return false;
-        return this.#stripNamespace(id) === this.#stripNamespace(autoIdentifier(target));
+        if (target instanceof Entry) return target instanceof ref.ctor && target.key() === key;
+        return ref.ctor.normalizeKey(target, this.namespace) === key;
     }
 
-    #stripNamespace(id: string): string {
-        const prefix = `${this.namespace}:`;
-        return id.startsWith(prefix) ? id.slice(prefix.length) : id;
-    }
-
-    /** Whether any definition in the registry references `def`. */
-    isReferenced(def: Definition): boolean {
+    /** Whether any entry in the registry references `entry`. */
+    isReferenced(entry: Entry): boolean {
         this.#referenced ??= Map.groupBy(
-            Iterator.from(this.all()).flatMap((def) => def._references()),
-            (ref) => this.#stripNamespace(autoIdentifier(ref.target)),
+            Iterator.from(this.entries()).flatMap((referrer) => referrer.references()),
+            (ref) => this.#keyOf(ref),
         );
-        const refs = this.#referenced.get(def.identifier) ?? [];
-        return refs.some((ref) => def instanceof ref.ctor);
+        const refs = this.#referenced.get(entry.key()) ?? [];
+        return refs.some((ref) => entry instanceof ref.ctor);
+    }
+
+    #keyOf(ref: Reference): string {
+        const { ctor, target } = ref;
+        return typeof target === "string"
+            ? ctor.normalizeKey(target, this.namespace)
+            : target.key();
+    }
+
+    /**
+     * Returns the resource of class `ctor`.
+     *
+     * The first call for a class creates the resource with `new ctor()`. Later calls return the
+     * same resource.
+     *
+     * @example
+     *     reg.resource(BehaviorManifest).authors("Steve");
+     *
+     * @throws - {@link DuplicatePathError} if the new resource has the same path as another file in
+     *   its pack.
+     * @throws - {@link RegistryClosedError} if the run ended and the resource doesn't exist.
+     */
+    resource<T extends Resource>(ctor: ResourceCtor<T>): T {
+        let resource = this.#resources.get(ctor);
+        if (resource === undefined) {
+            this.#assertOpen();
+            resource = new ctor();
+            const paths = this.#byPath[resource.kind];
+            const taken = paths.get(resource.path);
+            if (taken !== undefined) throw new DuplicatePathError(taken, resource);
+            paths.set(resource.path, resource);
+            this.#resources.set(ctor, resource);
+        }
+        return resource as T;
+    }
+
+    /**
+     * Iterates over every file that the registry holds.
+     *
+     * @yields Each resource that isn't empty, in the order that the registry created them. Then
+     *   each entry, in the order of {@link Registry.entries}.
+     */
+    *outputs(): Generator<PackOutput, void, unknown> {
+        for (const resource of this.#resources.values()) {
+            if (!resource.isEmpty()) yield resource;
+        }
+        yield* this.entries();
     }
 
     #invalidate(): void {
         this.#referenced = undefined;
-        this.#byIdentifier = undefined;
+        this.#byKey = undefined;
     }
 
     [INVALIDATE](): void {
@@ -202,20 +223,6 @@ export class Registry {
 
     [CLOSE](): void {
         this.#closed = true;
-    }
-
-    [RELEASE](): void {
-        this.#unregister(Array.from(this.#members));
-    }
-}
-
-/** Thrown by {@link Registry.add} when a definition belongs to another project. */
-export class AlreadyRegisteredError extends TypeError {
-    constructor(id: string, namespace: string) {
-        super(
-            `Definition ${id} is already in a ${namespace} registry of another project. Create definitions inside systems, so that each project makes its own`,
-        );
-        this.name = "AlreadyRegisteredError";
     }
 }
 
@@ -229,12 +236,20 @@ export class RegistryClosedError extends Error {
     }
 }
 
-/** Thrown by {@link Registry.add} when two definitions of one kind have the same identifier. */
-export class DuplicateIdentifierError extends TypeError {
-    constructor(existing: Definition, added: Definition) {
+/**
+ * Thrown by {@link Registry.add} and {@link Registry.resource} when two files in one pack have the
+ * same path.
+ */
+export class DuplicatePathError extends TypeError {
+    constructor(existing: PackOutput, added: PackOutput) {
         super(
-            `Can't add ${added.constructor.name} ${added.identifier}, ${existing.constructor.name} ${existing.identifier} is already written to ${existing.path} in the ${existing.kind} pack`,
+            `Can't add ${describe(added)}, ${describe(existing)} is already written to ${existing.path} in the ${existing.kind} pack`,
         );
-        this.name = "DuplicateIdentifierError";
+        this.name = "DuplicatePathError";
     }
+}
+
+function describe(output: PackOutput): string {
+    const name = output.constructor.name;
+    return output instanceof Entry ? `${name} ${output.key()}` : name;
 }

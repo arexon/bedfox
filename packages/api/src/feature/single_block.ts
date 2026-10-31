@@ -1,6 +1,7 @@
 import { Block } from "#/block/index";
 import type { BRAND } from "#/core/brand";
-import { type DefinitionProps, type Reference } from "#/core/definition";
+import type { DefinitionProps } from "#/core/definition";
+import type { Reference } from "#/core/entry";
 import { targets } from "#/core/references";
 import { Feature } from "#/feature/base";
 import { type BlockDescriptorRef, FormatVersion } from "#/primitive/index";
@@ -73,7 +74,7 @@ export class SingleBlockFeature extends Feature {
         Object.assign(this, props);
     }
 
-    override _placements(): Reference[] {
+    override placements(): Reference[] {
         return targets(
             Block,
             Array.isArray(this.placesBlock)
@@ -82,9 +83,9 @@ export class SingleBlockFeature extends Feature {
         );
     }
 
-    override _references(): Reference[] {
+    override references(): Reference[] {
         return [
-            ...this._placements(),
+            ...this.placements(),
             ...targets(
                 Block,
                 this.mayReplace,

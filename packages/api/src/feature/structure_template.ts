@@ -1,6 +1,7 @@
 import { Block } from "#/block/index";
 import type { BRAND } from "#/core/brand";
-import { type DefinitionProps, type Reference } from "#/core/definition";
+import type { DefinitionProps } from "#/core/definition";
+import type { Reference } from "#/core/entry";
 import { targets } from "#/core/references";
 import { Feature } from "#/feature/base";
 import { type BlockDescriptorRef, type FacingDirection, FormatVersion } from "#/primitive/index";
@@ -59,9 +60,9 @@ export class StructureTemplateFeature extends Feature {
         Object.assign(this, props);
     }
 
-    override _references(): Reference[] {
+    override references(): Reference[] {
         return [
-            ...this._placements(),
+            ...this.placements(),
             ...targets(
                 Block,
                 typeof this.blockIntersection === "object"

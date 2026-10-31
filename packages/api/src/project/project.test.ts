@@ -3,17 +3,20 @@ import { setTimeout as delay } from "node:timers/promises";
 import { describe, expect, test } from "vite-plus/test";
 
 import { Block } from "#/block/index";
+import { ManifestPlugin } from "#/manifest/index";
 import {
+    NothingToEmitError,
     type Plugin,
     PluginFailedError,
     prepared,
     Project,
     type Registry,
     RegistryClosedError,
+    RunInProgressError,
     SystemAddedDuringRunError,
     SystemFailedError,
 } from "#/project/index";
-import { ids, NS } from "#/test/helpers";
+import { ids, json, NS } from "#/test/helpers";
 
 const OPTIONS = { namespace: NS } as const;
 
@@ -96,7 +99,7 @@ describe(Project.name, () => {
             expect(regs[0]).not.toBe(regs[1]);
         });
 
-        test("releases the definitions of the last run", async () => {
+        test("can add a definition of an earlier run again", async () => {
             const dirt = new Block("dirt");
             const regs: Registry[] = [];
             const project = new Project(OPTIONS).addSystem("setup", (reg) => {
@@ -105,9 +108,8 @@ describe(Project.name, () => {
             });
             await project.run();
             await project.run();
-            expect([...regs[0].all()]).toStrictEqual([]);
-            expect([...regs[1].all()]).toStrictEqual([dirt]);
-            expect(dirt.qualifiedIdentifier).toBe(`${NS}:dirt`);
+            expect([...regs[0].entries()]).toStrictEqual([dirt]);
+            expect([...regs[1].entries()]).toStrictEqual([dirt]);
         });
 
         test("rejects a run while another run is active", async () => {
@@ -153,6 +155,64 @@ describe(Project.name, () => {
         });
     });
 
+    describe("emit()", () => {
+        test("makes the files of the last run, with the project's namespace", async () => {
+            const project = new Project(OPTIONS).addSystem("setup", (reg) => {
+                reg.add(new Block("dirt"));
+            });
+            await project.run();
+            expect(json(project.emit())).toStrictEqual([
+                {
+                    kind: "behavior",
+                    path: "blocks/dirt.json",
+                    json: {
+                        format_version: "1.26.40",
+                        "minecraft:block": { description: { identifier: `${NS}:dirt` } },
+                    },
+                },
+            ]);
+        });
+
+        test("puts resources before entries", async () => {
+            const project = new Project(OPTIONS)
+                .addSystem("setup", (reg) => {
+                    reg.add(new Block("dirt"));
+                })
+                .addPlugin(new ManifestPlugin());
+            await project.run();
+            expect(project.emit().map((file) => `${file.kind}/${file.path}`)).toStrictEqual([
+                "behavior/manifest.json",
+                "resource/manifest.json",
+                "behavior/blocks/dirt.json",
+            ]);
+        });
+
+        test("rejects an emit before a run ends without an error", async () => {
+            let fail = true;
+            const project = new Project(OPTIONS).addSystem(
+                prepared(
+                    () => delay(1),
+                    () => {
+                        if (fail) throw new Error("boom");
+                    },
+                ),
+            );
+            expect(() => project.emit()).toThrow(
+                expect.objectContaining({
+                    name: "NothingToEmitError",
+                    message: "Can't emit files before a run ends without an error",
+                }),
+            );
+            const run = project.run();
+            expect(() => project.emit()).toThrow(RunInProgressError);
+            await expect(run).rejects.toThrow(SystemFailedError);
+            expect(() => project.emit()).toThrow(NothingToEmitError);
+            fail = false;
+            await project.run();
+            expect(project.emit()).toStrictEqual([]);
+        });
+    });
+
     describe("addSystem()", () => {
         test("rejects systems while the project runs", async () => {
             const project = new Project(OPTIONS);
@@ -183,7 +243,7 @@ describe(Project.name, () => {
                         order.push("async");
                     },
                     (reg) => {
-                        order.push(...ids(reg.all()));
+                        order.push(...ids(reg.entries()));
                     },
                 )
                 .run();
