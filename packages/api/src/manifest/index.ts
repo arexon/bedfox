@@ -224,7 +224,8 @@ export class Manifest implements PackOutput {
     }
 
     /**
-     * @throws - {@link InvalidModulesError} if the modules don't make a behavior or resource pack.
+     * @throws - {@link InvalidModulesError} if the modules of this manifest or of a dependency
+     *   don't make a behavior or resource pack.
      * @throws - {@link DuplicateModuleUuidError} if two modules have the same UUID.
      */
     toJSON(): unknown {
@@ -258,10 +259,17 @@ export class Manifest implements PackOutput {
             for (const dep of module.dependencies) moduleDependencies.set(dep.module_name, dep);
         }
         const dependencies = [
-            ...this.#dependencies.map((pack) => ({
-                uuid: pack.#headerUuid(),
-                version: pack.#version,
-            })),
+            ...this.#dependencies.map((pack) => {
+                try {
+                    return { uuid: pack.#headerUuid(), version: pack.#version };
+                } catch (error) {
+                    if (!(error instanceof InvalidModulesError)) throw error;
+                    throw new InvalidModulesError(
+                        `dependency ${pack.#name ?? pack.namespace} isn't a behavior or resource pack`,
+                        { cause: error },
+                    );
+                }
+            }),
             ...moduleDependencies.values(),
         ];
 
@@ -290,8 +298,8 @@ export class Manifest implements PackOutput {
 
 /** An error caused by modules that don't make a behavior or resource pack. */
 export class InvalidModulesError extends TypeError {
-    constructor(reason: string) {
-        super(`Invalid manifest modules: ${reason}`);
+    constructor(reason: string, options?: ErrorOptions) {
+        super(`Invalid manifest modules: ${reason}`, options);
         this.name = "InvalidModulesError";
     }
 }

@@ -274,6 +274,13 @@ describe(Manifest.name, () => {
                 },
             });
         });
+
+        test("names a dependency without modules", () => {
+            const bp = ready().dependsOn(new Manifest("other"));
+            expect(() => JSON.stringify(bp)).toThrow(
+                "dependency other isn't a behavior or resource pack",
+            );
+        });
     });
 
     describe("generatedWith()", () => {
