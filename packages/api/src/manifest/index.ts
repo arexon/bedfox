@@ -12,13 +12,13 @@ import pkg from "#package.json" with { type: "json" };
 export * from "#/manifest/module";
 export * from "#/manifest/settings";
 
-/** An optional engine feature that a pack can enable, named as the game registers it. */
+/** An optional engine feature that a pack can enable. */
 export type PackCapability = "chemistry" | "editorExtension" | "script_eval" | "raytraced" | "pbr";
 
-/** Where a pack can be applied. Packs without a scope can be applied anywhere. */
+/** Where players can apply a pack. */
 export type PackScope = "global" | "world" | "system" | "any";
 
-/** The minimum engine version of a manifest that doesn't set one with `minEngineVersion()`. */
+/** The minimum engine version of a manifest, unless {@link Manifest.minEngineVersion} sets one. */
 export const DEFAULT_MIN_ENGINE_VERSION = "1.26.50";
 
 const BEDFOX = "bedfox";
@@ -32,7 +32,13 @@ interface SubpackJson {
 }
 
 /**
- * A V3 pack `manifest.json`.
+ * The `manifest.json` file of a pack, in format version 3.
+ *
+ * The modules set the kind of pack. A {@link ResourcesModule} makes a resource pack. A
+ * {@link DataModule} or a {@link ScriptModule} makes a behavior pack.
+ *
+ * The manifest derives its UUIDs from the namespace and the kind of pack. Thus the UUIDs stay the
+ * same between builds.
  *
  * @example
  *     const rp = new Manifest("example").authors("arexon").module(new ResourcesModule());
@@ -45,7 +51,7 @@ interface SubpackJson {
  *         .dependsOn(rp);
  */
 export class Manifest implements PackOutput {
-    /** The namespace that the manifest derives its UUIDs and default name from. */
+    /** The namespace that the manifest derives its UUIDs and its default name from. */
     readonly namespace: string;
 
     readonly path = "manifest.json";
@@ -73,10 +79,10 @@ export class Manifest implements PackOutput {
     }
 
     /**
-     * Which pack this is, from its modules.
+     * The kind of pack that the modules make.
      *
      * @throws - {@link InvalidModulesError} if the manifest has no modules, or has a resources
-     *   module and a behavior pack module.
+     *   module together with a data or script module.
      */
     get kind(): PackKind {
         const resources = this.#modules.some((module) => module.type === "resources");
@@ -90,20 +96,24 @@ export class Manifest implements PackOutput {
         return resources ? "resource" : "behavior";
     }
 
-    /** Sets the name shown in the game's pack list. */
+    /**
+     * Sets the name that the game shows in the pack list.
+     *
+     * By default, the name is the namespace with `BP` or `RP`, e.g. `example RP`.
+     */
     name(name: string): this {
         this.#name = name;
         return this;
     }
 
-    /** Sets the description shown under the name. */
+    /** Sets the description that the game shows under the name. */
     description(description: string): this {
         this.#description = description;
         return this;
     }
 
     /**
-     * Sets the pack's version, which its modules share unless they set their own.
+     * Sets the pack's version. The modules use this version, unless they set their own.
      *
      * @default "1.0.0"
      */
@@ -113,7 +123,7 @@ export class Manifest implements PackOutput {
     }
 
     /**
-     * Sets the oldest game version that the pack targets, e.g. `1.26.50`.
+     * Sets the oldest game version that the pack supports, e.g. `1.26.50`.
      *
      * @default "1.26.50"
      */
@@ -122,19 +132,19 @@ export class Manifest implements PackOutput {
         return this;
     }
 
-    /** Sets where the pack can be applied, e.g. `world` for packs only applied to worlds. */
+    /** Sets where players can apply the pack, e.g. `world` to apply it only to worlds. */
     scope(scope: PackScope): this {
         this.#scope = scope;
         return this;
     }
 
-    /** Sets the header UUID, instead of the one derived from the namespace. */
+    /** Sets the header UUID, instead of the UUID that the manifest derives from the namespace. */
     uuid(uuid: string): this {
         this.#uuid = uuid;
         return this;
     }
 
-    /** Adds modules, in order. Adding a module that's already here does nothing. */
+    /** Adds modules, in order. The manifest skips a module that it already has. */
     module(...modules: ManifestModule[]): this {
         for (const module of modules) {
             if (!this.#modules.includes(module)) this.#modules.push(module);
@@ -143,15 +153,17 @@ export class Manifest implements PackOutput {
     }
 
     /**
-     * Depends on another pack, by its header UUID and version at the time this manifest serializes.
-     * Depending on the same manifest again does nothing.
+     * Adds another pack as a dependency.
+     *
+     * The dependency uses the header UUID and the version that `pack` has when this manifest
+     * serializes. The manifest skips a pack that is already a dependency.
      */
     dependsOn(pack: Manifest): this {
         if (!this.#dependencies.includes(pack)) this.#dependencies.push(pack);
         return this;
     }
 
-    /** Enables optional engine features, e.g. `pbr`. Enabling a feature again does nothing. */
+    /** Enables optional engine features, e.g. `pbr`. The manifest skips a feature that is on. */
     capabilities(...names: PackCapability[]): this {
         for (const name of names) {
             if (!this.#capabilities.includes(name)) this.#capabilities.push(name);
@@ -159,7 +171,7 @@ export class Manifest implements PackOutput {
         return this;
     }
 
-    /** Adds to the pack's authors. */
+    /** Adds authors of the pack. */
     authors(...names: string[]): this {
         this.#authors.push(...names);
         return this;
@@ -171,15 +183,17 @@ export class Manifest implements PackOutput {
         return this;
     }
 
-    /** Sets the pack's home page. */
+    /** Sets the URL of the pack's home page. */
     url(url: string): this {
         this.#url = url;
         return this;
     }
 
     /**
-     * Sets the pack's product type. The game accepts only `addon`, for packs added to worlds. The
-     * value doesn't change how the pack works.
+     * Sets the pack's product type.
+     *
+     * The game accepts only `addon`, for packs that players add to worlds. The value doesn't change
+     * how the pack works.
      */
     productType(productType: "addon"): this {
         this.#productType = productType;
@@ -187,8 +201,13 @@ export class Manifest implements PackOutput {
     }
 
     /**
-     * Records the versions of another tool that generated the manifest, e.g. `mctools` at `0.12.0`.
-     * Bedfox always records itself first. This method can't replace that entry.
+     * Records the versions of another tool that helped to generate the manifest.
+     *
+     * The manifest always records Bedfox first, and a call with `bedfox` as `tool` does nothing. A
+     * second call for the same tool replaces its versions.
+     *
+     * @example
+     *     manifest.generatedWith("mctools", "0.12.0");
      */
     generatedWith(tool: string, ...versions: string[]): this {
         if (tool !== BEDFOX) this.#generatedWith[tool] = versions;
@@ -196,8 +215,10 @@ export class Manifest implements PackOutput {
     }
 
     /**
-     * Adds settings players can change in the pack's settings screen, in order. Adding a setting
-     * that's already here does nothing. A manifest has up to 50 settings.
+     * Adds settings that players can change in the pack's settings screen.
+     *
+     * The screen shows the settings in the order that this method gets them. The manifest skips a
+     * setting that it already has. A manifest can have up to 50 settings.
      *
      * @example
      *     manifest.setting(
@@ -213,7 +234,11 @@ export class Manifest implements PackOutput {
         return this;
     }
 
-    /** Adds a subpack, a folder under `subpacks/` that players can pick by memory tier, 0 to 5. */
+    /**
+     * Adds a subpack: a folder in `subpacks/` that players can select.
+     *
+     * `memoryPerformanceTier` is the memory tier of the subpack, from 0 to 5.
+     */
     subpack(folderName: string, name: string, memoryPerformanceTier: number): this {
         this.#subpacks.push({
             name,
@@ -223,11 +248,6 @@ export class Manifest implements PackOutput {
         return this;
     }
 
-    /**
-     * @throws - {@link InvalidModulesError} if the modules of this manifest or of a dependency
-     *   don't make a behavior or resource pack.
-     * @throws - {@link DuplicateModuleUuidError} if two modules have the same UUID.
-     */
     toJSON(): unknown {
         const kind = this.kind;
 
@@ -296,7 +316,10 @@ export class Manifest implements PackOutput {
     }
 }
 
-/** An error caused by modules that don't make a behavior or resource pack. */
+/**
+ * Thrown by {@link Manifest.kind} and {@link Manifest.toJSON} when the modules don't make a behavior
+ * or resource pack.
+ */
 export class InvalidModulesError extends TypeError {
     constructor(reason: string, options?: ErrorOptions) {
         super(`Invalid manifest modules: ${reason}`, options);
@@ -304,7 +327,7 @@ export class InvalidModulesError extends TypeError {
     }
 }
 
-/** An error caused by two modules in one manifest with the same UUID. */
+/** Thrown by {@link Manifest.toJSON} when two modules have the same UUID. */
 export class DuplicateModuleUuidError extends TypeError {
     constructor(uuid: string) {
         super(`Found more than one module with UUID ${uuid}`);

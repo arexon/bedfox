@@ -5,10 +5,10 @@ import { describePlugins } from "#/project/schedule";
  * A reusable group of systems and other plugins.
  *
  * Each run of a {@link Project} calls `build()` again. Error messages name a system by its function
- * name, so prefer named functions to inline arrow functions.
+ * name. An inline arrow function has no name.
  *
- * A project holds one plugin of each class. To configure a plugin, give its class constructor
- * arguments.
+ * A project holds one plugin of each class. A plugin gets its options from the arguments of its
+ * constructor.
  *
  * @example
  *     class DirtPlugin implements Plugin {
@@ -27,7 +27,7 @@ export interface Plugin {
     /**
      * Adds the plugin's systems and plugins to `project`.
      *
-     * It can be async. Await every call on `project` before `build()` ends.
+     * It can be async. Every call on `project` must happen before `build()` ends.
      */
     build(project: Project): void | Promise<void>;
 }
@@ -80,7 +80,10 @@ export class DuplicatePluginError extends TypeError {
     }
 }
 
-/** Thrown when you add a system or plugin while the project runs, outside a plugin's `build()`. */
+/**
+ * Thrown by {@link Project.addSystem} and {@link Project.addPlugin} when the project runs, outside a
+ * plugin's `build()`.
+ */
 export class SystemAddedDuringRunError extends Error {
     constructor() {
         super(

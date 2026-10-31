@@ -1,3 +1,4 @@
+/** A vector with `x`, `y` and `z` numbers. */
 export class Vec3 {
     x: number;
     y: number;
@@ -13,7 +14,7 @@ export class Vec3 {
         return this.toTuple();
     }
 
-    /** An `[x, y, z]` tuple. */
+    /** Returns `[x, y, z]`. */
     toTuple(): [number, number, number] {
         return [this.x, this.y, this.z];
     }

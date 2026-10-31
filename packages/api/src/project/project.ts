@@ -18,14 +18,14 @@ interface PluginCall {
 /**
  * The systems and plugins that make an add-on.
  *
- * Each run uses a new {@link Registry} and starts again from nothing, so you can run a project again
+ * Each run uses a new {@link Registry} and starts again from nothing, so a project can run again
  * after its source files change.
  *
- * Systems run on three schedules: `setup`, then `transform`, then `finalize`. A definition that you
- * create outside a system keeps the changes of earlier runs, and only one project can hold it.
+ * Systems run on three schedules: `setup`, then `transform`, then `finalize`. A definition created
+ * outside a system keeps the changes of earlier runs, and only one project can hold it.
  *
- * Systems and plugins can be async. The run waits for each one before it starts the next. To load
- * data for many systems at the same time, use {@link prepared} systems. Systems can read files, but
+ * Systems and plugins can be async. The run waits for each one before it starts the next.
+ * {@link prepared} systems load data for many systems at the same time. Systems can read files, but
  * they must not write them.
  *
  * @example
@@ -58,8 +58,8 @@ export class Project {
     /**
      * Adds systems to `schedule`.
      *
-     * The systems of one schedule run in the order that you add them. The project's own systems run
-     * before the systems of its plugins.
+     * The systems of one schedule run in the order that `addSystem()` gets them. The project's own
+     * systems run before the systems of its plugins.
      *
      * @example
      *     project.addSystem("setup", (reg) => {
@@ -102,11 +102,11 @@ export class Project {
     /**
      * Adds plugins.
      *
-     * Each run calls the plugins in the order that you add them. A plugin's own systems run before
-     * the systems of the plugins that it adds.
+     * Each run calls the plugins in the order that `addPlugin()` gets them. A plugin's own systems
+     * run before the systems of the plugins that it adds.
      *
-     * A project holds one plugin of each class. If you add a second one, also from another plugin,
-     * the run fails.
+     * A project holds one plugin of each class. A second plugin of the same class makes the run
+     * fail, also if another plugin adds it.
      *
      * @example
      *     project.addPlugin(new FishPlugin());

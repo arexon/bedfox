@@ -1,12 +1,12 @@
-/** A choice in a dropdown or multiselect setting, as a manifest writes it. */
+/** An option in a {@link DropdownSetting} or a {@link MultiSelectSetting}. */
 export interface SettingOption {
-    /** The setting's value when a player picks this option, e.g. `high`. */
+    /** The value of the option, e.g. `high`. */
     name: string;
-    /** What players see, e.g. `High`. */
+    /** The text that players see, e.g. `High`. */
     text: string;
 }
 
-/** A setting players can change in a pack's settings screen, added with `setting()`. */
+/** A setting in a pack's settings screen, for `Manifest.setting()`. */
 export type Setting =
     | LabelSetting
     | ToggleSetting
@@ -14,10 +14,12 @@ export type Setting =
     | DropdownSetting
     | MultiSelectSetting;
 
-/** Read-only text, e.g. to describe or separate other settings. */
+/** Text that players can't change, e.g. to describe or separate other settings. */
 export class LabelSetting {
+    /** The text that players see. */
     readonly text: string;
 
+    /** Creates a label that shows `text`. */
     constructor(text: string) {
         this.text = text;
     }
@@ -28,20 +30,27 @@ export class LabelSetting {
 }
 
 abstract class NamedSetting {
+    /** The setting's identifier, e.g. `example:explosions`. */
     readonly name: string;
+    /** The text that players see next to the setting. */
     readonly text: string;
 
+    /** Creates a setting with an identifier and the text that players see. */
     constructor(name: string, text: string) {
         this.name = name;
         this.text = text;
     }
 }
 
-/** An on/off switch. It starts off unless `default()` sets it on. */
+/** A switch that players turn on or off. */
 export class ToggleSetting extends NamedSetting {
     #default = false;
 
-    /** Sets whether the switch starts on. */
+    /**
+     * Sets whether the switch starts on.
+     *
+     * @default false
+     */
     default(on: boolean): this {
         this.#default = on;
         return this;
@@ -52,11 +61,7 @@ export class ToggleSetting extends NamedSetting {
     }
 }
 
-/**
- * A number that players pick from `min` to `max`, where `min` is less than `max`. It moves in steps
- * of 1 unless `step()` sets another step. It starts at `min` unless `default()` sets another
- * value.
- */
+/** A slider that players move to select a number. */
 export class SliderSetting extends NamedSetting {
     readonly min: number;
     readonly max: number;
@@ -64,19 +69,33 @@ export class SliderSetting extends NamedSetting {
     #step = 1;
     #default?: number;
 
+    /**
+     * Creates a slider from `min` to `max`.
+     *
+     * `min` must be less than `max`.
+     */
     constructor(name: string, text: string, min: number, max: number) {
         super(name, text);
         this.min = min;
         this.max = max;
     }
 
-    /** Sets the distance between notches, more than 0 and at most `max - min`. */
+    /**
+     * Sets the distance between two values on the slider. It must be more than 0 and at most `max -
+     * min`.
+     *
+     * @default 1
+     */
     step(step: number): this {
         this.#step = step;
         return this;
     }
 
-    /** Sets where the slider starts, from `min` to `max`. */
+    /**
+     * Sets the value that the slider starts at, from `min` to `max`.
+     *
+     * By default, the slider starts at `min`.
+     */
     default(value: number): this {
         this.#default = value;
         return this;
@@ -96,20 +115,25 @@ export class SliderSetting extends NamedSetting {
 }
 
 /**
- * A list of 2 to 20 options that players pick one from. It starts on the first option unless
- * `default()` sets another.
+ * A list of options that players select one option from.
+ *
+ * A dropdown must have 2 to 20 options.
  */
 export class DropdownSetting extends NamedSetting {
     #options: SettingOption[] = [];
     #default?: string;
 
-    /** Adds an option. Its `name` is the setting's value when a player picks it. */
+    /** Adds an option. When a player selects the option, `name` is the setting's value. */
     option(name: string, text: string): this {
         this.#options.push({ name, text });
         return this;
     }
 
-    /** Sets which option, by name, the dropdown starts on. */
+    /**
+     * Sets the option that the dropdown starts on, by its name.
+     *
+     * By default, the dropdown starts on the first option.
+     */
     default(name: string): this {
         this.#default = name;
         return this;
@@ -127,27 +151,32 @@ export class DropdownSetting extends NamedSetting {
 }
 
 /**
- * A list of 2 to 20 options that players pick any number from. It starts with no options picked
- * unless `defaults()` picks some.
+ * A list of options that players select any number of options from.
+ *
+ * A multiselect must have 2 to 20 options.
  */
 export class MultiSelectSetting extends NamedSetting {
     #options: SettingOption[] = [];
     #defaults: string[] = [];
     #selectionText?: string;
 
-    /** Adds an option. Its `name` is in the setting's value when a player picks it. */
+    /** Adds an option. When a player selects the option, `name` is in the setting's value. */
     option(name: string, text: string): this {
         this.#options.push({ name, text });
         return this;
     }
 
-    /** Picks options, by name, to start with. */
+    /**
+     * Selects options at the start, by their names.
+     *
+     * By default, the setting starts with no options selected.
+     */
     defaults(...names: string[]): this {
         this.#defaults.push(...names);
         return this;
     }
 
-    /** Sets the text that describes the picked options. */
+    /** Sets the text that describes the selected options. */
     selectionText(text: string): this {
         this.#selectionText = text;
         return this;

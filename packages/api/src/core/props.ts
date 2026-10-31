@@ -6,7 +6,12 @@ type WritableKeys<T> = {
     [K in keyof T]-?: IfEquals<{ [Q in K]: T[K] }, { -readonly [Q in K]: T[K] }, K, never>;
 }[keyof T];
 
-/** `T`'s assignable data fields, minus methods, getter-only accessors and `Excluded`. */
+/**
+ * The writable data fields of `T`.
+ *
+ * The type leaves out methods, readonly fields, getters without setters, and the keys in
+ * `Excluded`.
+ */
 export type InstanceProps<T, Excluded extends PropertyKey = never> = {
     [
         K in keyof T as K extends Excluded

@@ -31,7 +31,7 @@ export interface RegistryManifests {
  * Identifiers can include the namespace or not, e.g. `dirt` or `example:dirt`. Both find the same
  * definition.
  *
- * Each run gets a new registry. When the run ends, the registry closes. You can still read it, but
+ * Each run gets a new registry. When the run ends, the registry closes. Reads still work, but
  * `add()` and `remove()` throw {@link RegistryClosedError}.
  */
 export class Registry {
@@ -135,8 +135,8 @@ export class Registry {
     /**
      * Iterates over every definition.
      *
-     * @yields Each definition, in the order that you added them. It skips definitions that you add
-     *   or remove during the iteration.
+     * @yields Each definition, in the order that the registry added them. It skips definitions that
+     *   are added or removed during the iteration.
      */
     *all(): Generator<Definition, void, unknown> {
         const snapshot = Array.from(this.#members);

@@ -4,8 +4,8 @@ import { describePlugins, type ScheduledSystem } from "#/project/schedule";
 /**
  * A function that changes the registry.
  *
- * A system can be async. The run waits for it before it starts the next system. Await all async
- * work in the system, because the registry closes when the run ends.
+ * A system can be async. The run waits for it before it starts the next system. The system must
+ * await all of its async work, because the registry closes when the run ends.
  */
 export type System = (reg: Registry) => void | Promise<void>;
 
@@ -13,10 +13,10 @@ export type System = (reg: Registry) => void | Promise<void>;
  * A system that loads its data before any system runs.
  *
  * Each run starts the `prepare` step of every prepared system at the same time. Later, at the
- * system's turn, `run` gets the loaded data. Use it for slow work, such as reading files, so that
+ * system's turn, `run` gets the loaded data. It is for slow work, such as reading files, so that
  * many systems can load at once.
  *
- * Create one with {@link prepared}.
+ * {@link prepared} creates one.
  */
 export interface PreparedSystem<T> {
     /** Loads the system's data. */

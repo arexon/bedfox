@@ -1,3 +1,4 @@
+/** A range of numbers from `min` to `max`, with `min` and `max` included. */
 export class Range {
     min: number;
     max: number;
@@ -7,6 +8,7 @@ export class Range {
         this.max = max;
     }
 
+    /** Creates a range of `length` numbers that starts at 0. */
     static from(length: number): Range {
         return new Range(0, length - 1);
     }
@@ -15,14 +17,17 @@ export class Range {
         return this.toTuple();
     }
 
+    /** Returns `[min, max]`. */
     toTuple(): [number, number] {
         return [this.min, this.max];
     }
 
+    /** Returns `{ min, max }`. */
     toObject(): { min: number; max: number } {
         return { min: this.min, max: this.max };
     }
 
+    /** Returns `{ values: { min, max } }`. */
     toValuesObject(): { values: { min: number; max: number } } {
         return { values: this.toObject() };
     }

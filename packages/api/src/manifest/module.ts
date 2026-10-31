@@ -1,18 +1,20 @@
+/** The type of a manifest module. */
 export type ModuleType = "data" | "resources" | "script";
 
-/** A SemVer version as manifests write it, e.g. `1.2.0` or `1.0.0-beta.1`. */
+/** A SemVer version in a manifest, e.g. `1.2.0` or `1.0.0-beta.1`. */
 export type Version =
     | `${number}.${number}.${number}`
     | `${number}.${number}.${number}-${string}`
     | `${number}.${number}.${number}+${string}`
     | "beta";
 
-/** A built-in script module version. */
+/** The version of a built-in script module, e.g. `2.1.0` or `beta`. */
 export type ModuleVersion = Version | `${number}` | "alpha" | "beta" | "internal";
 
 /**
- * A module as a manifest writes it in `modules`. A manifest sets the UUID and version that a module
- * leaves unset.
+ * The JSON of a module in the `modules` list of a manifest.
+ *
+ * A field is `undefined` if the module doesn't set it. The manifest then sets `uuid` and `version`.
  */
 export interface ModuleJson {
     type: ModuleType;
@@ -23,7 +25,7 @@ export interface ModuleJson {
     entry?: string;
 }
 
-/** A built-in script module dependency as a manifest writes it in `dependencies`. */
+/** The JSON of a built-in script module in the `dependencies` list of a manifest. */
 export interface ModuleDependencyJson {
     module_name: string;
     version: ModuleVersion;
@@ -31,30 +33,32 @@ export interface ModuleDependencyJson {
 }
 
 /**
- * Something that a pack contains, added to a manifest with `module()`. The manifest derives the
- * module's UUID from the header UUID, and the module uses the manifest's version. {@link uuid} and
- * {@link version} override these.
+ * A module of a pack, for `Manifest.module()`.
+ *
+ * The manifest derives the module's UUID from the header UUID. The module uses the manifest's
+ * version. {@link uuid} and {@link version} set other values.
  */
 export abstract class ManifestModule {
+    /** The module's type. */
     abstract readonly type: ModuleType;
 
     #description?: string;
     #uuid?: string;
     #version?: Version;
 
-    /** Sets a description of what the module holds. */
+    /** Sets a description of the module's content. */
     description(description: string): this {
         this.#description = description;
         return this;
     }
 
-    /** Sets the module's UUID, instead of the one derived from the manifest's header UUID. */
+    /** Sets the module's UUID, instead of the UUID that the manifest derives. */
     uuid(uuid: string): this {
         this.#uuid = uuid;
         return this;
     }
 
-    /** Sets the module's version, instead of the manifest's. */
+    /** Sets the module's version, instead of the manifest's version. */
     version(version: Version): this {
         this.#version = version;
         return this;
@@ -70,49 +74,60 @@ export abstract class ManifestModule {
     }
 }
 
-/** The module that makes a pack a behavior pack. */
+/** A module that makes a pack a behavior pack. */
 export class DataModule extends ManifestModule {
     readonly type = "data";
 }
 
-/** The module that makes a pack a resource pack. */
+/** A module that makes a pack a resource pack. */
 export class ResourcesModule extends ManifestModule {
     readonly type = "resources";
 }
 
 /**
- * A JavaScript module that runs `entry`, a path inside a behavior pack. The manifest derives its
- * UUID from the header UUID and `entry`, unless {@link uuid} sets one.
+ * A module that runs a JavaScript file in a behavior pack.
+ *
+ * The manifest derives the module's UUID from the header UUID and {@link entry}.
  *
  * @example
- *     new ScriptModule("scripts/main.js").dependsOn("@minecraft/server", "2.1.0");
+ *     new ScriptModule("scripts/main.js")
+ *         .dependsOn("@minecraft/server", "2.1.0")
+ *         .optionallyDependsOn("@minecraft/server-ui", "2.0.0");
  */
 export class ScriptModule extends ManifestModule {
     readonly type = "script";
 
+    /** The path of the JavaScript file from the pack's root, e.g. `scripts/main.js`. */
     readonly entry: string;
 
     #dependencies: ModuleDependencyJson[] = [];
 
+    /** Creates a module that runs the JavaScript file at `entry`. */
     constructor(entry: string) {
         super();
         this.entry = entry;
     }
 
     /**
-     * Depends on a built-in script module, e.g. `@minecraft/server`. Depending on the same module
-     * again replaces its version.
+     * Adds a built-in script module as a dependency, e.g. `@minecraft/server`.
+     *
+     * If `moduleName` is already a dependency, this call replaces it.
      */
     dependsOn(moduleName: string, version: ModuleVersion): this {
         return this.#depend({ module_name: moduleName, version });
     }
 
-    /** Like {@link dependsOn}, but the pack still loads if the module isn't available. */
+    /**
+     * Adds a built-in script module as an optional dependency.
+     *
+     * The pack still loads if the module isn't available. If `moduleName` is already a dependency,
+     * this call replaces it.
+     */
     optionallyDependsOn(moduleName: string, version: ModuleVersion): this {
         return this.#depend({ module_name: moduleName, version, optional: true });
     }
 
-    /** The built-in script modules this depends on, which a manifest writes in `dependencies`. */
+    /** The built-in script modules that this module depends on. */
     get dependencies(): readonly ModuleDependencyJson[] {
         return this.#dependencies;
     }

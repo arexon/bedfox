@@ -96,7 +96,7 @@ interface FeatureRulesQuery<T extends Definition> {
     placing(target: DefinitionCtor<Feature> | FeatureReference): Query<T>;
 }
 
-/** A query for definitions of type `T`. Create one with {@link query}. */
+/** A query for definitions of type `T`. {@link query} creates one. */
 export type Query<T extends Definition> = BaseQuery<T> &
     (Overlaps<T, Block> extends true ? BlockQuery<T> : unknown) &
     (Overlaps<T, Feature> extends true
