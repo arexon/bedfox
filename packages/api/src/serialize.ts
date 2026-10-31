@@ -2,43 +2,51 @@ const OPTIONS = new WeakMap<object, Map<string, FieldOptions>>();
 
 const SCHEMAS = new WeakMap<object, Schema>();
 
-/**
- * The method key for values that serialize as a reference inside another value, e.g. a definition
- * as its identifier.
- */
+/** The method key for values that serialize as a reference when they are inside another value. */
 export const TO_REFERENCE: unique symbol = Symbol("to_reference");
 
-/** A field decorator, only allowed on classes whose instances are `This`. */
+/** A field decorator that only accepts classes whose instances are `This`. */
 export type FieldDecorator<This extends object = object> = (prototype: This, name: string) => void;
 
 /** How a field of type `T`, on instances of `This`, serializes. Every option is off by default. */
 export interface FieldOptions<T = unknown, This extends object = object> {
-    /** The JSON key, instead of the snake_cased field name. */
+    /** The JSON key to use in place of the snake_case field name. */
     rename?: string;
     /**
-     * Nested objects to place the field inside, e.g. `["description", "menu_category"]`. It can't
-     * be combined with {@link transparent}.
+     * The nested objects that hold the field, e.g. `["description", "menu_category"]`.
+     *
+     * A nested object with no set fields is omitted. Not allowed together with
+     * {@link FieldOptions.transparent}.
      */
     within?: string | readonly string[];
     /**
-     * Keeps the keys of the field's record as written instead of snake_casing them, e.g. for
-     * user-chosen names. Keys of records nested deeper are still snake_cased.
+     * Keeps the keys of the field's record as written, e.g. for names that users choose.
+     *
+     * Only the keys at the top level of the record stay the same. Keys of records at deeper levels
+     * change to snake_case.
      */
     keepKeys?: boolean;
     /**
-     * Makes the field's value replace the whole object when no other field is set. It can't be
-     * combined with {@link within}.
+     * Makes the field's value replace the whole object when no other field is set.
+     *
+     * Only one field of a class can be transparent. Not allowed together with
+     * {@link FieldOptions.within}.
      */
     transparent?: boolean;
     /**
-     * Maps the field's value, given the instance that holds it, before the field serializes.
-     * Returning `undefined` omits the field. An empty array or object from this function stays in
-     * the JSON, unlike for other fields.
+     * Maps the field's value before it serializes.
+     *
+     * The function also runs when the field is not set. It gets the instance that holds the field
+     * as its second argument. Its result serializes like a normal value, so its keys change to
+     * snake_case.
+     *
+     * If the function returns `undefined`, the field is omitted. An empty array or object that it
+     * returns stays in the JSON.
      */
     override?: (value: T | undefined, instance: This) => unknown;
 }
 
-/** An error caused by {@link serialize()} on a static field, method or accessor. */
+/** Thrown by {@link serialize} when it decorates a static field, a method or an accessor. */
 export class DecoratedNonFieldError extends TypeError {
     constructor(name: string) {
         super(`@serialize() only works on instance fields, not '${name}'`);
@@ -46,7 +54,10 @@ export class DecoratedNonFieldError extends TypeError {
     }
 }
 
-/** An error caused by a class with more than one {@link FieldOptions.transparent} field. */
+/**
+ * Thrown when an instance serializes and its class has more than one
+ * {@link FieldOptions.transparent} field.
+ */
 export class MultipleTransparentFieldsError extends TypeError {
     constructor(className: string, first: string, second: string) {
         super(`'${className}' has two transparent fields, '${first}' and '${second}'`);
@@ -55,8 +66,8 @@ export class MultipleTransparentFieldsError extends TypeError {
 }
 
 /**
- * An error caused by a {@link FieldOptions.transparent} field placed {@link FieldOptions.within} a
- * nested object, so it can't collapse.
+ * Thrown when an instance serializes and a {@link FieldOptions.transparent} field of its class is
+ * {@link FieldOptions.within} a nested object.
  */
 export class NestedTransparentFieldError extends TypeError {
     constructor(className: string, field: string) {
@@ -65,7 +76,7 @@ export class NestedTransparentFieldError extends TypeError {
     }
 }
 
-/** An error caused by more than one field serializing under the same key. */
+/** Thrown when an instance serializes and two fields of its class use the same JSON key. */
 export class DuplicateJsonKeyError extends TypeError {
     constructor(className: string, key: string) {
         super(`'${className}' serializes more than one field under '${key}'`);
@@ -73,7 +84,7 @@ export class DuplicateJsonKeyError extends TypeError {
     }
 }
 
-/** An error caused by a value that has no JSON form, such as a `Map`. */
+/** Thrown when an instance serializes and a value has no JSON form, e.g. a `Map` or a `Set`. */
 export class UnsupportedJsonValueError extends TypeError {
     constructor(type: string) {
         super(`${type} can't be serialized to JSON`);
@@ -82,12 +93,58 @@ export class UnsupportedJsonValueError extends TypeError {
 }
 
 /**
- * Configures how a class serializes to JSON.
+ * Adds a `toJSON()` method that serializes the instances of a class.
  *
- * On a class, it installs a `toJSON()` that serializes every instance field, decorated or not. On a
- * field, it sets that field's {@link FieldOptions}.
+ * The method serializes each instance field of the class and of its superclasses, decorated or not.
+ * It skips methods, accessors, symbol keys, `#private` fields and functions. Subclasses inherit the
+ * method, so they need no decorator of their own.
+ *
+ * The values in the fields serialize as follows:
+ *
+ * - A value with a {@link TO_REFERENCE} method serializes as the result of that method.
+ * - A value with a `toJSON()` method serializes as its result, with no change to its keys.
+ * - A plain object gets snake_case keys. An array serializes each element.
+ * - Other class instances serialize their instance fields, also if their class has no decorator.
+ * - A `Map` or a `Set` throws {@link UnsupportedJsonValueError}.
+ *
+ * An empty array or object is omitted only when it is the value of a field. Inside other values, it
+ * stays.
+ *
+ * @example
+ *     @serialize
+ *     class Dirt {
+ *         destroySpeed = 2;
+ *         @serialize({ rename: "minecraft:light" }) light = 4;
+ *         @serialize({ within: "description" }) identifier = "example:dirt";
+ *         tags: string[] = [];
+ *     }
+ *
+ *     JSON.stringify(new Dirt());
+ *     // {"destroy_speed":2,"minecraft:light":4,"description":{"identifier":"example:dirt"}}
  */
 export function serialize(target: abstract new (...args: never[]) => object): void;
+/**
+ * Sets the {@link FieldOptions} of a field.
+ *
+ * The options have an effect only if the class or one of its superclasses also has `@serialize`.
+ * Subclasses inherit the options. A subclass can decorate an inherited field again. Then its
+ * options replace only the options that it sets.
+ *
+ * Invalid combinations of options throw when an instance of the class first serializes, not when
+ * the class is defined.
+ *
+ * @example
+ *     @serialize
+ *     class Light {
+ *         @serialize({ transparent: true }) level = 4;
+ *         color?: string;
+ *     }
+ *
+ *     JSON.stringify(new Light()); // 4
+ *
+ * @throws - {@link DecoratedNonFieldError} if the member is a static field, a method or an
+ *   accessor.
+ */
 export function serialize<T, This extends object = object>(
     options: FieldOptions<T, This>,
 ): FieldDecorator<This>;
