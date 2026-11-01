@@ -303,6 +303,8 @@ export class Manifest extends Resource {
             ...moduleDependencies.values(),
         ];
 
+        // TODO: Return plain JSON. The settings are class instances with `toJSON()`, so code that
+        // reads this value without `JSON.stringify()` gets the instances.
         return {
             json: {
                 format_version: 3,
