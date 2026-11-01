@@ -25,7 +25,10 @@ export class DefaultPlugin implements Plugin {
 export class ManifestPlugin implements Plugin {
     build(project: Project): void {
         project.addSystem("setup", (reg) => {
-            reg.resource(BehaviorManifest).dependsOn(reg.resource(ResourceManifest));
+            const bp = reg.resource(BehaviorManifest);
+            const rp = reg.resource(ResourceManifest);
+            bp.dependsOn(rp);
+            rp.dependsOn(bp);
         });
     }
 }
