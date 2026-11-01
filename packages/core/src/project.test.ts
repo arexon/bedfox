@@ -154,7 +154,8 @@ describe(Project.name, () => {
                 {
                     kind: "behavior",
                     path: "leaves/dirt.json",
-                    json: {
+                    format: "json",
+                    value: {
                         "test:leaf": { description: { identifier: `${NS}:dirt` } },
                     },
                 },

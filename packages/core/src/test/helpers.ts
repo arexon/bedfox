@@ -16,7 +16,7 @@ export function ids(entries: Iterable<Entry>): string[] {
 
 export function emitted(output: PackOutput, namespace = NS): unknown {
     const contents = output.emit({ namespace });
-    return "json" in contents ? json(contents.json) : contents.text;
+    return contents.format === "json" ? json(contents.value) : contents.value;
 }
 
 export async function runSetup(

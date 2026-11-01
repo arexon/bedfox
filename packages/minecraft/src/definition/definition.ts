@@ -98,7 +98,7 @@ export abstract class Definition extends Entry {
 
     /** Generates the JSON of this definition's file. */
     emit(ctx: EmitContext): Emitted {
-        return { json: toJson(this, ctx) };
+        return { format: "json", value: toJson(this, ctx) };
     }
 
     /**

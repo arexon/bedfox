@@ -434,7 +434,8 @@ describe(ManifestPlugin.name, () => {
         expect(json(bp)).toStrictEqual({
             kind: "behavior",
             path: "manifest.json",
-            json: expectedManifest({ dependencies: [RP_DEPENDENCY] }),
+            format: "json",
+            value: expectedManifest({ dependencies: [RP_DEPENDENCY] }),
         });
         expect([rp.kind, rp.path]).toStrictEqual(["resource", "manifest.json"]);
     });
@@ -449,7 +450,8 @@ describe(ManifestPlugin.name, () => {
         expect(json(reg.emit()[0])).toStrictEqual({
             kind: "behavior",
             path: "manifest.json",
-            json: expectedManifest({
+            format: "json",
+            value: expectedManifest({
                 modules: [
                     {
                         type: "data",

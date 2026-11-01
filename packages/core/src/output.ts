@@ -7,8 +7,15 @@ export interface EmitContext {
     readonly namespace: string;
 }
 
-/** The contents of a pack file: a value for `JSON.stringify()`, or text. */
-export type Emitted = { readonly json: unknown } | { readonly text: string };
+/**
+ * The contents of a pack file. `format` tells how to write `value`.
+ *
+ * - `json`: a value for `JSON.stringify()`.
+ * - `text`: the text of the file.
+ */
+export type Emitted =
+    | { readonly format: "json"; readonly value: unknown }
+    | { readonly format: "text"; readonly value: string };
 
 /** An object that becomes a file in a pack. */
 export interface PackOutput {

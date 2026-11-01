@@ -27,7 +27,7 @@ abstract class Named extends Entry {
     }
 
     emit(ctx: EmitContext): Emitted {
-        return { json: toJson(this, ctx) };
+        return { format: "json", value: toJson(this, ctx) };
     }
 
     override toReference(ctx?: EmitContext): string {
@@ -111,7 +111,7 @@ export class Notes extends Resource {
     }
 
     emit(): Emitted {
-        return { text: this.lines.join("\n") };
+        return { format: "text", value: this.lines.join("\n") };
     }
 
     override isEmpty(): boolean {
@@ -129,6 +129,6 @@ export class Clash extends Resource {
     }
 
     emit(): Emitted {
-        return { json: {} };
+        return { format: "json", value: {} };
     }
 }
