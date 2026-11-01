@@ -134,7 +134,13 @@ importers:
         specifier: 'catalog:'
         version: 1.4.0(@types/node@26.6.5)(@vitest/ui@5.0.5)(typescript@7.0.2)
 
-  packages/api: {}
+  packages/core: {}
+
+  packages/minecraft:
+    devDependencies:
+      '@bedfox/core':
+        specifier: workspace:*
+        version: link:../core
 
 packages:
 

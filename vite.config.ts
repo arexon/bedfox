@@ -6,7 +6,7 @@ export default defineConfig({
     },
     pack: {
         dts: true,
-        entry: ["src/*/index.ts", "src/*.ts", "!src/**/*.test.ts"],
+        entry: ["src/index.ts", "src/*/index.ts", "!src/**/*.test.ts"],
         exports: { devExports: true },
         unbundle: true,
     },
@@ -39,7 +39,12 @@ export default defineConfig({
                                         "Use the `#/` subpath alias instead of relative imports.",
                                 },
                                 {
-                                    group: ["#/core/index", "#/feature/index"],
+                                    group: [
+                                        "#/index",
+                                        "#/component/index",
+                                        "#/definition/index",
+                                        "#/feature/index",
+                                    ],
                                     message:
                                         "Import the module that defines the name - barrels are for package entry points.",
                                 },
