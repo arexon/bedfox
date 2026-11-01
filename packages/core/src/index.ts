@@ -6,8 +6,13 @@ export {
     PluginFailedError,
     SystemAddedDuringRunError,
 } from "#/plugin";
-export { NothingToEmitError, Project, RunInProgressError } from "#/project";
-export { DuplicatePathError, type Registry, RegistryClosedError } from "#/registry";
+export { Project, RunInProgressError } from "#/project";
+export {
+    DuplicatePathError,
+    type FrozenRegistry,
+    type Registry,
+    RegistryFrozenError,
+} from "#/registry";
 export * from "#/resource";
 export type { Schedule } from "#/schedule";
 export * from "#/serialize";

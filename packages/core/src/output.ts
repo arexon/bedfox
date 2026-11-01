@@ -20,7 +20,7 @@ export interface PackOutput {
     emit(ctx: EmitContext): Emitted;
 }
 
-/** A pack file that {@link Project.emit} generates. */
+/** A pack file that {@link FrozenRegistry.emit} generates. */
 export type PackFile = {
     /** The kind of pack that holds the file. */
     readonly kind: PackKind;

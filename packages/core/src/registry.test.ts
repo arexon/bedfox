@@ -3,7 +3,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { beforeAll, describe, expect, test } from "vite-plus/test";
 
 import { Entry } from "#/entry";
-import { DuplicatePathError, type Registry, RegistryClosedError } from "#/registry";
+import { DuplicatePathError, type Registry, RegistryFrozenError } from "#/registry";
 import { Branch, Clash, Custom, Leaf, Node, Notes, Twig } from "#/test/fixtures";
 import { ids, NS, registryWith, runSetup } from "#/test/helpers";
 
@@ -181,12 +181,12 @@ describe("Registry", () => {
             const reg = await registryWith(dirt);
             expect(() => reg.add(new Leaf("stone"))).toThrow(
                 expect.objectContaining({
-                    name: "RegistryClosedError",
+                    name: "RegistryFrozenError",
                     message:
                         "Can't change a registry after its run ended. A system may have kept the registry, or changed it from async work",
                 }),
             );
-            expect(() => reg.remove(dirt)).toThrow(RegistryClosedError);
+            expect(() => reg.remove(dirt)).toThrow(RegistryFrozenError);
             expect([...reg.entries()]).toStrictEqual([dirt]);
         });
 
@@ -195,7 +195,7 @@ describe("Registry", () => {
             await runSetup(NS, (reg) => {
                 late.push(delay(1).then(() => reg.add(new Leaf("dirt"))));
             });
-            await expect(late[0]).rejects.toThrow(RegistryClosedError);
+            await expect(late[0]).rejects.toThrow(RegistryFrozenError);
         });
     });
 
@@ -236,7 +236,7 @@ describe("Registry", () => {
                 reg.resource(Notes);
             });
             expect(reg.resource(Notes)).toBeInstanceOf(Notes);
-            expect(() => reg.resource(Clash)).toThrow(RegistryClosedError);
+            expect(() => reg.resource(Clash)).toThrow(RegistryFrozenError);
         });
     });
 

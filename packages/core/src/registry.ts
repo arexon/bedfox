@@ -1,9 +1,9 @@
 import { Entry, type EntryCtor, type Reference } from "#/entry";
-import type { PackKind, PackOutput } from "#/output";
+import type { PackFile, PackKind, PackOutput } from "#/output";
 import type { Resource, ResourceCtor } from "#/resource";
 
 export const INVALIDATE: unique symbol = Symbol("invalidate");
-export const CLOSE: unique symbol = Symbol("close");
+export const FREEZE: unique symbol = Symbol("freeze");
 
 /**
  * The pack files of one project run.
@@ -15,8 +15,8 @@ export const CLOSE: unique symbol = Symbol("close");
  * - Resources, such as manifests. A registry holds at most one resource of each class.
  *   {@link Registry.resource} creates it the first time that a system asks for it.
  *
- * Each run gets a new registry. When the run ends, the registry closes. Reads still work, but
- * changes throw {@link RegistryClosedError}.
+ * Each run gets a new registry. When the run ends, the registry freezes. Reads still work, but
+ * changes throw {@link RegistryFrozenError}.
  */
 export class Registry {
     /** The project's namespace, e.g. `example` in `example:dirt`. */
@@ -24,7 +24,7 @@ export class Registry {
 
     #members = new Set<Entry>();
     #resources = new Map<ResourceCtor, Resource>();
-    #closed = false;
+    #frozen = false;
     #referenced?: Map<string, Reference[]>;
     #byKey?: Map<string, Entry[]>;
     #byPath: Record<PackKind, Map<string, PackOutput>> = {
@@ -50,10 +50,10 @@ export class Registry {
      *
      * @throws - {@link DuplicatePathError} if an entry has the same path as another file in its
      *   pack.
-     * @throws - {@link RegistryClosedError} after the run ends.
+     * @throws - {@link RegistryFrozenError} after the run ends.
      */
     add(...entries: Entry[]): this {
-        this.#assertOpen();
+        this.#assertNotFrozen();
         const added: Entry[] = [];
         try {
             this.#register(entries, added);
@@ -90,10 +90,10 @@ export class Registry {
      *
      * The entries that they reference stay in the registry.
      *
-     * @throws - {@link RegistryClosedError} after the run ends.
+     * @throws - {@link RegistryFrozenError} after the run ends.
      */
     remove(...entries: Entry[]): void {
-        this.#assertOpen();
+        this.#assertNotFrozen();
         this.#unregister(entries);
     }
 
@@ -105,8 +105,8 @@ export class Registry {
         this.#invalidate();
     }
 
-    #assertOpen(): void {
-        if (this.#closed) throw new RegistryClosedError();
+    #assertNotFrozen(): void {
+        if (this.#frozen) throw new RegistryFrozenError();
     }
 
     /**
@@ -183,12 +183,12 @@ export class Registry {
      *
      * @throws - {@link DuplicatePathError} if the new resource has the same path as another file in
      *   its pack.
-     * @throws - {@link RegistryClosedError} if the run ended and the resource doesn't exist.
+     * @throws - {@link RegistryFrozenError} if the run ended and the resource doesn't exist.
      */
     resource<T extends Resource>(ctor: ResourceCtor<T>): T {
         let resource = this.#resources.get(ctor);
         if (resource === undefined) {
-            this.#assertOpen();
+            this.#assertNotFrozen();
             resource = new ctor();
             const paths = this.#byPath[resource.kind];
             const taken = paths.get(resource.path);
@@ -221,18 +221,92 @@ export class Registry {
         this.#invalidate();
     }
 
-    [CLOSE](): void {
-        this.#closed = true;
+    [FREEZE](): void {
+        this.#frozen = true;
+    }
+}
+
+/**
+ * The registry of a run that ended without an error. {@link Project.run} returns it.
+ *
+ * It reads the registry, but can't change it. {@link FrozenRegistry.emit} generates the pack files.
+ */
+export class FrozenRegistry {
+    readonly #reg: Registry;
+
+    constructor(reg: Registry) {
+        this.#reg = reg;
+    }
+
+    /** The project's namespace, e.g. `example` in `example:dirt`. */
+    get namespace(): string {
+        return this.#reg.namespace;
+    }
+
+    /** Iterates over every entry. See {@link Registry.entries}. */
+    entries(): Generator<Entry, void, unknown> {
+        return this.#reg.entries();
+    }
+
+    /** Finds entries by class and key. See {@link Registry.resolve}. */
+    resolve<T extends Entry>(ctor: EntryCtor<T>, key: string): T[] {
+        return this.#reg.resolve(ctor, key);
+    }
+
+    /** Whether `ref` points at `target`. See {@link Registry.matches}. */
+    matches(ref: Reference, target: EntryCtor | Entry | string): boolean {
+        return this.#reg.matches(ref, target);
+    }
+
+    /** Whether any entry in the registry references `entry`. */
+    isReferenced(entry: Entry): boolean {
+        return this.#reg.isReferenced(entry);
+    }
+
+    /**
+     * Returns the resource of class `ctor` that the run created.
+     *
+     * @throws - {@link RegistryFrozenError} if the run didn't create a resource of class `ctor`.
+     */
+    resource<T extends Resource>(ctor: ResourceCtor<T>): T {
+        return this.#reg.resource(ctor);
+    }
+
+    /** Iterates over every file that the registry holds. See {@link Registry.outputs}. */
+    outputs(): Generator<PackOutput, void, unknown> {
+        return this.#reg.outputs();
+    }
+
+    /**
+     * Generates the pack files.
+     *
+     * Each file has the kind of pack, the path, and the contents that the output's `emit()`
+     * generates with the project's namespace. The files come in the order of
+     * {@link Registry.outputs}.
+     *
+     * @example
+     *     const reg = await project.run();
+     *     for (const file of reg.emit()) {
+     *         console.log(file.kind, file.path);
+     *     }
+     */
+    emit(): PackFile[] {
+        const ctx = { namespace: this.namespace };
+        return Array.from(this.outputs(), (output) => ({
+            kind: output.kind,
+            path: output.path,
+            ...output.emit(ctx),
+        }));
     }
 }
 
 /** Thrown when a system changes a registry after its run ended. */
-export class RegistryClosedError extends Error {
+export class RegistryFrozenError extends Error {
     constructor() {
         super(
             "Can't change a registry after its run ended. A system may have kept the registry, or changed it from async work",
         );
-        this.name = "RegistryClosedError";
+        this.name = "RegistryFrozenError";
     }
 }
 

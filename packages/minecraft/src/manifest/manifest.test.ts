@@ -430,8 +430,7 @@ describe(ManifestPlugin.name, () => {
 
     test("adds both manifests, with the behavior pack depending on the resource pack", async () => {
         const project = new Project(NS).addPlugin(new ManifestPlugin());
-        await project.run();
-        const [bp, rp] = project.emit();
+        const [bp, rp] = (await project.run()).emit();
         expect(json(bp)).toStrictEqual({
             kind: "behavior",
             path: "manifest.json",
@@ -446,8 +445,8 @@ describe(ManifestPlugin.name, () => {
                 reg.resource(BehaviorManifest).module(new ScriptModule("scripts/main.js"));
             })
             .addPlugin(new ManifestPlugin());
-        await project.run();
-        expect(json(project.emit()[0])).toStrictEqual({
+        const reg = await project.run();
+        expect(json(reg.emit()[0])).toStrictEqual({
             kind: "behavior",
             path: "manifest.json",
             json: expectedManifest({

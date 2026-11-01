@@ -1,6 +1,5 @@
-import type { PackFile } from "#/output";
 import { loadPlugins, type Plugin, SystemAddedDuringRunError } from "#/plugin";
-import { CLOSE, Registry } from "#/registry";
+import { FREEZE, FrozenRegistry, Registry } from "#/registry";
 import { type Schedule, Schedules } from "#/schedule";
 import { type PreparedSystem, runSystems, type System } from "#/system";
 
@@ -14,7 +13,8 @@ interface PluginCall {
  * The systems and plugins that make an Add-On.
  *
  * Each run uses a new {@link Registry} and starts again from nothing, so a project can run again
- * after its source files change. After a run, {@link Project.emit} generates the pack files.
+ * after its source files change. {@link Project.run} returns the {@link FrozenRegistry} of the run,
+ * which generates the pack files.
  *
  * Systems run on three schedules: `setup`, then `transform`, then `finalize`. A definition created
  * outside a system keeps the changes of earlier runs.
@@ -35,8 +35,8 @@ interface PluginCall {
  *             .orphan()
  *             .intoSystem((reg, features) => reg.remove(...features)),
  *     );
- *     await project.run();
- *     const files = project.emit();
+ *     const reg = await project.run();
+ *     const files = reg.emit();
  */
 export class Project {
     /** The namespace of the project's definitions, e.g. `example` in `example:dirt`. */
@@ -44,7 +44,6 @@ export class Project {
 
     #systems = new Schedules();
     #plugins: Plugin[] = [];
-    #registry?: Registry;
     #state: "idle" | "running" | PluginCall = "idle";
 
     /** Creates a project for `namespace`, e.g. `example` in `example:dirt`. */
@@ -126,19 +125,18 @@ export class Project {
      * system. Then it runs the systems, schedule by schedule. If a plugin or a `prepare` step
      * fails, no system runs.
      *
-     * When the run ends, its registry closes, also when the run fails. If the run fails,
-     * {@link Project.emit} throws until the next run ends without an error.
+     * When the run ends, its registry freezes, also when the run fails. If the run ends without an
+     * error, it returns the registry as a {@link FrozenRegistry}.
      *
      * @throws - {@link RunInProgressError} if the project already runs.
      * @throws - {@link PluginFailedError} if a plugin fails.
      * @throws - {@link DuplicatePluginError} if two plugins have the same class.
      * @throws - {@link SystemFailedError} if a system or a `prepare` step fails.
      */
-    async run(): Promise<void> {
+    async run(): Promise<FrozenRegistry> {
         if (this.#state !== "idle") throw new RunInProgressError();
         this.#state = "running";
         try {
-            this.#registry = undefined;
             const schedules = this.#systems.copy();
             await loadPlugins(this.#plugins, async (plugin, path) => {
                 const call: PluginCall = { schedules, plugins: [], path };
@@ -155,49 +153,12 @@ export class Project {
             try {
                 await runSystems(schedules.list(), reg);
             } finally {
-                reg[CLOSE]();
+                reg[FREEZE]();
             }
-            this.#registry = reg;
+            return new FrozenRegistry(reg);
         } finally {
             this.#state = "idle";
         }
-    }
-
-    /**
-     * Generates the pack files of the last run.
-     *
-     * Each file has the kind of pack, the path, and the contents that the output's `emit()`
-     * generates with the project's namespace. The files come in the order of
-     * {@link Registry.outputs}.
-     *
-     * @example
-     *     await project.run();
-     *     for (const file of project.emit()) {
-     *         console.log(file.kind, file.path);
-     *     }
-     *
-     * @throws - {@link RunInProgressError} if the project runs.
-     * @throws - {@link NothingToEmitError} if no run ended without an error, or the last run
-     *   failed.
-     */
-    emit(): PackFile[] {
-        if (this.#state !== "idle") throw new RunInProgressError();
-        const reg = this.#registry;
-        if (reg === undefined) throw new NothingToEmitError();
-        const ctx = { namespace: this.namespace };
-        return Array.from(reg.outputs(), (output) => ({
-            kind: output.kind,
-            path: output.path,
-            ...output.emit(ctx),
-        }));
-    }
-}
-
-/** Thrown by {@link Project.emit} when no run ended without an error. */
-export class NothingToEmitError extends Error {
-    constructor() {
-        super("Can't emit files before a run ends without an error");
-        this.name = "NothingToEmitError";
     }
 }
 

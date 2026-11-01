@@ -3,10 +3,10 @@ import { setTimeout as delay } from "node:timers/promises";
 import { describe, expect, test } from "vite-plus/test";
 
 import { type Plugin, PluginFailedError, SystemAddedDuringRunError } from "#/plugin";
-import { NothingToEmitError, Project, RunInProgressError } from "#/project";
-import { type Registry, RegistryClosedError } from "#/registry";
+import { Project } from "#/project";
+import { FrozenRegistry, type Registry, RegistryFrozenError } from "#/registry";
 import { prepared, SystemFailedError } from "#/system";
-import { Leaf, Notes } from "#/test/fixtures";
+import { Clash, Leaf, Notes } from "#/test/fixtures";
 import { ids, json, NS } from "#/test/helpers";
 
 class LangPlugin implements Plugin {
@@ -116,7 +116,7 @@ describe(Project.name, () => {
                 }),
             );
             await first;
-            await expect(project.run()).resolves.toBeUndefined();
+            await expect(project.run()).resolves.toBeInstanceOf(FrozenRegistry);
         });
 
         test("can run again after a failed run", async () => {
@@ -126,10 +126,10 @@ describe(Project.name, () => {
             });
             await expect(project.run()).rejects.toThrow(SystemFailedError);
             fail = false;
-            await expect(project.run()).resolves.toBeUndefined();
+            await expect(project.run()).resolves.toBeInstanceOf(FrozenRegistry);
         });
 
-        test("closes the registry after a failed run", async () => {
+        test("freezes the registry after a failed run", async () => {
             let kept: Registry;
             const project = new Project(NS).addSystem(
                 (reg) => {
@@ -140,17 +140,17 @@ describe(Project.name, () => {
                 },
             );
             await expect(project.run()).rejects.toThrow(SystemFailedError);
-            expect(() => kept.add(new Leaf("dirt"))).toThrow(RegistryClosedError);
+            expect(() => kept.add(new Leaf("dirt"))).toThrow(RegistryFrozenError);
         });
     });
 
-    describe("emit()", () => {
-        test("generates the files of the last run, with the project's namespace", async () => {
+    describe("the returned registry", () => {
+        test("emits the files of the run, with the project's namespace", async () => {
             const project = new Project(NS).addSystem("setup", (reg) => {
                 reg.add(new Leaf("dirt"));
             });
-            await project.run();
-            expect(json(project.emit())).toStrictEqual([
+            const reg = await project.run();
+            expect(json(reg.emit())).toStrictEqual([
                 {
                     kind: "behavior",
                     path: "leaves/dirt.json",
@@ -161,41 +161,29 @@ describe(Project.name, () => {
             ]);
         });
 
-        test("puts resources before entries", async () => {
+        test("emits resources before entries", async () => {
             const project = new Project(NS).addSystem("setup", (reg) => {
                 reg.add(new Leaf("dirt"));
                 reg.resource(Notes).lines.push("hello");
             });
-            await project.run();
-            expect(project.emit().map((file) => `${file.kind}/${file.path}`)).toStrictEqual([
+            const reg = await project.run();
+            expect(reg.emit().map((file) => `${file.kind}/${file.path}`)).toStrictEqual([
                 "resource/notes.txt",
                 "behavior/leaves/dirt.json",
             ]);
         });
 
-        test("rejects an emit before a run ends without an error", async () => {
-            let fail = true;
-            const project = new Project(NS).addSystem(
-                prepared(
-                    () => delay(1),
-                    () => {
-                        if (fail) throw new Error("boom");
-                    },
-                ),
-            );
-            expect(() => project.emit()).toThrow(
-                expect.objectContaining({
-                    name: "NothingToEmitError",
-                    message: "Can't emit files before a run ends without an error",
-                }),
-            );
-            const run = project.run();
-            expect(() => project.emit()).toThrow(RunInProgressError);
-            await expect(run).rejects.toThrow(SystemFailedError);
-            expect(() => project.emit()).toThrow(NothingToEmitError);
-            fail = false;
-            await project.run();
-            expect(project.emit()).toStrictEqual([]);
+        test("reads the run's entries and resources, but can't create resources", async () => {
+            const dirt = new Leaf("dirt");
+            const project = new Project(NS).addSystem("setup", (reg) => {
+                reg.add(dirt);
+                reg.resource(Notes);
+            });
+            const reg = await project.run();
+            expect([reg.namespace, [...reg.entries()]]).toStrictEqual([NS, [dirt]]);
+            expect(reg.resolve(Leaf, `${NS}:dirt`)).toStrictEqual([dirt]);
+            expect(reg.resource(Notes)).toBeInstanceOf(Notes);
+            expect(() => reg.resource(Clash)).toThrow(RegistryFrozenError);
         });
     });
 

@@ -17,7 +17,7 @@ export abstract class Resource implements PackOutput {
     abstract emit(ctx: EmitContext): Emitted;
 
     /**
-     * Returns `true` if the resource has no data to write. {@link Project.emit} skips empty
+     * Returns `true` if the resource has no data to write. {@link FrozenRegistry.emit} skips empty
      * resources.
      *
      * By default, it returns `false`.
