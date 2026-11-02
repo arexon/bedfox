@@ -38,8 +38,7 @@ export class DefaultPlugin implements Plugin {
  * - A header UUID that it derives from the namespace and the kind of pack. Thus the UUIDs stay the
  *   same between builds.
  * - The min engine version: {@link DEFAULT_MIN_ENGINE_VERSION}.
- * - A `bedfox` entry in `generated_with`, with the versions of `@bedfox/core` and
- *   `@bedfox/minecraft`.
+ * - Two entries in `generated_with`: `@bedfox/core` and `@bedfox/minecraft`, with their versions.
  *
  * The other systems run later, so they can change these values. Each pack depends on the other.
  */
@@ -53,12 +52,12 @@ function addManifests(reg: Registry): void {
     const bp = reg.resource(BehaviorManifest);
     const rp = reg.resource(ResourceManifest);
     for (const manifest of [bp, rp]) {
-        const kind = manifest.kind;
         manifest
-            .setName(`${reg.namespace} ${NAME_SUFFIXES[kind]}`)
-            .setUuid(deriveUuid(`${reg.namespace}/${kind}/header`))
+            .setName(`${reg.namespace} ${NAME_SUFFIXES[manifest.kind]}`)
+            .setUuid(deriveUuid(`${reg.namespace}/${manifest.kind}/header`))
             .setMinEngineVersion(DEFAULT_MIN_ENGINE_VERSION)
-            .setGeneratedWith("bedfox", corePkg.version, pkg.version);
+            .setGeneratedWith(corePkg.name, corePkg.version)
+            .setGeneratedWith(pkg.name, pkg.version);
     }
     bp.addDependency(rp);
     rp.addDependency(bp);

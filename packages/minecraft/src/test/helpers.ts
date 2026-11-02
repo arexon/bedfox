@@ -13,7 +13,10 @@ import pkg from "#package.json" with { type: "json" };
 
 export const NS = "test";
 
-export const BEDFOX_VERSIONS = [corePkg.version, pkg.version];
+export const GENERATED_WITH = {
+    [corePkg.name]: [corePkg.version],
+    [pkg.name]: [pkg.version],
+};
 
 export function json(value: unknown): unknown {
     return JSON.parse(JSON.stringify(value));

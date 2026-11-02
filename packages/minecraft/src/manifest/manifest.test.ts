@@ -18,7 +18,7 @@ import {
 } from "#/manifest/index";
 import { deriveUuid } from "#/manifest/uuid";
 import { DEFAULT_MIN_ENGINE_VERSION, ManifestPlugin } from "#/plugins/index";
-import { BEDFOX_VERSIONS, emitted, expectedManifest, json, NS } from "#/test/helpers";
+import { GENERATED_WITH, emitted, expectedManifest, json, NS } from "#/test/helpers";
 
 // UUIDs for the tests that set their own instead of deriving them.
 const PACK_UUID = "293b30c7-f6b1-4ab8-8990-3cb047c030c3";
@@ -229,9 +229,9 @@ describe(Manifest.name, () => {
     });
 
     describe("setGeneratedWith()", () => {
-        test("records Bedfox like any other tool", () => {
-            expect(emitted(bp().setGeneratedWith("bedfox", "0.0.1"))).toStrictEqual(
-                expectedManifest({ metadata: { generated_with: { bedfox: ["0.0.1"] } } }),
+        test("records Bedfox packages like any other tool", () => {
+            expect(emitted(bp().setGeneratedWith("@bedfox/core", "0.0.1"))).toStrictEqual(
+                expectedManifest({ metadata: { generated_with: { "@bedfox/core": ["0.0.1"] } } }),
             );
         });
 
@@ -492,7 +492,7 @@ describe(ManifestPlugin.name, () => {
     const RP_DEPENDENCY = { uuid: RP_UUID, version: "1.0.0" };
     const DEFAULTS = {
         header: { min_engine_version: DEFAULT_MIN_ENGINE_VERSION },
-        metadata: { generated_with: { bedfox: BEDFOX_VERSIONS } },
+        metadata: { generated_with: GENERATED_WITH },
     };
 
     test("adds both manifests with their defaults, each depending on the other", async () => {
@@ -528,7 +528,7 @@ describe(ManifestPlugin.name, () => {
             .addSystem("setup", (reg) => {
                 reg.resource(BehaviorManifest)
                     .setName("Custom")
-                    .setGeneratedWith("bedfox", "custom");
+                    .setGeneratedWith("@bedfox/minecraft", "custom");
             })
             .addPlugin(new ManifestPlugin());
         const [behavior] = (await project.run()).emit();
@@ -538,7 +538,9 @@ describe(ManifestPlugin.name, () => {
             format: "json",
             value: expectedManifest({
                 header: { ...DEFAULTS.header, name: "Custom" },
-                metadata: { generated_with: { bedfox: ["custom"] } },
+                metadata: {
+                    generated_with: { ...GENERATED_WITH, "@bedfox/minecraft": ["custom"] },
+                },
                 dependencies: [RP_DEPENDENCY],
             }),
         });
