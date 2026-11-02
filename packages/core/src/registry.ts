@@ -179,7 +179,7 @@ export class Registry {
      * same resource.
      *
      * @example
-     *     reg.resource(BehaviorManifest).authors("Steve");
+     *     reg.resource(BehaviorManifest).addAuthor("Steve");
      *
      * @throws - {@link DuplicatePathError} if the new resource has the same path as another file in
      *   its pack.

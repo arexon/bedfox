@@ -55,11 +55,11 @@ function addManifests(reg: Registry): void {
     for (const manifest of [bp, rp]) {
         const kind = manifest.kind;
         manifest
-            .name(`${reg.namespace} ${NAME_SUFFIXES[kind]}`)
-            .uuid(deriveUuid(`${reg.namespace}/${kind}/header`))
-            .minEngineVersion(DEFAULT_MIN_ENGINE_VERSION)
-            .generatedWith("bedfox", corePkg.version, pkg.version);
+            .setName(`${reg.namespace} ${NAME_SUFFIXES[kind]}`)
+            .setUuid(deriveUuid(`${reg.namespace}/${kind}/header`))
+            .setMinEngineVersion(DEFAULT_MIN_ENGINE_VERSION)
+            .setGeneratedWith("bedfox", corePkg.version, pkg.version);
     }
-    bp.dependsOn(rp);
-    rp.dependsOn(bp);
+    bp.addDependency(rp);
+    rp.addDependency(bp);
 }

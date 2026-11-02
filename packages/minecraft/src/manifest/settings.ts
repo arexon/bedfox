@@ -6,7 +6,7 @@ export interface SettingOption {
     text: string;
 }
 
-/** A setting in a pack's settings screen, for `Manifest.setting()`. */
+/** A setting in a pack's settings screen, for `Manifest.addSetting()`. */
 export type Setting =
     | LabelSetting
     | ToggleSetting
@@ -51,7 +51,7 @@ export class ToggleSetting extends NamedSetting {
      *
      * @default false
      */
-    default(on: boolean): this {
+    setDefault(on: boolean): this {
         this.#default = on;
         return this;
     }
@@ -86,7 +86,7 @@ export class SliderSetting extends NamedSetting {
      *
      * @default 1
      */
-    step(step: number): this {
+    setStep(step: number): this {
         this.#step = step;
         return this;
     }
@@ -96,7 +96,7 @@ export class SliderSetting extends NamedSetting {
      *
      * By default, the slider starts at `min`.
      */
-    default(value: number): this {
+    setDefault(value: number): this {
         this.#default = value;
         return this;
     }
@@ -124,7 +124,7 @@ export class DropdownSetting extends NamedSetting {
     #default?: string;
 
     /** Adds an option. When a player selects the option, `name` is the setting's value. */
-    option(name: string, text: string): this {
+    addOption(name: string, text: string): this {
         this.#options.push({ name, text });
         return this;
     }
@@ -134,7 +134,7 @@ export class DropdownSetting extends NamedSetting {
      *
      * By default, the dropdown starts on the first option.
      */
-    default(name: string): this {
+    setDefault(name: string): this {
         this.#default = name;
         return this;
     }
@@ -161,7 +161,7 @@ export class MultiSelectSetting extends NamedSetting {
     #selectionText?: string;
 
     /** Adds an option. When a player selects the option, `name` is in the setting's value. */
-    option(name: string, text: string): this {
+    addOption(name: string, text: string): this {
         this.#options.push({ name, text });
         return this;
     }
@@ -171,13 +171,13 @@ export class MultiSelectSetting extends NamedSetting {
      *
      * By default, the setting starts with no options selected.
      */
-    defaults(...names: string[]): this {
+    addDefault(...names: string[]): this {
         this.#defaults.push(...names);
         return this;
     }
 
     /** Sets the text that describes the selected options. */
-    selectionText(text: string): this {
+    setSelectionText(text: string): this {
         this.#selectionText = text;
         return this;
     }

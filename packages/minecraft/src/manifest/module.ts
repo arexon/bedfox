@@ -33,7 +33,7 @@ export interface ModuleDependencyJson {
 }
 
 /**
- * A module of a pack, for `Manifest.module()`.
+ * A module of a pack, for `Manifest.addModule()`.
  *
  * The manifest derives the module's UUID from the header UUID. The module uses the manifest's
  * version. {@link uuid} and {@link version} set other values.
@@ -47,19 +47,19 @@ export abstract class ManifestModule {
     #version?: Version;
 
     /** Sets a description of the module's content. */
-    description(description: string): this {
+    setDescription(description: string): this {
         this.#description = description;
         return this;
     }
 
     /** Sets the module's UUID, instead of the UUID that the manifest derives. */
-    uuid(uuid: string): this {
+    setUuid(uuid: string): this {
         this.#uuid = uuid;
         return this;
     }
 
     /** Sets the module's version, instead of the manifest's version. */
-    version(version: Version): this {
+    setVersion(version: Version): this {
         this.#version = version;
         return this;
     }
@@ -91,8 +91,8 @@ export class ResourcesModule extends ManifestModule {
  *
  * @example
  *     new ScriptModule("scripts/main.js")
- *         .dependsOn("@minecraft/server", "2.1.0")
- *         .optionallyDependsOn("@minecraft/server-ui", "2.0.0");
+ *         .addDependency("@minecraft/server", "2.1.0")
+ *         .addOptionalDependency("@minecraft/server-ui", "2.0.0");
  */
 export class ScriptModule extends ManifestModule {
     readonly type = "script";
@@ -113,7 +113,7 @@ export class ScriptModule extends ManifestModule {
      *
      * If `moduleName` is already a dependency, this call replaces it.
      */
-    dependsOn(moduleName: string, version: ModuleVersion): this {
+    addDependency(moduleName: string, version: ModuleVersion): this {
         return this.#depend({ module_name: moduleName, version });
     }
 
@@ -123,7 +123,7 @@ export class ScriptModule extends ManifestModule {
      * The pack still loads if the module isn't available. If `moduleName` is already a dependency,
      * this call replaces it.
      */
-    optionallyDependsOn(moduleName: string, version: ModuleVersion): this {
+    addOptionalDependency(moduleName: string, version: ModuleVersion): this {
         return this.#depend({ module_name: moduleName, version, optional: true });
     }
 

@@ -39,8 +39,10 @@ interface SubpackJson {
  * @example
  *     project.addSystem("setup", (reg) => {
  *         reg.resource(BehaviorManifest)
- *             .authors("Steve")
- *             .module(new ScriptModule("scripts/main.js").dependsOn("@minecraft/server", "2.1.0"));
+ *             .addAuthor("Steve")
+ *             .addModule(
+ *                 new ScriptModule("scripts/main.js").addDependency("@minecraft/server", "2.1.0"),
+ *             );
  *     });
  */
 export class Manifest extends Resource {
@@ -85,13 +87,13 @@ export class Manifest extends Resource {
     }
 
     /** Sets the name that the game shows in the pack list. */
-    name(name: string): this {
+    setName(name: string): this {
         this.#name = name;
         return this;
     }
 
     /** Sets the description that the game shows under the name. */
-    description(description: string): this {
+    setDescription(description: string): this {
         this.#description = description;
         return this;
     }
@@ -101,34 +103,40 @@ export class Manifest extends Resource {
      *
      * @default "1.0.0"
      */
-    version(version: Version): this {
+    setVersion(version: Version): this {
         this.#version = version;
         return this;
     }
 
     /** Sets the oldest game version that the pack supports, e.g. `1.26.50`. */
-    minEngineVersion(version: Version): this {
+    setMinEngineVersion(version: Version): this {
         this.#minEngineVersion = version;
         return this;
     }
 
     /** Sets where players can apply the pack, e.g. `world` to apply it only to worlds. */
-    scope(scope: PackScope): this {
+    setScope(scope: PackScope): this {
         this.#scope = scope;
         return this;
     }
 
     /** Sets the header UUID. The UUIDs of the modules derive from it, unless they set their own. */
-    uuid(uuid: string): this {
+    setUuid(uuid: string): this {
         this.#uuid = uuid;
         return this;
     }
 
     /** Adds modules, in order. The manifest skips a module that it already has. */
-    module(...modules: ManifestModule[]): this {
+    addModule(...modules: ManifestModule[]): this {
         for (const module of modules) {
             if (!this.#modules.includes(module)) this.#modules.push(module);
         }
+        return this;
+    }
+
+    /** Removes modules. The manifest skips a module that it doesn't have. */
+    removeModule(...modules: ManifestModule[]): this {
+        this.#modules = this.#modules.filter((module) => !modules.includes(module));
         return this;
     }
 
@@ -138,13 +146,19 @@ export class Manifest extends Resource {
      * The dependency uses the header UUID and the version that `pack` has when this manifest emits.
      * The manifest skips a pack that is already a dependency.
      */
-    dependsOn(pack: Manifest): this {
+    addDependency(pack: Manifest): this {
         if (!this.#dependencies.includes(pack)) this.#dependencies.push(pack);
         return this;
     }
 
+    /** Removes another pack as a dependency. The manifest skips a pack that isn't a dependency. */
+    removeDependency(pack: Manifest): this {
+        this.#dependencies = this.#dependencies.filter((dependency) => dependency !== pack);
+        return this;
+    }
+
     /** Enables optional engine features, e.g. `pbr`. The manifest skips a feature that is on. */
-    capabilities(...names: PackCapability[]): this {
+    addCapability(...names: PackCapability[]): this {
         for (const name of names) {
             if (!this.#capabilities.includes(name)) this.#capabilities.push(name);
         }
@@ -152,19 +166,19 @@ export class Manifest extends Resource {
     }
 
     /** Adds authors of the pack. */
-    authors(...names: string[]): this {
+    addAuthor(...names: string[]): this {
         this.#authors.push(...names);
         return this;
     }
 
     /** Sets the pack's license, e.g. `MIT`. */
-    license(license: string): this {
+    setLicense(license: string): this {
         this.#license = license;
         return this;
     }
 
     /** Sets the URL of the pack's home page. */
-    url(url: string): this {
+    setUrl(url: string): this {
         this.#url = url;
         return this;
     }
@@ -175,7 +189,7 @@ export class Manifest extends Resource {
      * The game accepts only `addon`, for packs that players add to worlds. The value doesn't change
      * how the pack works.
      */
-    productType(productType: "addon"): this {
+    setProductType(productType: "addon"): this {
         this.#productType = productType;
         return this;
     }
@@ -186,9 +200,9 @@ export class Manifest extends Resource {
      * A second call for the same tool replaces its versions.
      *
      * @example
-     *     manifest.generatedWith("mctools", "0.12.0");
+     *     manifest.setGeneratedWith("mctools", "0.12.0");
      */
-    generatedWith(tool: string, ...versions: string[]): this {
+    setGeneratedWith(tool: string, ...versions: string[]): this {
         this.#generatedWith[tool] = versions;
         return this;
     }
@@ -200,16 +214,22 @@ export class Manifest extends Resource {
      * setting that it already has. A manifest can have up to 50 settings.
      *
      * @example
-     *     manifest.setting(
+     *     manifest.addSetting(
      *         new LabelSetting("Tune the explosions"),
-     *         new ToggleSetting("example:explosions", "Explosions").default(true),
-     *         new SliderSetting("example:power", "Power", 1, 4).default(3),
+     *         new ToggleSetting("example:explosions", "Explosions").setDefault(true),
+     *         new SliderSetting("example:power", "Power", 1, 4).setDefault(3),
      *     );
      */
-    setting(...settings: Setting[]): this {
+    addSetting(...settings: Setting[]): this {
         for (const setting of settings) {
             if (!this.#settings.includes(setting)) this.#settings.push(setting);
         }
+        return this;
+    }
+
+    /** Removes settings. The manifest skips a setting that it doesn't have. */
+    removeSetting(...settings: Setting[]): this {
+        this.#settings = this.#settings.filter((setting) => !settings.includes(setting));
         return this;
     }
 
@@ -218,7 +238,7 @@ export class Manifest extends Resource {
      *
      * `memoryPerformanceTier` is the memory tier of the subpack, from 0 to 5.
      */
-    subpack(folderName: string, name: string, memoryPerformanceTier: number): this {
+    addSubpack(folderName: string, name: string, memoryPerformanceTier: number): this {
         this.#subpacks.push({
             name,
             folder_name: folderName,
@@ -241,9 +261,13 @@ export class Manifest extends Resource {
         const uuid = this.#uuid;
         const minEngineVersion = this.#minEngineVersion;
         if (name === undefined || uuid === undefined || minEngineVersion === undefined) {
-            const missing = Object.entries({ name, uuid, minEngineVersion })
+            const missing = Object.entries({
+                setName: name,
+                setUuid: uuid,
+                setMinEngineVersion: minEngineVersion,
+            })
                 .filter(([, value]) => value === undefined)
-                .map(([field]) => field);
+                .map(([setter]) => setter);
             throw new IncompleteManifestError(`The ${kind} pack manifest`, missing);
         }
 
@@ -278,7 +302,7 @@ export class Manifest extends Resource {
             ...this.#dependencies.map((pack) => {
                 if (pack.#uuid === undefined) {
                     const dependency = pack.#name ?? pack.constructor.name;
-                    throw new IncompleteManifestError(`The dependency ${dependency}`, ["uuid"]);
+                    throw new IncompleteManifestError(`The dependency ${dependency}`, ["setUuid"]);
                 }
                 return { uuid: pack.#uuid, version: pack.#version };
             }),
@@ -318,7 +342,7 @@ export class Manifest extends Resource {
 export class BehaviorManifest extends Manifest {
     constructor() {
         super();
-        this.module(new DataModule());
+        this.addModule(new DataModule());
     }
 }
 
@@ -326,7 +350,7 @@ export class BehaviorManifest extends Manifest {
 export class ResourceManifest extends Manifest {
     constructor() {
         super();
-        this.module(new ResourcesModule());
+        this.addModule(new ResourcesModule());
     }
 }
 
@@ -346,9 +370,10 @@ export class InvalidModulesError extends TypeError {
  * field.
  */
 export class IncompleteManifestError extends TypeError {
-    constructor(subject: string, missing: readonly string[]) {
-        const them = missing.length === 1 ? "it" : "them";
-        super(`${subject} has no ${missing.join(", ")}. Set ${them}, or add ManifestPlugin`);
+    constructor(subject: string, setters: readonly string[]) {
+        const calls = setters.map((setter) => `${setter}()`).join(", ");
+        const them = setters.length === 1 ? "it" : "them";
+        super(`${subject} needs ${calls}. Call ${them}, or add ManifestPlugin`);
         this.name = "IncompleteManifestError";
     }
 }
