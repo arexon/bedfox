@@ -5,7 +5,8 @@ import { describe, expect, test } from "vite-plus/test";
 import { type Plugin, PluginFailedError, SystemAddedDuringRunError } from "#/plugin";
 import { Project } from "#/project";
 import { FrozenRegistry, type Registry, RegistryFrozenError } from "#/registry";
-import { prepared, SystemFailedError } from "#/system";
+import { SystemOrderCycleError } from "#/schedule";
+import { ordered, prepared, type System, SystemFailedError } from "#/system";
 import { Clash, Leaf, Notes } from "#/test/fixtures";
 import { ids, json, NS } from "#/test/helpers";
 
@@ -640,5 +641,145 @@ describe(prepared.name, () => {
         ).rejects.toThrow(
             expect.objectContaining({ message: "System 0 (addBiomes) on transform failed in run" }),
         );
+    });
+});
+
+function recorder(): { order: string[]; system: (name: string) => System } {
+    const order: string[] = [];
+    return {
+        order,
+        system: (name) => () => {
+            order.push(name);
+        },
+    };
+}
+
+function cycleFirst(): void {}
+
+function cycleSecond(): void {}
+
+describe(ordered.name, () => {
+    test("afterAll() runs after the other systems of the schedule, also later ones from plugins", async () => {
+        const { order, system } = recorder();
+        class Late implements Plugin {
+            build(project: Project): void {
+                project.addSystem("finalize", system("plugin"));
+            }
+        }
+        await new Project(NS)
+            .addSystem("finalize", ordered(system("last")).afterAll(), system("own"))
+            .addPlugin(new Late())
+            .run();
+        expect(order).toStrictEqual(["own", "plugin", "last"]);
+    });
+
+    test("beforeAll() runs before the other systems of the schedule, also the project's own", async () => {
+        const { order, system } = recorder();
+        class Defaults implements Plugin {
+            build(project: Project): void {
+                project.addSystem("setup", ordered(system("defaults")).beforeAll());
+            }
+        }
+        await new Project(NS).addSystem("setup", system("own")).addPlugin(new Defaults()).run();
+        expect(order).toStrictEqual(["defaults", "own"]);
+    });
+
+    test("keeps the added order among afterAll() systems and among beforeAll() systems", async () => {
+        const { order, system } = recorder();
+        await new Project(NS)
+            .addSystem(
+                ordered(system("last 1")).afterAll(),
+                ordered(system("first 1")).beforeAll(),
+                system("middle"),
+                ordered(system("last 2")).afterAll(),
+                ordered(system("first 2")).beforeAll(),
+            )
+            .run();
+        expect(order).toStrictEqual(["first 1", "first 2", "middle", "last 1", "last 2"]);
+    });
+
+    test("after() and before() reorder systems, and keep the added order otherwise", async () => {
+        const { order, system } = recorder();
+        const b = system("b");
+        const c = system("c");
+        await new Project(NS)
+            .addSystem(ordered(system("a")).after(c), b, c, ordered(system("d")).before(b))
+            .run();
+        expect(order).toStrictEqual(["c", "a", "d", "b"]);
+    });
+
+    test("orders systems only inside their schedule", async () => {
+        const { order, system } = recorder();
+        await new Project(NS)
+            .addSystem("transform", system("transform"))
+            .addSystem("setup", ordered(system("setup last")).afterAll(), system("setup"))
+            .run();
+        expect(order).toStrictEqual(["setup", "setup last", "transform"]);
+    });
+
+    test("ignores rules about systems that aren't in the schedule", async () => {
+        const { order, system } = recorder();
+        const elsewhere = system("elsewhere");
+        await new Project(NS)
+            .addSystem("setup", elsewhere)
+            .addSystem(ordered(system("a")).after(elsewhere).before(system("missing")), system("b"))
+            .run();
+        expect(order).toStrictEqual(["elsewhere", "a", "b"]);
+    });
+
+    test("applies a rule to each time that a system was added", async () => {
+        const { order, system } = recorder();
+        const twice = system("twice");
+        await new Project(NS).addSystem(ordered(system("a")).after(twice), twice, twice).run();
+        expect(order).toStrictEqual(["twice", "twice", "a"]);
+    });
+
+    test("uses the last of afterAll() and beforeAll()", async () => {
+        const { order, system } = recorder();
+        await new Project(NS)
+            .addSystem(system("b"), ordered(system("a")).afterAll().beforeAll())
+            .run();
+        expect(order).toStrictEqual(["a", "b"]);
+    });
+
+    test("gives a prepared system its data", async () => {
+        const { order, system } = recorder();
+        await new Project(NS)
+            .addSystem(
+                ordered(
+                    prepared(
+                        async () => "prepared",
+                        (_, data) => {
+                            order.push(data);
+                        },
+                    ),
+                ).afterAll(),
+                system("b"),
+            )
+            .run();
+        expect(order).toStrictEqual(["b", "prepared"]);
+    });
+
+    test("rejects rules that form a cycle, before any prepare step starts", async () => {
+        let started = false;
+        const project = new Project(NS).addSystem(
+            ordered(cycleFirst).after(cycleSecond),
+            ordered(cycleSecond).after(cycleFirst),
+            prepared(
+                async () => {
+                    started = true;
+                },
+                () => {},
+            ),
+        );
+        await expect(project.run()).rejects.toThrow(
+            expect.objectContaining({
+                name: "SystemOrderCycleError",
+                message:
+                    "The order rules of these systems form a cycle: System 1 (cycleSecond) on transform runs before System 0 (cycleFirst) on transform, which runs before System 1 (cycleSecond) on transform",
+            }),
+        );
+        await expect(project.run()).rejects.toThrow(SystemOrderCycleError);
+        expect(started).toBe(false);
     });
 });

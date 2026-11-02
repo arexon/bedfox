@@ -1,5 +1,6 @@
+import { describePlugins } from "#/plugin";
 import { INVALIDATE, type Registry } from "#/registry";
-import { describePlugins, type ScheduledSystem } from "#/schedule";
+import type { ScheduledSystem } from "#/schedule";
 
 /**
  * A function that changes the registry.
@@ -46,6 +47,91 @@ export function prepared<T>(
     return { prepare, run };
 }
 
+export const ORDER: unique symbol = Symbol("order");
+
+export interface Order {
+    readonly system: System | PreparedSystem<unknown>;
+    readonly after: ReadonlySet<System | PreparedSystem<unknown>>;
+    readonly before: ReadonlySet<System | PreparedSystem<unknown>>;
+    readonly position: "first" | "last" | undefined;
+}
+
+/**
+ * A system with rules for its order in its schedule. {@link ordered} creates one.
+ *
+ * Without rules, the systems of a schedule run in the order that they were added. The rules change
+ * the order only inside one schedule.
+ */
+export class OrderedSystem {
+    readonly #system: System | PreparedSystem<unknown>;
+    readonly #after = new Set<System | PreparedSystem<unknown>>();
+    readonly #before = new Set<System | PreparedSystem<unknown>>();
+    #position?: "first" | "last";
+
+    constructor(system: System | PreparedSystem<unknown>) {
+        this.#system = system;
+    }
+
+    /**
+     * Runs the system after each of `systems`.
+     *
+     * A system in `systems` that isn't in the same schedule has no effect, e.g. a system of a
+     * plugin that the project doesn't have.
+     */
+    after(...systems: (System | PreparedSystem<unknown>)[]): this {
+        for (const system of systems) this.#after.add(system);
+        return this;
+    }
+
+    /** Runs the system before each of `systems`. See {@link OrderedSystem.after}. */
+    before(...systems: (System | PreparedSystem<unknown>)[]): this {
+        for (const system of systems) this.#before.add(system);
+        return this;
+    }
+
+    /**
+     * Runs the system after every system of its schedule that doesn't also use `afterAll()`.
+     *
+     * Systems that use `afterAll()` run in the order that they were added, unless `after()` or
+     * `before()` changes it. This call replaces an earlier `beforeAll()`.
+     */
+    afterAll(): this {
+        this.#position = "last";
+        return this;
+    }
+
+    /**
+     * Runs the system before every system of its schedule that doesn't also use `beforeAll()`.
+     *
+     * Systems that use `beforeAll()` run in the order that they were added, unless `after()` or
+     * `before()` changes it. This call replaces an earlier `afterAll()`.
+     */
+    beforeAll(): this {
+        this.#position = "first";
+        return this;
+    }
+
+    [ORDER](): Order {
+        return {
+            system: this.#system,
+            after: this.#after,
+            before: this.#before,
+            position: this.#position,
+        };
+    }
+}
+
+/**
+ * Creates an {@link OrderedSystem}, which sets the order of `system` in its schedule.
+ *
+ * @example
+ *     project.addSystem("finalize", ordered(writeLang).afterAll());
+ *     project.addSystem(ordered(paintBlocks).after(addBlocks));
+ */
+export function ordered(system: System | PreparedSystem<unknown>): OrderedSystem {
+    return new OrderedSystem(system);
+}
+
 export async function runSystems(
     systems: readonly ScheduledSystem[],
     reg: Registry,
@@ -81,7 +167,7 @@ async function prepare({ system, ...location }: ScheduledSystem): Promise<unknow
     }
 }
 
-function describeSystem(
+export function describeSystem(
     system: System | PreparedSystem<unknown>,
     { schedule, index, plugins }: Omit<ScheduledSystem, "system">,
 ): string {

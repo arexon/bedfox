@@ -1,5 +1,4 @@
 import type { Project } from "#/project";
-import { describePlugins } from "#/schedule";
 
 /**
  * A reusable group of systems and other plugins.
@@ -57,6 +56,10 @@ export async function loadPlugins(
         }
         pending.unshift(...added.map((plugin) => ({ plugin, addedBy: path })));
     }
+}
+
+export function describePlugins(plugins: readonly string[]): string {
+    return plugins.toReversed().join(" in ");
 }
 
 /**

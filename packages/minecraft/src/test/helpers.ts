@@ -9,7 +9,6 @@ import {
 } from "@bedfox/core";
 import corePkg from "@bedfox/core/package.json" with { type: "json" };
 
-import { DEFAULT_MIN_ENGINE_VERSION } from "#/manifest/index";
 import pkg from "#package.json" with { type: "json" };
 
 export const NS = "test";
@@ -62,7 +61,7 @@ export function expectedManifest({ header, metadata, ...rest }: ManifestOverride
             name: "test BP",
             uuid: "bcd6188d-467b-56e7-a79d-1cfd2dca7dc2",
             version: "1.0.0",
-            min_engine_version: DEFAULT_MIN_ENGINE_VERSION,
+            min_engine_version: "1.26.50",
             ...header,
         },
         modules: [
@@ -72,12 +71,7 @@ export function expectedManifest({ header, metadata, ...rest }: ManifestOverride
                 version: "1.0.0",
             },
         ],
-        metadata: {
-            generated_with: {
-                bedfox: BEDFOX_VERSIONS,
-            },
-            ...metadata,
-        },
+        ...(metadata === undefined ? {} : { metadata }),
         ...rest,
     };
 }

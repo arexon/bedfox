@@ -1,7 +1,5 @@
-import { type EmitContext, type Emitted, type PackKind, Resource } from "@bedfox/core";
-import corePkg from "@bedfox/core/package.json" with { type: "json" };
+import { type Emitted, type PackKind, Resource } from "@bedfox/core";
 
-import { engineVersion } from "#/manifest/engine_version";
 import {
     DataModule,
     type ManifestModule,
@@ -12,7 +10,6 @@ import {
 } from "#/manifest/module";
 import type { Setting } from "#/manifest/settings";
 import { deriveUuid } from "#/manifest/uuid";
-import pkg from "#package.json" with { type: "json" };
 
 export * from "#/manifest/module";
 export * from "#/manifest/settings";
@@ -22,17 +19,6 @@ export type PackCapability = "chemistry" | "editorExtension" | "script_eval" | "
 
 /** Where players can apply a pack. */
 export type PackScope = "global" | "world" | "system" | "any";
-
-/**
- * The minimum engine version of a manifest, unless {@link Manifest.minEngineVersion} sets one.
- *
- * It is the game version that this package targets, e.g. `1.26.70`.
- */
-export const DEFAULT_MIN_ENGINE_VERSION = engineVersion(pkg.version);
-
-const BEDFOX = "bedfox";
-
-const NAME_SUFFIXES = { behavior: "BP", resource: "RP" } as const;
 
 interface SubpackJson {
     name: string;
@@ -47,8 +33,8 @@ interface SubpackJson {
  * {@link DataModule} or a {@link ScriptModule} makes a behavior pack. {@link BehaviorManifest} and
  * {@link ResourceManifest} start with the module of their kind.
  *
- * The manifest derives its UUIDs from the project's namespace and the kind of pack. Thus the UUIDs
- * stay the same between builds.
+ * A manifest needs a name, a header UUID and a min engine version before it emits.
+ * {@link ManifestPlugin} sets them, among other defaults.
  *
  * @example
  *     project.addSystem("setup", (reg) => {
@@ -71,7 +57,7 @@ export class Manifest extends Resource {
     #url?: string;
     #license?: string;
     #productType?: "addon";
-    #generatedWith: Record<string, string[]> = { [BEDFOX]: [corePkg.version, pkg.version] };
+    #generatedWith: Record<string, string[]> = {};
     #settings: Setting[] = [];
     #subpacks: SubpackJson[] = [];
 
@@ -98,11 +84,7 @@ export class Manifest extends Resource {
         return "manifest.json";
     }
 
-    /**
-     * Sets the name that the game shows in the pack list.
-     *
-     * By default, the name is the namespace with `BP` or `RP`, e.g. `example RP`.
-     */
+    /** Sets the name that the game shows in the pack list. */
     name(name: string): this {
         this.#name = name;
         return this;
@@ -124,11 +106,7 @@ export class Manifest extends Resource {
         return this;
     }
 
-    /**
-     * Sets the oldest game version that the pack supports, e.g. `1.26.50`.
-     *
-     * By default, it is {@link DEFAULT_MIN_ENGINE_VERSION}.
-     */
+    /** Sets the oldest game version that the pack supports, e.g. `1.26.50`. */
     minEngineVersion(version: Version): this {
         this.#minEngineVersion = version;
         return this;
@@ -140,7 +118,7 @@ export class Manifest extends Resource {
         return this;
     }
 
-    /** Sets the header UUID, instead of the UUID that the manifest derives from the namespace. */
+    /** Sets the header UUID. The UUIDs of the modules derive from it, unless they set their own. */
     uuid(uuid: string): this {
         this.#uuid = uuid;
         return this;
@@ -203,17 +181,15 @@ export class Manifest extends Resource {
     }
 
     /**
-     * Records the versions of another tool that helped to generate the manifest.
+     * Records the versions of a tool that helped to generate the manifest.
      *
-     * The manifest always records Bedfox first, with the versions of `@bedfox/core` and
-     * `@bedfox/minecraft`. A call with `bedfox` as `tool` does nothing. A second call for the same
-     * tool replaces its versions.
+     * A second call for the same tool replaces its versions.
      *
      * @example
      *     manifest.generatedWith("mctools", "0.12.0");
      */
     generatedWith(tool: string, ...versions: string[]): this {
-        if (tool !== BEDFOX) this.#generatedWith[tool] = versions;
+        this.#generatedWith[tool] = versions;
         return this;
     }
 
@@ -254,19 +230,29 @@ export class Manifest extends Resource {
     /**
      * Generates the JSON of the manifest.
      *
-     * @throws - {@link InvalidModulesError} if the modules of this manifest or of a dependency
-     *   don't make a behavior or resource pack.
+     * @throws - {@link InvalidModulesError} if the modules don't make a behavior or resource pack.
+     * @throws - {@link IncompleteManifestError} if the manifest has no name, header UUID or min
+     *   engine version, or a dependency has no header UUID.
      * @throws - {@link DuplicateModuleUuidError} if two modules have the same UUID.
      */
-    emit(ctx: EmitContext): Emitted {
+    emit(): Emitted {
         const kind = this.kind;
+        const name = this.#name;
+        const uuid = this.#uuid;
+        const minEngineVersion = this.#minEngineVersion;
+        if (name === undefined || uuid === undefined || minEngineVersion === undefined) {
+            const missing = Object.entries({ name, uuid, minEngineVersion })
+                .filter(([, value]) => value === undefined)
+                .map(([field]) => field);
+            throw new IncompleteManifestError(`The ${kind} pack manifest`, missing);
+        }
 
         const header = {
-            name: this.#name ?? `${ctx.namespace} ${NAME_SUFFIXES[kind]}`,
+            name,
             description: this.#description,
-            uuid: this.#headerUuid(ctx),
+            uuid,
             version: this.#version,
-            min_engine_version: this.#minEngineVersion ?? DEFAULT_MIN_ENGINE_VERSION,
+            min_engine_version: minEngineVersion,
             pack_scope: this.#scope,
         };
         const modules = this.#modules.map((module) => {
@@ -290,18 +276,23 @@ export class Manifest extends Resource {
         }
         const dependencies = [
             ...this.#dependencies.map((pack) => {
-                try {
-                    return { uuid: pack.#headerUuid(ctx), version: pack.#version };
-                } catch (error) {
-                    if (!(error instanceof InvalidModulesError)) throw error;
-                    throw new InvalidModulesError(
-                        `dependency ${pack.#name ?? pack.constructor.name} isn't a behavior or resource pack`,
-                        { cause: error },
-                    );
+                if (pack.#uuid === undefined) {
+                    const dependency = pack.#name ?? pack.constructor.name;
+                    throw new IncompleteManifestError(`The dependency ${dependency}`, ["uuid"]);
                 }
+                return { uuid: pack.#uuid, version: pack.#version };
             }),
             ...moduleDependencies.values(),
         ];
+
+        const metadata = {
+            authors: this.#authors.length > 0 ? this.#authors : undefined,
+            url: this.#url,
+            license: this.#license,
+            product_type: this.#productType,
+            generated_with:
+                Object.keys(this.#generatedWith).length > 0 ? this.#generatedWith : undefined,
+        };
 
         // TODO: Return plain JSON. The settings are class instances with `toJSON()`, so code that
         // reads this value without `JSON.stringify()` gets the instances.
@@ -315,19 +306,11 @@ export class Manifest extends Resource {
                 settings: this.#settings.length > 0 ? this.#settings : undefined,
                 subpacks: this.#subpacks.length > 0 ? this.#subpacks : undefined,
                 capabilities: this.#capabilities.length > 0 ? this.#capabilities : undefined,
-                metadata: {
-                    authors: this.#authors.length > 0 ? this.#authors : undefined,
-                    url: this.#url,
-                    license: this.#license,
-                    product_type: this.#productType,
-                    generated_with: this.#generatedWith,
-                },
+                metadata: Object.values(metadata).some((value) => value !== undefined)
+                    ? metadata
+                    : undefined,
             },
         };
-    }
-
-    #headerUuid(ctx: EmitContext): string {
-        return this.#uuid ?? deriveUuid(`${ctx.namespace}/${this.kind}/header`);
     }
 }
 
@@ -355,6 +338,18 @@ export class InvalidModulesError extends TypeError {
     constructor(reason: string, options?: ErrorOptions) {
         super(`Invalid manifest modules: ${reason}`, options);
         this.name = "InvalidModulesError";
+    }
+}
+
+/**
+ * Thrown by {@link Manifest.emit} when the manifest or a dependency has no value for a required
+ * field.
+ */
+export class IncompleteManifestError extends TypeError {
+    constructor(subject: string, missing: readonly string[]) {
+        const them = missing.length === 1 ? "it" : "them";
+        super(`${subject} has no ${missing.join(", ")}. Set ${them}, or add ManifestPlugin`);
+        this.name = "IncompleteManifestError";
     }
 }
 

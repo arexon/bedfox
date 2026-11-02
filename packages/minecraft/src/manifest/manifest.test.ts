@@ -17,7 +17,7 @@ import {
     ToggleSetting,
 } from "#/manifest/index";
 import { deriveUuid } from "#/manifest/uuid";
-import { ManifestPlugin } from "#/plugins/index";
+import { DEFAULT_MIN_ENGINE_VERSION, ManifestPlugin } from "#/plugins/index";
 import { BEDFOX_VERSIONS, emitted, expectedManifest, json, NS } from "#/test/helpers";
 
 // UUIDs for the tests that set their own instead of deriving them.
@@ -25,9 +25,25 @@ const PACK_UUID = "293b30c7-f6b1-4ab8-8990-3cb047c030c3";
 const MODULE_UUID = "aae5d295-37dc-4709-8b9b-1605be17a40b";
 const OTHER_PACK_UUID = "e9632745-30e8-4cf4-a8d8-5ad2f44605ea";
 
+// The header UUIDs that ManifestPlugin derives for the namespace `test`.
+const BP_UUID = "bcd6188d-467b-56e7-a79d-1cfd2dca7dc2";
+const RP_UUID = "220a205f-0cf8-57cd-8ca3-b3a714e93a44";
+
+function withHeader<T extends Manifest>(manifest: T, name: string, uuid: string): T {
+    return manifest.name(name).uuid(uuid).minEngineVersion("1.26.50");
+}
+
+function bp(): BehaviorManifest {
+    return withHeader(new BehaviorManifest(), "test BP", BP_UUID);
+}
+
+function rp(): ResourceManifest {
+    return withHeader(new ResourceManifest(), "test RP", RP_UUID);
+}
+
 describe(Manifest.name, () => {
     test("full", () => {
-        const rp = new ResourceManifest().version("2.0.0");
+        const resource = rp().version("2.0.0");
         expect(
             emitted(
                 new Manifest()
@@ -44,7 +60,7 @@ describe(Manifest.name, () => {
                             .dependsOn("@minecraft/server", "2.1.0")
                             .optionallyDependsOn("@minecraft/server-ui", "beta"),
                     )
-                    .dependsOn(rp)
+                    .dependsOn(resource)
                     .capabilities("editorExtension")
                     .license("Apache-2.0")
                     .url("https://example.com/pack")
@@ -113,17 +129,14 @@ describe(Manifest.name, () => {
                 url: "https://example.com/pack",
                 license: "Apache-2.0",
                 product_type: "addon",
-                generated_with: {
-                    bedfox: BEDFOX_VERSIONS,
-                    mctools: ["0.12.0"],
-                },
+                generated_with: { mctools: ["0.12.0"] },
             },
         });
     });
 
     describe("authors()", () => {
         test("adds to earlier calls", () => {
-            expect(emitted(new BehaviorManifest().authors("test").authors("other"))).toStrictEqual(
+            expect(emitted(bp().authors("test").authors("other"))).toStrictEqual(
                 expectedManifest({ metadata: { authors: ["test", "other"] } }),
             );
         });
@@ -131,13 +144,13 @@ describe(Manifest.name, () => {
 
     describe("kind", () => {
         test("comes from the modules", () => {
-            expect(new ResourceManifest().kind).toBe("resource");
+            expect(rp().kind).toBe("resource");
             expect(new Manifest().module(new DataModule()).kind).toBe("behavior");
             expect(new Manifest().module(new ScriptModule("main.js")).kind).toBe("behavior");
         });
 
         test("rejects a resources module with data or scripts", () => {
-            const mixed = new ResourceManifest().module(new ScriptModule("main.js"));
+            const mixed = rp().module(new ScriptModule("main.js"));
             expect(() => mixed.kind).toThrow(InvalidModulesError);
             expect(() => emitted(mixed)).toThrow(InvalidModulesError);
         });
@@ -149,22 +162,26 @@ describe(Manifest.name, () => {
 
     describe("module()", () => {
         test("rejects two modules with the same uuid", () => {
-            const bp = new Manifest().module(new DataModule(), new DataModule());
-            expect(() => emitted(bp)).toThrow(DuplicateModuleUuidError);
+            const manifest = withHeader(new Manifest(), "test BP", BP_UUID).module(
+                new DataModule(),
+                new DataModule(),
+            );
+            expect(() => emitted(manifest)).toThrow(DuplicateModuleUuidError);
         });
 
         test("ignores a module added twice", () => {
             const data = new DataModule();
-            expect(emitted(new Manifest().module(data, data))).toStrictEqual(expectedManifest());
+            const manifest = withHeader(new Manifest(), "test BP", BP_UUID).module(data, data);
+            expect(emitted(manifest)).toStrictEqual(expectedManifest());
         });
     });
 
     describe("dependsOn()", () => {
         test("reads the pack's uuid and version when serialized", () => {
-            const rp = new ResourceManifest();
-            const bp = new BehaviorManifest().dependsOn(rp);
-            rp.uuid(OTHER_PACK_UUID).version("2.0.0");
-            expect(emitted(bp)).toStrictEqual(
+            const resource = rp();
+            const behavior = bp().dependsOn(resource);
+            resource.uuid(OTHER_PACK_UUID).version("2.0.0");
+            expect(emitted(behavior)).toStrictEqual(
                 expectedManifest({
                     dependencies: [
                         { uuid: "e9632745-30e8-4cf4-a8d8-5ad2f44605ea", version: "2.0.0" },
@@ -174,8 +191,8 @@ describe(Manifest.name, () => {
         });
 
         test("ignores the same pack twice", () => {
-            const rp = new ResourceManifest();
-            expect(emitted(new BehaviorManifest().dependsOn(rp).dependsOn(rp))).toStrictEqual(
+            const resource = rp();
+            expect(emitted(bp().dependsOn(resource).dependsOn(resource))).toStrictEqual(
                 expectedManifest({
                     dependencies: [
                         { uuid: "220a205f-0cf8-57cd-8ca3-b3a714e93a44", version: "1.0.0" },
@@ -184,23 +201,28 @@ describe(Manifest.name, () => {
             );
         });
 
-        test("names a dependency without modules", () => {
-            const bp = new BehaviorManifest().dependsOn(new Manifest().name("Other"));
-            expect(() => emitted(bp)).toThrow("dependency Other isn't a behavior or resource pack");
+        test("rejects a dependency without a uuid", () => {
+            const manifest = bp().dependsOn(new Manifest().name("Other"));
+            expect(() => emitted(manifest)).toThrow(
+                expect.objectContaining({
+                    name: "IncompleteManifestError",
+                    message: "The dependency Other has no uuid. Set it, or add ManifestPlugin",
+                }),
+            );
         });
     });
 
     describe("generatedWith()", () => {
-        test("can't replace bedfox's own entry", () => {
-            expect(emitted(new BehaviorManifest().generatedWith("bedfox", "0.0.1"))).toStrictEqual(
-                expectedManifest(),
+        test("records Bedfox like any other tool", () => {
+            expect(emitted(bp().generatedWith("bedfox", "0.0.1"))).toStrictEqual(
+                expectedManifest({ metadata: { generated_with: { bedfox: ["0.0.1"] } } }),
             );
         });
 
         test("keeps tool names as written", () => {
-            expect(emitted(new BehaviorManifest().generatedWith("myTool", "1"))).toStrictEqual(
+            expect(emitted(bp().generatedWith("myTool", "1"))).toStrictEqual(
                 expectedManifest({
-                    metadata: { generated_with: { bedfox: BEDFOX_VERSIONS, myTool: ["1"] } },
+                    metadata: { generated_with: { myTool: ["1"] } },
                 }),
             );
         });
@@ -210,7 +232,7 @@ describe(Manifest.name, () => {
         test("every kind", () => {
             expect(
                 emitted(
-                    new BehaviorManifest().setting(
+                    bp().setting(
                         new LabelSetting("Tune it"),
                         new ToggleSetting("test:enabled", "Enabled").default(true),
                         new SliderSetting("test:power", "Power", 1, 4).step(1).default(3),
@@ -288,9 +310,7 @@ describe(Manifest.name, () => {
         test("keep their order across calls", () => {
             expect(
                 emitted(
-                    new BehaviorManifest()
-                        .setting(new LabelSetting("first"))
-                        .setting(new LabelSetting("second")),
+                    bp().setting(new LabelSetting("first")).setting(new LabelSetting("second")),
                 ),
             ).toStrictEqual(
                 expectedManifest({
@@ -310,7 +330,7 @@ describe(Manifest.name, () => {
 
         test("ignores a setting added twice", () => {
             const label = new LabelSetting("once");
-            expect(emitted(new BehaviorManifest().setting(label, label))).toStrictEqual(
+            expect(emitted(bp().setting(label, label))).toStrictEqual(
                 expectedManifest({
                     settings: [
                         {
@@ -325,7 +345,7 @@ describe(Manifest.name, () => {
         test("default toggles to off and multiselects to nothing", () => {
             expect(
                 emitted(
-                    new BehaviorManifest().setting(
+                    bp().setting(
                         new ToggleSetting("test:on", "On"),
                         new MultiSelectSetting("test:extras", "Extras")
                             .option("low", "Low")
@@ -365,7 +385,7 @@ describe(Manifest.name, () => {
         test("default sliders to steps of 1 from min, and dropdowns to their first option", () => {
             expect(
                 emitted(
-                    new BehaviorManifest().setting(
+                    bp().setting(
                         new SliderSetting("test:power", "Power", 2, 8),
                         new DropdownSetting("test:level", "Level")
                             .option("low", "Low")
@@ -407,9 +427,19 @@ describe(Manifest.name, () => {
     });
 
     describe("emit()", () => {
-        test("derives what isn't set from the namespace", () => {
-            expect(emitted(new BehaviorManifest())).toStrictEqual(expectedManifest());
-            expect(emitted(new ResourceManifest())).toStrictEqual(
+        test("rejects a manifest without a name, uuid or min engine version", () => {
+            expect(() => emitted(new BehaviorManifest())).toThrow(
+                expect.objectContaining({
+                    name: "IncompleteManifestError",
+                    message:
+                        "The behavior pack manifest has no name, uuid, minEngineVersion. Set them, or add ManifestPlugin",
+                }),
+            );
+        });
+
+        test("derives the module uuids from the header uuid", () => {
+            expect(emitted(bp())).toStrictEqual(expectedManifest());
+            expect(emitted(rp())).toStrictEqual(
                 expectedManifest({
                     header: { name: "test RP", uuid: "220a205f-0cf8-57cd-8ca3-b3a714e93a44" },
                     modules: [
@@ -426,32 +456,72 @@ describe(Manifest.name, () => {
 });
 
 describe(ManifestPlugin.name, () => {
-    const RP_DEPENDENCY = { uuid: "220a205f-0cf8-57cd-8ca3-b3a714e93a44", version: "1.0.0" };
+    const RP_DEPENDENCY = { uuid: RP_UUID, version: "1.0.0" };
+    const DEFAULTS = {
+        header: { min_engine_version: DEFAULT_MIN_ENGINE_VERSION },
+        metadata: { generated_with: { bedfox: BEDFOX_VERSIONS } },
+    };
 
-    test("adds both manifests, with the behavior pack depending on the resource pack", async () => {
+    test("adds both manifests with their defaults, each depending on the other", async () => {
         const project = new Project(NS).addPlugin(new ManifestPlugin());
-        const [bp, rp] = (await project.run()).emit();
-        expect(json(bp)).toStrictEqual({
+        const [behavior, resource] = (await project.run()).emit();
+        expect(json(behavior)).toStrictEqual({
             kind: "behavior",
             path: "manifest.json",
             format: "json",
-            value: expectedManifest({ dependencies: [RP_DEPENDENCY] }),
+            value: expectedManifest({ ...DEFAULTS, dependencies: [RP_DEPENDENCY] }),
         });
-        expect([rp.kind, rp.path]).toStrictEqual(["resource", "manifest.json"]);
+        expect(json(resource)).toStrictEqual({
+            kind: "resource",
+            path: "manifest.json",
+            format: "json",
+            value: expectedManifest({
+                ...DEFAULTS,
+                header: { ...DEFAULTS.header, name: "test RP", uuid: RP_UUID },
+                modules: [
+                    {
+                        type: "resources",
+                        uuid: "804ee873-8c54-5f00-9f8a-96b855a22a24",
+                        version: "1.0.0",
+                    },
+                ],
+                dependencies: [{ uuid: BP_UUID, version: "1.0.0" }],
+            }),
+        });
     });
 
-    test("keeps the changes of systems", async () => {
+    test("lets setup systems change the defaults", async () => {
+        const project = new Project(NS)
+            .addSystem("setup", (reg) => {
+                reg.resource(BehaviorManifest).name("Custom").generatedWith("bedfox", "custom");
+            })
+            .addPlugin(new ManifestPlugin());
+        const [behavior] = (await project.run()).emit();
+        expect(json(behavior)).toStrictEqual({
+            kind: "behavior",
+            path: "manifest.json",
+            format: "json",
+            value: expectedManifest({
+                header: { ...DEFAULTS.header, name: "Custom" },
+                metadata: { generated_with: { bedfox: ["custom"] } },
+                dependencies: [RP_DEPENDENCY],
+            }),
+        });
+    });
+
+    test("keeps the modules that systems add", async () => {
         const project = new Project(NS)
             .addSystem("setup", (reg) => {
                 reg.resource(BehaviorManifest).module(new ScriptModule("scripts/main.js"));
             })
             .addPlugin(new ManifestPlugin());
-        const reg = await project.run();
-        expect(json(reg.emit()[0])).toStrictEqual({
+        const [behavior] = (await project.run()).emit();
+        expect(json(behavior)).toStrictEqual({
             kind: "behavior",
             path: "manifest.json",
             format: "json",
             value: expectedManifest({
+                ...DEFAULTS,
                 modules: [
                     {
                         type: "data",
@@ -476,11 +546,9 @@ describe(DataModule.name, () => {
     test("can set its own uuid, version and description", () => {
         expect(
             emitted(
-                new Manifest()
-                    .uuid(PACK_UUID)
-                    .module(
-                        new DataModule().uuid(MODULE_UUID).version("2.0.0").description("Logic"),
-                    ),
+                withHeader(new Manifest(), "test BP", PACK_UUID).module(
+                    new DataModule().uuid(MODULE_UUID).version("2.0.0").description("Logic"),
+                ),
             ),
         ).toStrictEqual(
             expectedManifest({
@@ -500,7 +568,7 @@ describe(DataModule.name, () => {
 
 describe(ScriptModule.name, () => {
     test("derives its uuid from the header uuid and its entry", () => {
-        expect(emitted(new BehaviorManifest().module(new ScriptModule("main.js")))).toStrictEqual(
+        expect(emitted(bp().module(new ScriptModule("main.js")))).toStrictEqual(
             expectedManifest({
                 modules: [
                     {
@@ -524,7 +592,7 @@ describe(ScriptModule.name, () => {
         test("replaces the version of a module depended on again", () => {
             expect(
                 emitted(
-                    new BehaviorManifest().module(
+                    bp().module(
                         new ScriptModule("main.js")
                             .dependsOn("@minecraft/server", "1.0.0")
                             .dependsOn("@minecraft/server", "2.1.0"),
@@ -559,12 +627,12 @@ describe(ScriptModule.name, () => {
         test("is written in the manifest's dependencies, after packs and once per module", () => {
             expect(
                 emitted(
-                    new BehaviorManifest()
+                    bp()
                         .module(
                             new ScriptModule("a.js").dependsOn("@minecraft/server", "1.0.0"),
                             new ScriptModule("b.js").dependsOn("@minecraft/server", "2.1.0"),
                         )
-                        .dependsOn(new ResourceManifest()),
+                        .dependsOn(rp()),
                 ),
             ).toStrictEqual(
                 expectedManifest({

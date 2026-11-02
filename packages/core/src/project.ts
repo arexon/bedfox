@@ -1,7 +1,7 @@
 import { loadPlugins, type Plugin, SystemAddedDuringRunError } from "#/plugin";
 import { FREEZE, FrozenRegistry, Registry } from "#/registry";
 import { type Schedule, Schedules } from "#/schedule";
-import { type PreparedSystem, runSystems, type System } from "#/system";
+import { type OrderedSystem, type PreparedSystem, runSystems, type System } from "#/system";
 
 interface PluginCall {
     readonly schedules: Schedules;
@@ -55,7 +55,8 @@ export class Project {
      * Adds systems to `schedule`.
      *
      * The systems of one schedule run in the order that `addSystem()` gets them. The project's own
-     * systems run before the systems of its plugins.
+     * systems run before the systems of its plugins. {@link ordered} changes this order, e.g. to run
+     * a system after every other system of the schedule.
      *
      * @example
      *     project.addSystem("setup", (reg) => {
@@ -65,7 +66,10 @@ export class Project {
      * @throws - {@link SystemAddedDuringRunError} if the project runs, outside a plugin's
      *   `build()`.
      */
-    addSystem(schedule: Schedule, ...systems: (System | PreparedSystem<unknown>)[]): this;
+    addSystem(
+        schedule: Schedule,
+        ...systems: (System | PreparedSystem<unknown> | OrderedSystem)[]
+    ): this;
     /**
      * Adds systems to the `transform` schedule.
      *
@@ -79,10 +83,10 @@ export class Project {
      * @throws - {@link SystemAddedDuringRunError} if the project runs, outside a plugin's
      *   `build()`.
      */
-    addSystem(...systems: (System | PreparedSystem<unknown>)[]): this;
+    addSystem(...systems: (System | PreparedSystem<unknown> | OrderedSystem)[]): this;
     addSystem(
-        first?: Schedule | System | PreparedSystem<unknown>,
-        ...rest: (System | PreparedSystem<unknown>)[]
+        first?: Schedule | System | PreparedSystem<unknown> | OrderedSystem,
+        ...rest: (System | PreparedSystem<unknown> | OrderedSystem)[]
     ): this {
         const [schedule, systems] =
             typeof first === "string"
@@ -132,6 +136,8 @@ export class Project {
      * @throws - {@link PluginFailedError} if a plugin fails.
      * @throws - {@link DuplicatePluginError} if two plugins have the same class.
      * @throws - {@link SystemFailedError} if a system or a `prepare` step fails.
+     * @throws - {@link SystemOrderCycleError} if the order rules of the systems in a schedule form
+     *   a cycle.
      */
     async run(): Promise<FrozenRegistry> {
         if (this.#state !== "idle") throw new RunInProgressError();

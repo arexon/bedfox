@@ -14,6 +14,13 @@ export {
     RegistryFrozenError,
 } from "#/registry";
 export * from "#/resource";
-export type { Schedule } from "#/schedule";
+export { type Schedule, SystemOrderCycleError } from "#/schedule";
 export * from "#/serialize";
-export { type PreparedSystem, prepared, type System, SystemFailedError } from "#/system";
+export {
+    ordered,
+    OrderedSystem,
+    type PreparedSystem,
+    prepared,
+    type System,
+    SystemFailedError,
+} from "#/system";
