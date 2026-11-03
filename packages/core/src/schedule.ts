@@ -1,23 +1,22 @@
 import type { ChainStep, Detail, Diagnostic } from "#/diagnostic";
 import type { Plugin } from "#/plugin";
 import {
-    ORDER,
-    type Order,
-    OrderedSystem,
-    type PreparedSystem,
+    type Config,
+    configOf,
+    type Run,
     ScheduledSystem,
     type System,
+    type SystemConfig,
     UNNAMED_HELP,
 } from "#/system";
 
 /** When a system runs: `setup`, then `transform`, then `finalize`. */
 export type Schedule = "setup" | "transform" | "finalize";
 
-interface AddedSystem extends Order {
+interface AddedSystem extends Config {
+    readonly system: System | SystemConfig;
     readonly plugins: readonly Plugin[];
 }
-
-const NO_SYSTEMS: ReadonlySet<System | PreparedSystem<unknown>> = new Set();
 
 export class Schedules {
     static readonly default: Schedule = "transform";
@@ -27,23 +26,11 @@ export class Schedules {
 
     add(
         schedule: Schedule,
-        systems: readonly (System | PreparedSystem<unknown> | OrderedSystem)[],
+        systems: readonly (System | SystemConfig)[],
         plugins: readonly Plugin[],
     ): void {
         const list = this.#systems.get(schedule) ?? [];
-        for (const system of systems) {
-            list.push(
-                system instanceof OrderedSystem
-                    ? { ...system[ORDER](), plugins }
-                    : {
-                          system,
-                          after: NO_SYSTEMS,
-                          before: NO_SYSTEMS,
-                          position: undefined,
-                          plugins,
-                      },
-            );
-        }
+        for (const system of systems) list.push({ ...configOf(system), system, plugins });
         this.#systems.set(schedule, list);
     }
 
@@ -77,8 +64,8 @@ function sort(
     const link = (from: number, to: number, rule: OrderRule): void => {
         if (from !== to && !next[from].has(to)) next[from].set(to, rule);
     };
-    const indexesOf = (target: System | PreparedSystem<unknown>): number[] =>
-        added.flatMap(({ system }, i) => (system === target ? [i] : []));
+    const indexesOf = (target: Run): number[] =>
+        added.flatMap(({ run }, i) => (run === target ? [i] : []));
     // Link the explicit rules first, so that a cycle names them before afterAll() and beforeAll().
     for (const [i, a] of added.entries()) {
         for (const target of a.after) for (const j of indexesOf(target)) link(j, i, "after");

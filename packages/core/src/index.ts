@@ -14,11 +14,9 @@ export * from "#/resource";
 export { type OrderRule, type OrderStep, type Schedule, SystemOrderCycle } from "#/schedule";
 export * from "#/serialize";
 export {
-    ordered,
-    OrderedSystem,
-    type PreparedSystem,
-    prepared,
     type ScheduledSystem,
+    system,
     type System,
+    type SystemConfig,
     SystemFailed,
 } from "#/system";

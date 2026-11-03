@@ -5,7 +5,7 @@ import type { Entry } from "#/entry";
 import type { PackOutput } from "#/output";
 import { Project } from "#/project";
 import type { Registry } from "#/registry";
-import type { PreparedSystem, System } from "#/system";
+import type { System, SystemConfig } from "#/system";
 
 export const NS = "test";
 
@@ -24,7 +24,7 @@ export function emitted(output: PackOutput, namespace = NS): unknown {
 
 export async function runSetup(
     namespace: string,
-    ...systems: (System | PreparedSystem<unknown>)[]
+    ...systems: (System | SystemConfig)[]
 ): Promise<Registry> {
     const registry = Promise.withResolvers<Registry>();
     const project = new Project(namespace).addSystem("setup", registry.resolve, ...systems);

@@ -4,13 +4,7 @@ import { type Diagnostic, RunFailedError } from "#/diagnostic";
 import { DuplicatePlugin, type Plugin, PluginFailed } from "#/plugin";
 import { DuplicatePath } from "#/registry";
 import { type Schedule, SystemOrderCycle } from "#/schedule";
-import {
-    type PreparedSystem,
-    prepared,
-    type System,
-    SystemFailed,
-    ScheduledSystem,
-} from "#/system";
+import { ScheduledSystem, system, type System, type SystemConfig, SystemFailed } from "#/system";
 import { Clash, Leaf, remark } from "#/test/fixtures";
 
 class BlockPlugin implements Plugin {
@@ -28,22 +22,22 @@ function important(): void {}
 function two(): void {}
 
 function scheduled(
-    system: System | PreparedSystem<unknown>,
+    added: System | SystemConfig,
     schedule: Schedule,
     index: number,
     plugins: Plugin[] = [],
 ): ScheduledSystem {
-    return new ScheduledSystem(system, schedule, index, plugins);
+    return new ScheduledSystem(added, schedule, index, plugins);
 }
 
-function titleOf(system: System | PreparedSystem<unknown>): string {
-    return new SystemFailed(scheduled(system, "transform", 0), "run", "boom").title;
+function titleOf(added: System | SystemConfig): string {
+    return new SystemFailed(scheduled(added, "transform", 0), "run", "boom").title;
 }
 
 describe("diagnostic text", () => {
     test("names a failed system, its schedule and the plugins that added it", () => {
-        const system = scheduled(addDirt, "setup", 0, [new DefaultPlugins(), new BlockPlugin()]);
-        const failed = new SystemFailed(system, "run", "boom");
+        const added = scheduled(addDirt, "setup", 0, [new DefaultPlugins(), new BlockPlugin()]);
+        const failed = new SystemFailed(added, "run", "boom");
         expect(failed).toMatchObject({
             severity: "error",
             code: "SystemFailed",
@@ -58,20 +52,20 @@ describe("diagnostic text", () => {
     });
 
     test("names a system without a name by its index, and tells how to name it", () => {
-        const system = scheduled(() => {}, "finalize", 2);
-        expect(new SystemFailed(system, "prepare", "offline")).toMatchObject({
-            title: "System #2 failed in prepare",
+        const added = scheduled(() => {}, "finalize", 2);
+        expect(new SystemFailed(added, "load", "offline")).toMatchObject({
+            title: "System #2 failed in load",
             details: [{ kind: "field", label: "schedule", value: "finalize (#2)" }],
             help: "Use a named function to show the name of the system here",
         });
     });
 
-    test("names a prepared system after its run function, unless it is named run", () => {
-        const named = prepared(
-            () => [],
+    test("names a SystemConfig after its run function", () => {
+        const named = system(
             function addBiomes() {},
+            () => [],
         );
-        const unnamed = prepared(() => [], { run: () => {} }.run);
+        const unnamed = system(() => {});
         expect(titleOf(named)).toBe("System addBiomes failed in run");
         expect(titleOf(unnamed)).toBe("System #0 failed in run");
     });
@@ -164,16 +158,16 @@ describe(RunFailedError.name, () => {
     });
 
     test("shows the message of each cause, and holds the causes of the errors", () => {
-        const system = scheduled(addDirt, "setup", 0);
+        const added = scheduled(addDirt, "setup", 0);
         const missing = new Error("dirt.json is missing");
         const error = new RunFailedError([
             { severity: "warning", title: "careful", cause: "ignored" },
-            new SystemFailed(system, "prepare", missing),
-            new SystemFailed(system, "prepare", "timeout"),
+            new SystemFailed(added, "load", missing),
+            new SystemFailed(added, "load", "timeout"),
         ]);
         expect(error.message.split("\n").slice(2)).toStrictEqual([
-            "  error[SystemFailed]: System addDirt failed in prepare: dirt.json is missing",
-            "  error[SystemFailed]: System addDirt failed in prepare: timeout",
+            "  error[SystemFailed]: System addDirt failed in load: dirt.json is missing",
+            "  error[SystemFailed]: System addDirt failed in load: timeout",
         ]);
         expect(error.errors).toStrictEqual([missing, "timeout"]);
     });

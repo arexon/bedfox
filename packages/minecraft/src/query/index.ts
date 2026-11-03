@@ -1,10 +1,4 @@
-import {
-    Entry,
-    type EntryCtor,
-    type PreparedSystem,
-    type Registry,
-    type System,
-} from "@bedfox/core";
+import { Entry, type EntryCtor, type Registry, system, type SystemConfig } from "@bedfox/core";
 
 import { Block } from "#/block/index";
 import type { ComponentCtor } from "#/component/component";
@@ -22,8 +16,11 @@ export type SystemCallback<T extends Entry> = (
     entries: Generator<T, void, unknown>,
 ) => void | Promise<void>;
 
-/** The callback of {@link Query.intoPreparedSystem}. It gets the matched entries and the data. */
-export type PreparedSystemCallback<T extends Entry, D> = (
+/**
+ * The callback of {@link Query.intoSystem} with a `load` function. It gets the matched entries and
+ * the loaded data.
+ */
+export type SystemCallbackWithData<T extends Entry, D> = (
     reg: Registry,
     entries: Generator<T, void, unknown>,
     data: D,
@@ -57,27 +54,21 @@ interface BaseQuery<T extends Entry> {
      *         }),
      *     );
      */
-    intoSystem(callback: SystemCallback<T>): System;
+    intoSystem(callback: SystemCallback<T>): SystemConfig;
 
     /**
-     * Converts the query to a {@link PreparedSystem}.
+     * Converts the query to a system that loads its data with `load` first, like {@link system}.
      *
-     * If nothing matches, the system doesn't call `callback`, but `prepare` still runs.
+     * If nothing matches, the system doesn't call `callback`, but `load` still runs.
      *
      * @example
      *     project.addSystem(
-     *         query(Block).intoPreparedSystem(
-     *             () => readColors(),
-     *             (reg, blocks, colors) => {
-     *                 for (const block of blocks) paint(block, colors);
-     *             },
-     *         ),
+     *         query(Block).intoSystem((reg, blocks, colors) => {
+     *             for (const block of blocks) paint(block, colors);
+     *         }, readColors),
      *     );
      */
-    intoPreparedSystem<D>(
-        prepare: () => D | Promise<D>,
-        callback: PreparedSystemCallback<T, D>,
-    ): PreparedSystem<D>;
+    intoSystem<D>(callback: SystemCallbackWithData<T, D>, load: () => D | Promise<D>): SystemConfig;
 }
 
 // Each kind's filters keep entries of other kinds, so one query can mix kinds.
@@ -167,18 +158,18 @@ class QueryImpl {
         );
     }
 
-    intoSystem(callback: SystemCallback<Entry>): System {
-        return (reg) => this.#call(reg, (defs) => callback(reg, defs));
-    }
-
-    intoPreparedSystem<D>(
-        prepare: () => D | Promise<D>,
-        callback: PreparedSystemCallback<Entry, D>,
-    ): PreparedSystem<D> {
-        return {
-            prepare,
-            run: (reg, data) => this.#call(reg, (defs) => callback(reg, defs, data)),
-        };
+    intoSystem(
+        callback: (
+            reg: Registry,
+            entries: Generator<Entry, void, unknown>,
+            data?: unknown,
+        ) => void | Promise<void>,
+        load?: () => unknown,
+    ): SystemConfig {
+        if (load === undefined) {
+            return system((reg) => this.#call(reg, (defs) => callback(reg, defs)));
+        }
+        return system((reg, data) => this.#call(reg, (defs) => callback(reg, defs, data)), load);
     }
 
     #call(

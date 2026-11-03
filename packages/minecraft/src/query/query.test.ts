@@ -17,11 +17,17 @@ import { ScatterFeature } from "#/feature/scatter";
 import { type Query, query } from "#/query/index";
 import { ids, NS, registryWith, runSetup } from "#/test/helpers";
 
-function collect<T extends Entry>(reg: Registry, q: Query<T>): string[] {
+async function collect<T extends Entry>(reg: Registry, q: Query<T>): Promise<string[]> {
     let result: string[] = [];
-    void q.intoSystem((_, defs) => {
-        result = ids(defs);
-    })(reg);
+    await runSetup(
+        NS,
+        (next) => {
+            next.add(...reg.entries());
+        },
+        q.intoSystem((_, defs) => {
+            result = ids(defs);
+        }),
+    );
     return result;
 }
 
@@ -32,9 +38,9 @@ describe(query.name, () => {
             new OreFeature("ore"),
             new Block("dirt"),
         );
-        expect(collect(reg, query(Block))).toStrictEqual(["dirt"]);
-        expect(collect(reg, query(FeatureRules, Block))).toStrictEqual(["rules", "dirt"]);
-        expect(collect(reg, query(Definition))).toStrictEqual(["rules", "ore", "dirt"]);
+        expect(await collect(reg, query(Block))).toStrictEqual(["dirt"]);
+        expect(await collect(reg, query(FeatureRules, Block))).toStrictEqual(["rules", "dirt"]);
+        expect(await collect(reg, query(Definition))).toStrictEqual(["rules", "ore", "dirt"]);
     });
 
     test("matches subclasses", async () => {
@@ -42,8 +48,8 @@ describe(query.name, () => {
             new OreFeature("ore"),
             new ScatterFeature("scatter", { placesFeature: `${NS}:ore` }),
         );
-        expect(collect(reg, query(Feature))).toStrictEqual(["ore", "scatter"]);
-        expect(collect(reg, query(ScatterFeature))).toStrictEqual(["scatter"]);
+        expect(await collect(reg, query(Feature))).toStrictEqual(["ore", "scatter"]);
+        expect(await collect(reg, query(ScatterFeature))).toStrictEqual(["scatter"]);
     });
 
     describe("intoSystem()", () => {
@@ -149,37 +155,37 @@ describe(query.name, () => {
         });
     });
 
-    describe("intoPreparedSystem()", () => {
-        test("passes the matched definitions and the prepared value", async () => {
+    describe("intoSystem() with a load function", () => {
+        test("passes the matched definitions and the loaded value", async () => {
             let seen: unknown[] = [];
             await runSetup(
                 NS,
                 (reg) => {
                     reg.add(new Block("dirt"), new OreFeature("ore"));
                 },
-                query(Block).intoPreparedSystem(
-                    () => "colors",
+                query(Block).intoSystem(
                     (_, blocks, colors) => {
                         seen = [ids(blocks), colors];
                     },
+                    () => "colors",
                 ),
             );
             expect(seen).toStrictEqual([["dirt"], "colors"]);
         });
 
-        test("prepares but skips the callback when nothing matches", async () => {
-            let prepares = 0;
+        test("loads but skips the callback when nothing matches", async () => {
+            let loads = 0;
             let calls = 0;
             await runSetup(
                 NS,
-                query(Block).intoPreparedSystem(
-                    () => prepares++,
+                query(Block).intoSystem(
                     () => {
                         calls++;
                     },
+                    () => loads++,
                 ),
             );
-            expect([prepares, calls]).toStrictEqual([1, 0]);
+            expect([loads, calls]).toStrictEqual([1, 0]);
         });
 
         test("waits for an async callback before the next system", async () => {
@@ -189,12 +195,12 @@ describe(query.name, () => {
                 (reg) => {
                     reg.add(new Block("dirt"));
                 },
-                query(Block).intoPreparedSystem(
-                    () => "colors",
+                query(Block).intoSystem(
                     async (_, blocks, colors) => {
                         await delay(1);
                         order.push(...ids(blocks), colors);
                     },
+                    () => "colors",
                 ),
                 () => {
                     order.push("after");
@@ -210,9 +216,9 @@ describe(query.name, () => {
             const base = query(Block);
             const dirt = base.filter((block) => block.identifier === "dirt");
             const none = dirt.filter((block) => block.identifier === "stone");
-            expect(collect(reg, base)).toStrictEqual(["dirt", "stone"]);
-            expect(collect(reg, dirt)).toStrictEqual(["dirt"]);
-            expect(collect(reg, none)).toStrictEqual([]);
+            expect(await collect(reg, base)).toStrictEqual(["dirt", "stone"]);
+            expect(await collect(reg, dirt)).toStrictEqual(["dirt"]);
+            expect(await collect(reg, none)).toStrictEqual([]);
         });
 
         test("orphan()", async () => {
@@ -224,8 +230,11 @@ describe(query.name, () => {
                 }),
                 new OreFeature("unused"),
             );
-            expect(collect(reg, query(Feature).orphan())).toStrictEqual(["unused"]);
-            expect(collect(reg, query(Definition).orphan())).toStrictEqual(["rules", "unused"]);
+            expect(await collect(reg, query(Feature).orphan())).toStrictEqual(["unused"]);
+            expect(await collect(reg, query(Definition).orphan())).toStrictEqual([
+                "rules",
+                "unused",
+            ]);
         });
 
         describe("withComponent() and withoutComponent()", () => {
@@ -241,21 +250,20 @@ describe(query.name, () => {
                 const reg = await registryWith(plain, slippery, glowing);
 
                 const blocks = query(Block);
-                expect(collect(reg, blocks.withComponent(FrictionBlockComponent))).toStrictEqual([
-                    "slippery",
-                    "glowing",
-                ]);
                 expect(
-                    collect(
+                    await collect(reg, blocks.withComponent(FrictionBlockComponent)),
+                ).toStrictEqual(["slippery", "glowing"]);
+                expect(
+                    await collect(
                         reg,
                         blocks.withComponent(FrictionBlockComponent, LightEmissionBlockComponent),
                     ),
                 ).toStrictEqual(["glowing"]);
                 expect(
-                    collect(reg, blocks.withoutComponent(LightEmissionBlockComponent)),
+                    await collect(reg, blocks.withoutComponent(LightEmissionBlockComponent)),
                 ).toStrictEqual(["plain", "slippery"]);
                 expect(
-                    collect(
+                    await collect(
                         reg,
                         blocks.withoutComponent(
                             FrictionBlockComponent,
@@ -271,14 +279,12 @@ describe(query.name, () => {
                 const reg = await registryWith(slippery, new Block("plain"), new OreFeature("ore"));
 
                 const defs = query(Definition);
-                expect(collect(reg, defs.withComponent(FrictionBlockComponent))).toStrictEqual([
-                    "slippery",
-                    "ore",
-                ]);
-                expect(collect(reg, defs.withoutComponent(FrictionBlockComponent))).toStrictEqual([
-                    "plain",
-                    "ore",
-                ]);
+                expect(
+                    await collect(reg, defs.withComponent(FrictionBlockComponent)),
+                ).toStrictEqual(["slippery", "ore"]);
+                expect(
+                    await collect(reg, defs.withoutComponent(FrictionBlockComponent)),
+                ).toStrictEqual(["plain", "ore"]);
             });
         });
 
@@ -292,15 +298,15 @@ describe(query.name, () => {
                     new ScatterFeature("scatter", { placesFeature: `${NS}:dirt_ore` }),
                 );
                 const features = query(Feature);
-                expect(collect(reg, features.placing(dirt))).toStrictEqual(["dirt_ore"]);
-                expect(collect(reg, features.placing("minecraft:stone"))).toStrictEqual([
+                expect(await collect(reg, features.placing(dirt))).toStrictEqual(["dirt_ore"]);
+                expect(await collect(reg, features.placing("minecraft:stone"))).toStrictEqual([
                     "vanilla_ore",
                 ]);
-                expect(collect(reg, features.placing({ name: "minecraft:stone" }))).toStrictEqual([
-                    "vanilla_ore",
-                ]);
-                expect(collect(reg, features.placing(Block))).toStrictEqual(["dirt_ore"]);
-                expect(collect(reg, features.placing(OreFeature))).toStrictEqual(["scatter"]);
+                expect(
+                    await collect(reg, features.placing({ name: "minecraft:stone" })),
+                ).toStrictEqual(["vanilla_ore"]);
+                expect(await collect(reg, features.placing(Block))).toStrictEqual(["dirt_ore"]);
+                expect(await collect(reg, features.placing(OreFeature))).toStrictEqual(["scatter"]);
             });
 
             test("on feature rules", async () => {
@@ -310,9 +316,9 @@ describe(query.name, () => {
                     new FeatureRules("vanilla_rules", { placesFeature: "minecraft:ore" }),
                 );
                 const rules = query(FeatureRules);
-                expect(collect(reg, rules.placing(ore))).toStrictEqual(["ore_rules"]);
-                expect(collect(reg, rules.placing(`${NS}:ore`))).toStrictEqual(["ore_rules"]);
-                expect(collect(reg, rules.placing(OreFeature))).toStrictEqual(["ore_rules"]);
+                expect(await collect(reg, rules.placing(ore))).toStrictEqual(["ore_rules"]);
+                expect(await collect(reg, rules.placing(`${NS}:ore`))).toStrictEqual(["ore_rules"]);
+                expect(await collect(reg, rules.placing(OreFeature))).toStrictEqual(["ore_rules"]);
             });
 
             test("only filters features and feature rules", async () => {
@@ -323,7 +329,7 @@ describe(query.name, () => {
                     new ScatterFeature("elsewhere", { placesFeature: `${NS}:elsewhere` }),
                     new FeatureRules("rules", { placesFeature: ore }),
                 );
-                expect(collect(reg, query(Definition).placing(ore))).toStrictEqual([
+                expect(await collect(reg, query(Definition).placing(ore))).toStrictEqual([
                     "dirt",
                     "scatter",
                     "rules",
@@ -343,7 +349,7 @@ describe(query.name, () => {
             const mixed = query(ScatterFeature, Block)
                 .placing(`${NS}:ore`)
                 .withComponent(GeometryBlockComponent);
-            expect(collect(reg, mixed)).toStrictEqual(["geometry", "scatter"]);
+            expect(await collect(reg, mixed)).toStrictEqual(["geometry", "scatter"]);
         });
     });
 });

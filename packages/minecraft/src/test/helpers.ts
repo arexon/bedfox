@@ -1,11 +1,11 @@
 import {
     type Entry,
     type PackOutput,
-    type PreparedSystem,
     Project,
     type Registry,
     RunFailedError,
     type System,
+    type SystemConfig,
 } from "@bedfox/core";
 import corePkg from "@bedfox/core/package.json" with { type: "json" };
 
@@ -33,7 +33,7 @@ export function emitted(output: PackOutput, namespace = NS): unknown {
 
 export async function runSetup(
     namespace: string,
-    ...systems: (System | PreparedSystem<unknown>)[]
+    ...systems: (System | SystemConfig)[]
 ): Promise<Registry> {
     const registry = Promise.withResolvers<Registry>();
     const project = new Project(namespace).addSystem("setup", registry.resolve, ...systems);

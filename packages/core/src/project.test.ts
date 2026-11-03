@@ -7,14 +7,7 @@ import { DuplicatePlugin, type Plugin, PluginFailed, SystemAddedDuringRunError }
 import { Project } from "#/project";
 import { DuplicatePath, FrozenRegistry, type Registry, RegistryFrozenError } from "#/registry";
 import { type Schedule, SystemOrderCycle } from "#/schedule";
-import {
-    ordered,
-    type PreparedSystem,
-    prepared,
-    type System,
-    SystemFailed,
-    ScheduledSystem,
-} from "#/system";
+import { ScheduledSystem, system, type System, type SystemConfig, SystemFailed } from "#/system";
 import { Clash, Leaf, Notes, remark } from "#/test/fixtures";
 import { diagnosticsOf, ids, json, NS } from "#/test/helpers";
 
@@ -40,12 +33,12 @@ class Loop implements Plugin {
 }
 
 function scheduled(
-    system: System | PreparedSystem<unknown>,
+    added: System | SystemConfig,
     schedule: Schedule,
     index: number,
     plugins: Plugin[] = [],
 ): ScheduledSystem {
-    return new ScheduledSystem(system, schedule, index, plugins);
+    return new ScheduledSystem(added, schedule, index, plugins);
 }
 
 describe(Project.name, () => {
@@ -126,9 +119,9 @@ describe(Project.name, () => {
 
         test("rejects a run while another run is active", async () => {
             const project = new Project(NS).addSystem(
-                prepared(
-                    () => delay(1),
+                system(
                     () => {},
+                    () => delay(1),
                 ),
             );
             const first = project.run();
@@ -249,16 +242,16 @@ describe(Project.name, () => {
             expect(order).toStrictEqual(["async", "dirt"]);
         });
 
-        test("waits for the async run function of a prepared system", async () => {
+        test("waits for the async run function of a system with a loader", async () => {
             const order: string[] = [];
             await new Project(NS)
                 .addSystem(
-                    prepared(
-                        () => "data",
+                    system(
                         async (_, data) => {
                             await delay(1);
                             order.push(data);
                         },
+                        () => "data",
                     ),
                     () => {
                         order.push("after");
@@ -466,10 +459,19 @@ describe(Project.name, () => {
             const addDirt = () => {
                 throw cause;
             };
-            const project = new Project(NS).addSystem(() => {}, ordered(addDirt).beforeAll());
+            const config = system(addDirt).beforeAll();
+            const project = new Project(NS).addSystem(() => {}, config);
             expect(await diagnosticsOf(project.run())).toStrictEqual([
-                new SystemFailed(scheduled(addDirt, "transform", 1), "run", cause),
+                new SystemFailed(scheduled(config, "transform", 1), "run", cause),
             ]);
+        });
+
+        test("hold the system as it was added", async () => {
+            const config = system(() => {
+                throw new Error("boom");
+            });
+            const [failed] = await diagnosticsOf(new Project(NS).addSystem(config).run());
+            expect((failed as SystemFailed).system.system).toBe(config);
         });
 
         test("record the plugins that added a system, from the outermost", async () => {
@@ -575,33 +577,33 @@ describe("reported diagnostics", () => {
     });
 });
 
-describe(prepared.name, () => {
-    test("passes each prepared value to its own system", async () => {
+describe("system() with a load function", () => {
+    test("passes each loaded value to its own system", async () => {
         const seen: string[] = [];
         await new Project(NS)
             .addSystem(
                 "setup",
-                prepared(
+                system(
+                    (_, data) => {
+                        seen.push(data);
+                    },
                     async () => {
                         await delay(5);
                         return "slow";
                     },
-                    (_, data) => {
-                        seen.push(data);
-                    },
                 ),
-                prepared(
-                    () => "fast",
+                system(
                     (_, data) => {
                         seen.push(data);
                     },
+                    () => "fast",
                 ),
             )
             .run();
         expect(seen).toStrictEqual(["slow", "fast"]);
     });
 
-    test("prepares before any system runs", async () => {
+    test("loads before any system runs", async () => {
         const order: string[] = [];
         await new Project(NS)
             .addSystem("setup", () => {
@@ -609,44 +611,44 @@ describe(prepared.name, () => {
             })
             .addSystem(
                 "finalize",
-                prepared(
-                    () => {
-                        order.push("prepare");
-                    },
+                system(
                     () => {
                         order.push("run");
                     },
+                    () => {
+                        order.push("load");
+                    },
                 ),
             )
             .run();
-        expect(order).toStrictEqual(["prepare", "system", "run"]);
+        expect(order).toStrictEqual(["load", "system", "run"]);
     });
 
-    test("starts every prepare step at once", async () => {
+    test("starts every load function at once", async () => {
         const gate = Promise.withResolvers<void>();
-        // The first step waits for the second, so the run would never end if they ran in turn.
+        // The first loader waits for the second, so the run would never end if they ran in turn.
         await new Project(NS)
             .addSystem(
-                prepared(
-                    () => gate.promise,
+                system(
                     () => {},
+                    () => gate.promise,
                 ),
-                prepared(
+                system(
+                    () => {},
                     () => {
                         gate.resolve();
                     },
-                    () => {},
                 ),
             )
             .run();
     });
 
-    test("runs no system if a prepare step rejects", async () => {
+    test("runs no system if a load function rejects", async () => {
         const cause = new Error("offline");
         let ran = false;
-        const offline = prepared(
-            () => Promise.reject(cause),
+        const offline = system(
             () => {},
+            () => Promise.reject(cause),
         );
         const project = new Project(NS)
             .addSystem("setup", () => {
@@ -654,78 +656,78 @@ describe(prepared.name, () => {
             })
             .addSystem("finalize", offline);
         expect(await diagnosticsOf(project.run())).toStrictEqual([
-            new SystemFailed(scheduled(offline, "finalize", 0), "prepare", cause),
+            new SystemFailed(scheduled(offline, "finalize", 0), "load", cause),
         ]);
         expect(ran).toBe(false);
     });
 
-    test("rejects only after every prepare step ends", async () => {
+    test("rejects only after every load function ends", async () => {
         let finished = false;
         const project = new Project(NS).addSystem(
-            prepared(
-                () => Promise.reject(new Error("offline")),
+            system(
                 () => {},
+                () => Promise.reject(new Error("offline")),
             ),
-            prepared(
+            system(
+                () => {},
                 async () => {
                     await delay(5);
                     finished = true;
                 },
-                () => {},
             ),
         );
         await expect(project.run()).rejects.toThrow(RunFailedError);
         expect(finished).toBe(true);
     });
 
-    test("records every rejected prepare step, in system order", async () => {
+    test("records every rejected load function, in system order", async () => {
         const first = new Error("first");
         const second = new Error("second");
-        const slow = prepared(
+        const slow = system(
+            () => {},
             async () => {
                 await delay(5);
                 throw first;
             },
-            () => {},
         );
-        const fast = prepared(
-            () => Promise.reject(second),
+        const fast = system(
             () => {},
+            () => Promise.reject(second),
         );
         expect(await diagnosticsOf(new Project(NS).addSystem(slow, fast).run())).toStrictEqual([
-            new SystemFailed(scheduled(slow, "transform", 0), "prepare", first),
-            new SystemFailed(scheduled(fast, "transform", 1), "prepare", second),
+            new SystemFailed(scheduled(slow, "transform", 0), "load", first),
+            new SystemFailed(scheduled(fast, "transform", 1), "load", second),
         ]);
     });
 
-    test("records a prepare step that throws, after every prepare step ends", async () => {
+    test("records a load function that throws, after every load function ends", async () => {
         const cause = new Error("offline");
         let finished = false;
-        const offline = prepared(
+        const offline = system(
+            () => {},
             () => {
                 throw cause;
             },
-            () => {},
         );
-        const slow = prepared(
+        const slow = system(
+            () => {},
             async () => {
                 await delay(5);
                 finished = true;
             },
-            () => {},
         );
         expect(await diagnosticsOf(new Project(NS).addSystem(offline, slow).run())).toStrictEqual([
-            new SystemFailed(scheduled(offline, "transform", 0), "prepare", cause),
+            new SystemFailed(scheduled(offline, "transform", 0), "load", cause),
         ]);
         expect(finished).toBe(true);
     });
 });
 
-function recorder(): { order: string[]; system: (name: string) => System } {
+function recorder(): { order: string[]; step: (name: string) => System } {
     const order: string[] = [];
     return {
         order,
-        system: (name) => () => {
+        step: (name) => () => {
             order.push(name);
         },
     };
@@ -739,124 +741,132 @@ function important(): void {}
 
 function two(): void {}
 
-describe(ordered.name, () => {
+describe("system() order rules", () => {
     test("afterAll() runs after the other systems of the schedule, also later ones from plugins", async () => {
-        const { order, system } = recorder();
+        const { order, step } = recorder();
         class Late implements Plugin {
             build(project: Project): void {
-                project.addSystem("finalize", system("plugin"));
+                project.addSystem("finalize", step("plugin"));
             }
         }
         await new Project(NS)
-            .addSystem("finalize", ordered(system("last")).afterAll(), system("own"))
+            .addSystem("finalize", system(step("last")).afterAll(), step("own"))
             .addPlugin(new Late())
             .run();
         expect(order).toStrictEqual(["own", "plugin", "last"]);
     });
 
     test("beforeAll() runs before the other systems of the schedule, also the project's own", async () => {
-        const { order, system } = recorder();
+        const { order, step } = recorder();
         class Defaults implements Plugin {
             build(project: Project): void {
-                project.addSystem("setup", ordered(system("defaults")).beforeAll());
+                project.addSystem("setup", system(step("defaults")).beforeAll());
             }
         }
-        await new Project(NS).addSystem("setup", system("own")).addPlugin(new Defaults()).run();
+        await new Project(NS).addSystem("setup", step("own")).addPlugin(new Defaults()).run();
         expect(order).toStrictEqual(["defaults", "own"]);
     });
 
     test("keeps the added order among afterAll() systems and among beforeAll() systems", async () => {
-        const { order, system } = recorder();
+        const { order, step } = recorder();
         await new Project(NS)
             .addSystem(
-                ordered(system("last 1")).afterAll(),
-                ordered(system("first 1")).beforeAll(),
-                system("middle"),
-                ordered(system("last 2")).afterAll(),
-                ordered(system("first 2")).beforeAll(),
+                system(step("last 1")).afterAll(),
+                system(step("first 1")).beforeAll(),
+                step("middle"),
+                system(step("last 2")).afterAll(),
+                system(step("first 2")).beforeAll(),
             )
             .run();
         expect(order).toStrictEqual(["first 1", "first 2", "middle", "last 1", "last 2"]);
     });
 
     test("after() and before() reorder systems, and keep the added order otherwise", async () => {
-        const { order, system } = recorder();
-        const b = system("b");
-        const c = system("c");
+        const { order, step } = recorder();
+        const b = step("b");
+        const c = step("c");
         await new Project(NS)
-            .addSystem(ordered(system("a")).after(c), b, c, ordered(system("d")).before(b))
+            .addSystem(system(step("a")).after(c), b, c, system(step("d")).before(b))
+            .run();
+        expect(order).toStrictEqual(["c", "a", "d", "b"]);
+    });
+
+    test("after() and before() match a SystemConfig, and a function by its SystemConfig", async () => {
+        const { order, step } = recorder();
+        const b = step("b");
+        const c = system(step("c"));
+        await new Project(NS)
+            .addSystem(system(step("a")).after(c), system(b), c, system(step("d")).before(b))
             .run();
         expect(order).toStrictEqual(["c", "a", "d", "b"]);
     });
 
     test("orders systems only inside their schedule", async () => {
-        const { order, system } = recorder();
+        const { order, step } = recorder();
         await new Project(NS)
-            .addSystem("transform", system("transform"))
-            .addSystem("setup", ordered(system("setup last")).afterAll(), system("setup"))
+            .addSystem("transform", step("transform"))
+            .addSystem("setup", system(step("setup last")).afterAll(), step("setup"))
             .run();
         expect(order).toStrictEqual(["setup", "setup last", "transform"]);
     });
 
     test("ignores rules about systems that aren't in the schedule", async () => {
-        const { order, system } = recorder();
-        const elsewhere = system("elsewhere");
+        const { order, step } = recorder();
+        const elsewhere = step("elsewhere");
         await new Project(NS)
             .addSystem("setup", elsewhere)
-            .addSystem(ordered(system("a")).after(elsewhere).before(system("missing")), system("b"))
+            .addSystem(system(step("a")).after(elsewhere).before(step("missing")), step("b"))
             .run();
         expect(order).toStrictEqual(["elsewhere", "a", "b"]);
     });
 
     test("applies a rule to each time that a system was added", async () => {
-        const { order, system } = recorder();
-        const twice = system("twice");
-        await new Project(NS).addSystem(ordered(system("a")).after(twice), twice, twice).run();
+        const { order, step } = recorder();
+        const twice = step("twice");
+        await new Project(NS).addSystem(system(step("a")).after(twice), twice, twice).run();
         expect(order).toStrictEqual(["twice", "twice", "a"]);
     });
 
     test("uses the last of afterAll() and beforeAll()", async () => {
-        const { order, system } = recorder();
-        await new Project(NS)
-            .addSystem(system("b"), ordered(system("a")).afterAll().beforeAll())
-            .run();
+        const { order, step } = recorder();
+        await new Project(NS).addSystem(step("b"), system(step("a")).afterAll().beforeAll()).run();
         expect(order).toStrictEqual(["a", "b"]);
     });
 
-    test("gives a prepared system its data", async () => {
-        const { order, system } = recorder();
+    test("gives a system with a load function its data", async () => {
+        const { order, step } = recorder();
         await new Project(NS)
             .addSystem(
-                ordered(
-                    prepared(
-                        () => "prepared",
-                        (_, data) => {
-                            order.push(data);
-                        },
-                    ),
+                system(
+                    (_, data) => {
+                        order.push(data);
+                    },
+                    () => "loaded",
                 ).afterAll(),
-                system("b"),
+                step("b"),
             )
             .run();
-        expect(order).toStrictEqual(["b", "prepared"]);
+        expect(order).toStrictEqual(["b", "loaded"]);
     });
 
-    test("rejects rules that form a cycle, before any prepare step starts", async () => {
+    test("rejects rules that form a cycle, before any load function starts", async () => {
         let started = false;
+        const first = system(cycleFirst).after(cycleSecond);
+        const second = system(cycleSecond).after(cycleFirst);
         const project = new Project(NS).addSystem(
-            ordered(cycleFirst).after(cycleSecond),
-            ordered(cycleSecond).after(cycleFirst),
-            prepared(
+            first,
+            second,
+            system(
+                () => {},
                 () => {
                     started = true;
                 },
-                () => {},
             ),
         );
         expect(await diagnosticsOf(project.run())).toStrictEqual([
             new SystemOrderCycle("transform", [
-                { system: scheduled(cycleSecond, "transform", 1), rule: "after" },
-                { system: scheduled(cycleFirst, "transform", 0), rule: "after" },
+                { system: scheduled(second, "transform", 1), rule: "after" },
+                { system: scheduled(first, "transform", 0), rule: "after" },
             ]),
         ]);
         await expect(project.run()).rejects.toThrow(RunFailedError);
@@ -864,35 +874,31 @@ describe(ordered.name, () => {
     });
 
     test("records the rule that makes each system of a cycle run before the next", async () => {
-        const project = new Project(NS).addSystem(
-            "setup",
-            ordered(important).afterAll().before(two),
-            two,
-        );
+        const last = system(important).afterAll().before(two);
+        const project = new Project(NS).addSystem("setup", last, two);
         expect(await diagnosticsOf(project.run())).toStrictEqual([
             new SystemOrderCycle("setup", [
                 { system: scheduled(two, "setup", 1), rule: "afterAll" },
-                { system: scheduled(important, "setup", 0), rule: "before" },
+                { system: scheduled(last, "setup", 0), rule: "before" },
             ]),
         ]);
     });
 
     test("records a cycle in each schedule", async () => {
+        const first = system(important).beforeAll().after(two);
+        const cycleA = system(cycleFirst).before(cycleSecond);
+        const cycleB = system(cycleSecond).before(cycleFirst);
         const project = new Project(NS)
-            .addSystem("setup", ordered(important).beforeAll().after(two), two)
-            .addSystem(
-                "finalize",
-                ordered(cycleFirst).before(cycleSecond),
-                ordered(cycleSecond).before(cycleFirst),
-            );
+            .addSystem("setup", first, two)
+            .addSystem("finalize", cycleA, cycleB);
         expect(await diagnosticsOf(project.run())).toStrictEqual([
             new SystemOrderCycle("setup", [
                 { system: scheduled(two, "setup", 1), rule: "after" },
-                { system: scheduled(important, "setup", 0), rule: "beforeAll" },
+                { system: scheduled(first, "setup", 0), rule: "beforeAll" },
             ]),
             new SystemOrderCycle("finalize", [
-                { system: scheduled(cycleSecond, "finalize", 1), rule: "before" },
-                { system: scheduled(cycleFirst, "finalize", 0), rule: "before" },
+                { system: scheduled(cycleB, "finalize", 1), rule: "before" },
+                { system: scheduled(cycleA, "finalize", 0), rule: "before" },
             ]),
         ]);
     });

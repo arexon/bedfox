@@ -1,4 +1,4 @@
-import { ordered, type Plugin, type Project, type Registry } from "@bedfox/core";
+import { type Plugin, type Project, type Registry, system } from "@bedfox/core";
 import corePkg from "@bedfox/core/package.json" with { type: "json" };
 
 import { engineVersion } from "#/manifest/engine_version";
@@ -44,7 +44,7 @@ export class DefaultPlugin implements Plugin {
  */
 export class ManifestPlugin implements Plugin {
     build(project: Project): void {
-        project.addSystem("setup", ordered(addManifests).beforeAll());
+        project.addSystem("setup", system(addManifests).beforeAll());
     }
 }
 

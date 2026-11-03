@@ -2,7 +2,7 @@ import { type Diagnostic, RunFailedError } from "#/diagnostic";
 import { loadPlugins, type Plugin, SystemAddedDuringRunError } from "#/plugin";
 import { CLASHES, FREEZE, FrozenRegistry, Registry } from "#/registry";
 import { type Schedule, Schedules } from "#/schedule";
-import { type OrderedSystem, type PreparedSystem, runSystems, type System } from "#/system";
+import { runSystems, type System, type SystemConfig } from "#/system";
 
 interface PluginCall {
     readonly schedules: Schedules;
@@ -20,9 +20,9 @@ interface PluginCall {
  * Systems run on three schedules: `setup`, then `transform`, then `finalize`. A definition created
  * outside a system keeps the changes of earlier runs.
  *
- * Systems and plugins can be async. The run waits for each one before it starts the next.
- * {@link prepared} systems load data for many systems at the same time. Systems can read files, but
- * they must not write them.
+ * Systems and plugins can be async. The run waits for each one before it starts the next. A system
+ * can also load its data before any system runs, so that many systems load at the same time (see
+ * {@link system}). Systems can read files, but they must not write them.
  *
  * @example
  *     const project = new Project("example");
@@ -56,7 +56,7 @@ export class Project {
      * Adds systems to `schedule`.
      *
      * The systems of one schedule run in the order that `addSystem()` gets them. The project's own
-     * systems run before the systems of its plugins. {@link ordered} changes this order, e.g. to run
+     * systems run before the systems of its plugins. {@link system} changes this order, e.g. to run
      * a system after every other system of the schedule.
      *
      * @example
@@ -67,10 +67,7 @@ export class Project {
      * @throws - {@link SystemAddedDuringRunError} if the project runs, outside a plugin's
      *   `build()`.
      */
-    addSystem(
-        schedule: Schedule,
-        ...systems: (System | PreparedSystem<unknown> | OrderedSystem)[]
-    ): this;
+    addSystem(schedule: Schedule, ...systems: (System | SystemConfig)[]): this;
     /**
      * Adds systems to the `transform` schedule.
      *
@@ -84,11 +81,8 @@ export class Project {
      * @throws - {@link SystemAddedDuringRunError} if the project runs, outside a plugin's
      *   `build()`.
      */
-    addSystem(...systems: (System | PreparedSystem<unknown> | OrderedSystem)[]): this;
-    addSystem(
-        first?: Schedule | System | PreparedSystem<unknown> | OrderedSystem,
-        ...rest: (System | PreparedSystem<unknown> | OrderedSystem)[]
-    ): this {
+    addSystem(...systems: (System | SystemConfig)[]): this;
+    addSystem(first?: Schedule | System | SystemConfig, ...rest: (System | SystemConfig)[]): this {
         const [schedule, systems] =
             typeof first === "string"
                 ? [first, rest]
@@ -126,8 +120,8 @@ export class Project {
     /**
      * Runs every plugin and system once, on a new registry.
      *
-     * First, the run calls the plugins. Then it waits for the `prepare` step of every prepared
-     * system. Then it runs the systems, schedule by schedule. If a plugin or a `prepare` step
+     * First, the run calls the plugins. Then it waits for the `load` function of every system that
+     * has one. Then it runs the systems, schedule by schedule. If a plugin or a `load` function
      * fails, no system runs.
      *
      * When the run ends, its registry freezes, also when the run fails. If the run ends without an
@@ -139,7 +133,7 @@ export class Project {
      * - A plugin fails ({@link PluginFailed}), or two plugins have the same class
      *   ({@link DuplicatePlugin}).
      * - The order rules of a schedule form a cycle ({@link SystemOrderCycle}).
-     * - A system or a `prepare` step fails ({@link SystemFailed}).
+     * - A system or its `load` function fails ({@link SystemFailed}).
      * - Two files in one pack have the same path ({@link DuplicatePath}).
      * - A system reports a diagnostic with the `error` severity.
      *
