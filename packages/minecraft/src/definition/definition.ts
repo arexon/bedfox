@@ -25,7 +25,7 @@ export interface DefinitionLocation {
     folder: string;
 }
 
-const IDENTIFIER_REG = /^[a-z0-9._-]+$/;
+const IDENTIFIER_REG = /^[a-z0-9._-]+$/u;
 
 /**
  * A JSON file in a behavior or resource pack, such as a block, an item, an entity or a feature.

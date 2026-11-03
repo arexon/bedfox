@@ -160,7 +160,7 @@ export function serialize(
                 configurable: true,
                 writable: true,
                 value(this: object): unknown {
-                    return serializeInstance(this, undefined);
+                    return serializeInstance(this);
                 },
             },
         });
@@ -197,20 +197,20 @@ class Schema {
 
     constructor(className: string, options: ReadonlyMap<string, FieldOptions>) {
         this.#className = className;
-        let transparent: string | undefined = undefined;
+        let transparent;
         for (const [name, field] of options) {
-            if (field.transparent) {
+            if (field.transparent === true) {
                 if (transparent !== undefined) {
                     throw new MultipleTransparentFieldsError(className, transparent, name);
                 }
-                if (field.within) {
+                if (field.within !== undefined) {
                     throw new NestedTransparentFieldError(className, name);
                 }
                 transparent = name;
             }
             this.#add(name, field);
         }
-        this.transparentKey = transparent && this.field(transparent).key;
+        this.transparentKey = transparent === undefined ? undefined : this.field(transparent).key;
     }
 
     field(name: string): FieldSchema {
@@ -226,9 +226,9 @@ class Schema {
             key: rename ?? toSnakeCase(name),
             within: typeof within === "string" ? [within] : (within ?? []),
             toJson:
-                override !== undefined
-                    ? (value, instance, ctx) => convert(override(value, instance, ctx), ctx)
-                    : (value, _, ctx) => omitEmpty(convert(value, ctx)),
+                override === undefined
+                    ? (value, _, ctx) => omitEmpty(convert(value, ctx))
+                    : (value, instance, ctx) => convert(override(value, instance, ctx), ctx),
         };
 
         let path = "";
@@ -274,7 +274,7 @@ function resolveOptions(ctor: { readonly prototype: object }): Map<string, Field
     return resolved;
 }
 
-function serializeInstance(obj: object, ctx: EmitContext | undefined): unknown {
+function serializeInstance(obj: object, ctx?: EmitContext): unknown {
     const schema = schemaOf(obj.constructor);
     const out: Record<string, unknown> = {};
     for (const name of Object.keys(obj)) {
@@ -346,13 +346,13 @@ function omitEmpty(json: unknown): unknown {
 }
 
 const SNAKE_CASE_CACHE = new Map<string, string>();
-const CASEABLE = /^[A-Za-z][A-Za-z0-9]*$/;
+const CASEABLE = /^[A-Za-z][A-Za-z0-9]*$/u;
 
 function toSnakeCase(name: string): string {
     if (!CASEABLE.test(name)) return name;
     let key = SNAKE_CASE_CACHE.get(name);
     if (key === undefined) {
-        key = name.replaceAll(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+        key = name.replaceAll(/([a-z0-9])([A-Z])/gu, "$1_$2").toLowerCase();
         SNAKE_CASE_CACHE.set(name, key);
     }
     return key;
@@ -360,6 +360,6 @@ function toSnakeCase(name: string): string {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
     if (value === null || typeof value !== "object") return false;
-    const proto: object | null = Object.getPrototypeOf(value);
+    const proto = Object.getPrototypeOf(value) as object | null;
     return proto === Object.prototype || proto === null;
 }

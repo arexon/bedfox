@@ -10,19 +10,6 @@ export interface BoundingBox {
     size: Vec3;
 }
 
-/** Common {@link BoundingBox} shapes. */
-export const BoundingBox = {
-    /** A full 16×16×16 block. */
-    cube(): BoundingBox {
-        return { origin: new Vec3(-8, 0, -8), size: new Vec3(16, 16, 16) };
-    },
-
-    /** A bottom slab, 16×8×16. */
-    slab(): BoundingBox {
-        return { origin: new Vec3(-8, 0, -8), size: new Vec3(16, 8, 16) };
-    },
-};
-
 @serialize
 export class CollisionBoxBlockComponent extends Component {
     static override readonly componentId = "minecraft:collision_box";
@@ -37,8 +24,8 @@ export class CollisionBoxBlockComponent extends Component {
     constructor(box: BoundingBox, ...boxes: BoundingBox[]);
     constructor(first: boolean | BoundingBox, ...rest: BoundingBox[]) {
         super();
-        if (typeof first !== "boolean") this.value = [first, ...rest];
-        else this.value = first;
+        if (typeof first === "boolean") this.value = first;
+        else this.value = [first, ...rest];
     }
 
     addBox(...boxes: BoundingBox[]): this {

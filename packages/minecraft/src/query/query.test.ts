@@ -158,7 +158,7 @@ describe(query.name, () => {
                     reg.add(new Block("dirt"), new OreFeature("ore"));
                 },
                 query(Block).intoPreparedSystem(
-                    async () => "colors",
+                    () => "colors",
                     (_, blocks, colors) => {
                         seen = [ids(blocks), colors];
                     },
@@ -173,7 +173,7 @@ describe(query.name, () => {
             await runSetup(
                 NS,
                 query(Block).intoPreparedSystem(
-                    async () => prepares++,
+                    () => prepares++,
                     () => {
                         calls++;
                     },
@@ -190,7 +190,7 @@ describe(query.name, () => {
                     reg.add(new Block("dirt"));
                 },
                 query(Block).intoPreparedSystem(
-                    async () => "colors",
+                    () => "colors",
                     async (_, blocks, colors) => {
                         await delay(1);
                         order.push(...ids(blocks), colors);

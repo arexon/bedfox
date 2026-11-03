@@ -75,7 +75,7 @@ interface BaseQuery<T extends Entry> {
      *     );
      */
     intoPreparedSystem<D>(
-        prepare: () => Promise<D>,
+        prepare: () => D | Promise<D>,
         callback: PreparedSystemCallback<T, D>,
     ): PreparedSystem<D>;
 }
@@ -172,7 +172,7 @@ class QueryImpl {
     }
 
     intoPreparedSystem<D>(
-        prepare: () => Promise<D>,
+        prepare: () => D | Promise<D>,
         callback: PreparedSystemCallback<Entry, D>,
     ): PreparedSystem<D> {
         return {
@@ -187,7 +187,7 @@ class QueryImpl {
     ): void | Promise<void> {
         const defs = this.#run(reg);
         const first = defs.next();
-        if (first.done) return undefined;
+        if (first.done === true) return undefined;
         return fn(this.#withFirst(reg, first.value, defs));
     }
 

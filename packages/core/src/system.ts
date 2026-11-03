@@ -22,7 +22,7 @@ export type System = (reg: Registry) => void | Promise<void>;
  */
 export interface PreparedSystem<T> {
     /** Loads the system's data. */
-    prepare(): Promise<T>;
+    prepare(): T | Promise<T>;
     /** Changes the registry with the loaded data. */
     run(reg: Registry, data: T): void | Promise<void>;
 }
@@ -42,7 +42,7 @@ export interface PreparedSystem<T> {
  *     );
  */
 export function prepared<T>(
-    prepare: () => Promise<T>,
+    prepare: () => T | Promise<T>,
     run: (reg: Registry, data: T) => void | Promise<void>,
 ): PreparedSystem<T> {
     return { prepare, run };
@@ -139,7 +139,11 @@ export async function runSystems(
 ): Promise<SystemFailed[]> {
     // Wait for every step, also after a rejection, so that a new run can't start while steps of
     // this run still work.
-    const settled = await Promise.allSettled(systems.map(prepare));
+    const settled = await Promise.allSettled(
+        systems.map(({ system }) =>
+            Promise.try(() => (typeof system === "function" ? undefined : system.prepare())),
+        ),
+    );
     const failed = settled.flatMap((result, i) =>
         result.status === "rejected"
             ? [new SystemFailed(systems[i], "prepare", result.reason)]
@@ -161,10 +165,6 @@ export async function runSystems(
         }
     }
     return [];
-}
-
-async function prepare({ system }: ScheduledSystem): Promise<unknown> {
-    return typeof system === "function" ? undefined : system.prepare();
 }
 
 /** A system in its schedule. {@link Diagnostic}s use it to tell which system they are about. */

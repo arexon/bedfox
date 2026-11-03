@@ -84,14 +84,14 @@ export class BiomeFilter extends BiomeFilterTests<BiomeFilter> {
         return new BiomeFilterTests((test, value) => this.#push(test, "!=", value));
     }
 
-    allOf(callback: (b: BiomeFilter) => void): this {
+    allOf(callback: (b: BiomeFilter) => unknown): this {
         const inner = new BiomeFilter();
         callback(inner);
         this.#items.push(new BiomeFilterMulti({ allOf: inner.#items }));
         return this;
     }
 
-    anyOf(callback: (b: BiomeFilter) => void): this {
+    anyOf(callback: (b: BiomeFilter) => unknown): this {
         const inner = new BiomeFilter();
         callback(inner);
         this.#items.push(new BiomeFilterMulti({ anyOf: inner.#items }));

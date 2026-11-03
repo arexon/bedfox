@@ -68,10 +68,10 @@ describe("diagnostic text", () => {
 
     test("names a prepared system after its run function, unless it is named run", () => {
         const named = prepared(
-            async () => [],
+            () => [],
             function addBiomes() {},
         );
-        const unnamed = prepared(async () => [], { run: () => {} }.run);
+        const unnamed = prepared(() => [], { run: () => {} }.run);
         expect(titleOf(named)).toBe("System addBiomes failed in run");
         expect(titleOf(unnamed)).toBe("System #0 failed in run");
     });

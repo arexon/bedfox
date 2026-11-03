@@ -84,7 +84,7 @@ export class Color {
     }
 }
 
-const HEX_PATTERN = /^#([\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i;
+const HEX_PATTERN = /^#([\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/iu;
 
 function hexToRgba(input: string): [number, number, number, number] {
     const match = HEX_PATTERN.exec(input);

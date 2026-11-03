@@ -17,7 +17,9 @@ async function inSystem<T>(fn: (reg: Registry) => T, ...entries: Entry[]): Promi
         (reg) => {
             reg.add(...entries);
         },
-        (reg) => result.resolve(fn(reg)),
+        (reg) => {
+            result.resolve(fn(reg));
+        },
     );
     return result.promise;
 }
@@ -126,8 +128,12 @@ describe("Registry", () => {
                         "Can't change a registry after its run ended. A system may have kept the registry, or changed it from async work",
                 }),
             );
-            expect(() => reg.remove(dirt)).toThrow(RegistryFrozenError);
-            expect(() => reg.report(remark("warning", "late"))).toThrow(RegistryFrozenError);
+            expect(() => {
+                reg.remove(dirt);
+            }).toThrow(RegistryFrozenError);
+            expect(() => {
+                reg.report(remark("warning", "late"));
+            }).toThrow(RegistryFrozenError);
             expect([...reg.entries()]).toStrictEqual([dirt]);
         });
 

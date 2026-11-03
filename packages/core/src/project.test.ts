@@ -254,7 +254,7 @@ describe(Project.name, () => {
             await new Project(NS)
                 .addSystem(
                     prepared(
-                        async () => "data",
+                        () => "data",
                         async (_, data) => {
                             await delay(1);
                             order.push(data);
@@ -519,8 +519,12 @@ describe("reported diagnostics", () => {
         const first = remark("warning", "first");
         const second = remark("warning", "second");
         const reg = await new Project(NS)
-            .addSystem((reg) => reg.report(first))
-            .addSystem("finalize", (reg) => reg.report(second))
+            .addSystem((reg) => {
+                reg.report(first);
+            })
+            .addSystem("finalize", (reg) => {
+                reg.report(second);
+            })
             .run();
         expect(reg.warnings).toStrictEqual([first, second]);
     });
@@ -534,7 +538,9 @@ describe("reported diagnostics", () => {
         const error = remark("error", "broken");
         let ran = false;
         const project = new Project(NS).addSystem(
-            (reg) => reg.report(warning, error),
+            (reg) => {
+                reg.report(warning, error);
+            },
             () => {
                 ran = true;
             },
@@ -549,7 +555,9 @@ describe("reported diagnostics", () => {
         const fail = () => {
             throw cause;
         };
-        const failing = new Project(NS).addSystem((reg) => reg.report(warning), fail);
+        const failing = new Project(NS).addSystem((reg) => {
+            reg.report(warning);
+        }, fail);
         expect(await diagnosticsOf(failing.run())).toStrictEqual([
             warning,
             new SystemFailed(scheduled(fail, "transform", 1), "run", cause),
@@ -583,7 +591,7 @@ describe(prepared.name, () => {
                     },
                 ),
                 prepared(
-                    async () => "fast",
+                    () => "fast",
                     (_, data) => {
                         seen.push(data);
                     },
@@ -602,7 +610,7 @@ describe(prepared.name, () => {
             .addSystem(
                 "finalize",
                 prepared(
-                    async () => {
+                    () => {
                         order.push("prepare");
                     },
                     () => {
@@ -624,7 +632,9 @@ describe(prepared.name, () => {
                     () => {},
                 ),
                 prepared(
-                    async () => gate.resolve(),
+                    () => {
+                        gate.resolve();
+                    },
                     () => {},
                 ),
             )
@@ -686,6 +696,28 @@ describe(prepared.name, () => {
             new SystemFailed(scheduled(slow, "transform", 0), "prepare", first),
             new SystemFailed(scheduled(fast, "transform", 1), "prepare", second),
         ]);
+    });
+
+    test("records a prepare step that throws, after every prepare step ends", async () => {
+        const cause = new Error("offline");
+        let finished = false;
+        const offline = prepared(
+            () => {
+                throw cause;
+            },
+            () => {},
+        );
+        const slow = prepared(
+            async () => {
+                await delay(5);
+                finished = true;
+            },
+            () => {},
+        );
+        expect(await diagnosticsOf(new Project(NS).addSystem(offline, slow).run())).toStrictEqual([
+            new SystemFailed(scheduled(offline, "transform", 0), "prepare", cause),
+        ]);
+        expect(finished).toBe(true);
     });
 });
 
@@ -797,7 +829,7 @@ describe(ordered.name, () => {
             .addSystem(
                 ordered(
                     prepared(
-                        async () => "prepared",
+                        () => "prepared",
                         (_, data) => {
                             order.push(data);
                         },
@@ -815,7 +847,7 @@ describe(ordered.name, () => {
             ordered(cycleFirst).after(cycleSecond),
             ordered(cycleSecond).after(cycleFirst),
             prepared(
-                async () => {
+                () => {
                     started = true;
                 },
                 () => {},
