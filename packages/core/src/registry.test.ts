@@ -3,9 +3,12 @@ import { setTimeout as delay } from "node:timers/promises";
 import { beforeAll, describe, expect, test } from "vite-plus/test";
 
 import { Entry } from "#/entry";
-import { DuplicatePathError, type Registry, RegistryFrozenError } from "#/registry";
-import { Branch, Clash, Custom, Leaf, Node, Notes, Twig } from "#/test/fixtures";
-import { ids, NS, registryWith, runSetup } from "#/test/helpers";
+import type { Emitted, PackKind } from "#/output";
+import { Project } from "#/project";
+import { DuplicatePath, type Registry, RegistryFrozenError } from "#/registry";
+import { ScheduledSystem } from "#/system";
+import { Branch, Clash, Custom, Leaf, Node, Notes, remark, Twig } from "#/test/fixtures";
+import { diagnosticsOf, ids, NS, registryWith, runSetup } from "#/test/helpers";
 
 async function inSystem<T>(fn: (reg: Registry) => T, ...entries: Entry[]): Promise<T> {
     const result = Promise.withResolvers<T>();
@@ -33,25 +36,6 @@ describe("Registry", () => {
             const block = new Leaf("dirt");
             const reg = await inSystem((reg) => reg.add(block).add(block));
             expect([...reg.entries()]).toStrictEqual([block]);
-        });
-
-        test("rejects another definition written to the same file", async () => {
-            const reg = await inSystem(
-                (reg) => {
-                    expect(() => reg.add(new Leaf("dirt"))).toThrow(
-                        expect.objectContaining({
-                            name: "DuplicatePathError",
-                            message:
-                                "Can't add Leaf dirt, Leaf dirt is already written to leaves/dirt.json in the behavior pack",
-                        }),
-                    );
-                    expect(() => reg.add(new Twig("ore"))).toThrow(DuplicatePathError);
-                    return reg;
-                },
-                new Leaf("dirt"),
-                new Node("ore"),
-            );
-            expect([...reg.entries()].length).toBe(2);
         });
 
         test("accepts a definition at a file freed by a removal", async () => {
@@ -100,50 +84,6 @@ describe("Registry", () => {
             expect(ids((await registryWith(a)).entries())).toStrictEqual(["a", "b"]);
         });
 
-        test("unregisters a definition whose references are rejected", async () => {
-            const scatter = new Node("scatter", { links: [new Node("ore")] });
-            const reg = await inSystem((reg) => {
-                expect(() => reg.add(scatter)).toThrow(DuplicatePathError);
-                return reg;
-            }, new Node("ore"));
-            expect(ids(reg.entries())).toStrictEqual(["ore"]);
-        });
-
-        test("unregisters the whole tree when a nested reference is rejected", async () => {
-            const okOre = new Node("ok_ore");
-            const seq = new Node("seq", { links: [okOre, new Node("dup_ore")] });
-            const scatter = new Node("scatter", { links: [seq] });
-            const reg = await inSystem((reg) => {
-                expect(() => reg.add(scatter)).toThrow(DuplicatePathError);
-                return reg;
-            }, new Node("dup_ore"));
-            expect(ids(reg.entries())).toStrictEqual(["dup_ore"]);
-        });
-
-        test("unregisters earlier arguments when a later one is rejected", async () => {
-            const dirt = new Leaf("dirt");
-            const reg = await inSystem((reg) => {
-                expect(() => reg.add(dirt, new Leaf("stone"))).toThrow(DuplicatePathError);
-                return reg;
-            }, new Leaf("stone"));
-            expect(ids(reg.entries())).toStrictEqual(["stone"]);
-        });
-
-        test("keeps definitions registered before a rejected add", async () => {
-            const shared = new Node("shared");
-            const scatter = new Node("scatter", { links: [shared] });
-            const seq = new Node("seq", { links: [shared, new Node("dup_ore")] });
-            const reg = await inSystem(
-                (reg) => {
-                    expect(() => reg.add(seq)).toThrow(DuplicatePathError);
-                    return reg;
-                },
-                scatter,
-                new Node("dup_ore"),
-            );
-            expect(ids(reg.entries())).toStrictEqual(["scatter", "shared", "dup_ore"]);
-        });
-
         test("does not register string references", async () => {
             const reg = await registryWith(new Node("scatter", { links: [`${NS}:ore`] }));
             expect(ids(reg.entries())).toStrictEqual(["scatter"]);
@@ -176,7 +116,7 @@ describe("Registry", () => {
     });
 
     describe("after its run", () => {
-        test("rejects add() and remove()", async () => {
+        test("rejects add(), remove() and report()", async () => {
             const dirt = new Leaf("dirt");
             const reg = await registryWith(dirt);
             expect(() => reg.add(new Leaf("stone"))).toThrow(
@@ -187,6 +127,7 @@ describe("Registry", () => {
                 }),
             );
             expect(() => reg.remove(dirt)).toThrow(RegistryFrozenError);
+            expect(() => reg.report(remark("warning", "late"))).toThrow(RegistryFrozenError);
             expect([...reg.entries()]).toStrictEqual([dirt]);
         });
 
@@ -214,29 +155,98 @@ describe("Registry", () => {
             expect(first).not.toBe(second);
         });
 
-        test("rejects a path that another file in the pack has", async () => {
-            await inSystem((reg) => {
-                reg.add(new Custom("clash"));
-                expect(() => reg.resource(Clash)).toThrow(
-                    expect.objectContaining({
-                        name: "DuplicatePathError",
-                        message:
-                            "Can't add Clash, Custom clash is already written to custom/clash.json in the behavior pack",
-                    }),
-                );
-            });
-            await inSystem((reg) => {
-                reg.resource(Clash);
-                expect(() => reg.add(new Custom("clash"))).toThrow(DuplicatePathError);
-            });
-        });
-
         test("after its run, returns existing resources and rejects new ones", async () => {
             const reg = await runSetup(NS, (reg) => {
                 reg.resource(Notes);
             });
             expect(reg.resource(Notes)).toBeInstanceOf(Notes);
             expect(() => reg.resource(Clash)).toThrow(RegistryFrozenError);
+        });
+    });
+
+    describe("file paths", () => {
+        // An entry at the path of `Notes`, so that it clashes with `Notes` unless `Notes` is empty.
+        class NotesEntry extends Entry {
+            readonly kind: PackKind = "resource";
+            readonly path = "notes.txt";
+
+            emit(): Emitted {
+                return { format: "text", value: "" };
+            }
+
+            key(): string {
+                return "notes";
+            }
+        }
+
+        test("make the run fail if two files in one pack have the same path", async () => {
+            const first = new Leaf("dirt");
+            const second = new Leaf("dirt");
+            const addFirst = (reg: Registry) => {
+                reg.add(first);
+            };
+            const addSecond = (reg: Registry) => {
+                reg.add(second);
+            };
+            const project = new Project(NS).addSystem("setup", addFirst).addSystem(addSecond);
+            expect(await diagnosticsOf(project.run())).toStrictEqual([
+                new DuplicatePath("behavior", "leaves/dirt.json", [
+                    {
+                        output: first,
+                        addedBy: new ScheduledSystem(addFirst, "setup", 0, []),
+                    },
+                    {
+                        output: second,
+                        addedBy: new ScheduledSystem(addSecond, "transform", 0, []),
+                    },
+                ]),
+            ]);
+        });
+
+        test("record each clash, also of a resource, and the system that added a reference", async () => {
+            const custom = new Custom("clash");
+            const ore = new Node("ore");
+            const twin = new Node("ore");
+            let clash!: Clash;
+            const addAll = (reg: Registry) => {
+                reg.add(custom, new Node("scatter", { links: [ore] }), twin);
+                clash = reg.resource(Clash);
+            };
+            const addedBy = new ScheduledSystem(addAll, "setup", 0, []);
+            const project = new Project(NS).addSystem("setup", addAll);
+            expect(await diagnosticsOf(project.run())).toStrictEqual([
+                new DuplicatePath("behavior", "custom/clash.json", [
+                    { output: custom, addedBy },
+                    { output: clash, addedBy },
+                ]),
+                new DuplicatePath("behavior", "branches/ore.json", [
+                    { output: ore, addedBy },
+                    { output: twin, addedBy },
+                ]),
+            ]);
+        });
+
+        test("ignore a clash that a system removes before the run ends", async () => {
+            const first = new Leaf("dirt");
+            const reg = await runSetup(
+                NS,
+                (reg) => {
+                    reg.add(first, new Leaf("dirt"));
+                },
+                (reg) => {
+                    reg.remove(first);
+                },
+            );
+            expect(ids(reg.entries())).toStrictEqual(["dirt"]);
+        });
+
+        test("ignore an empty resource", async () => {
+            await expect(
+                runSetup(NS, (reg) => {
+                    reg.resource(Notes);
+                    reg.add(new NotesEntry());
+                }),
+            ).resolves.toBeDefined();
         });
     });
 

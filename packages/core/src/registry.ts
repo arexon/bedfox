@@ -1,8 +1,12 @@
+import type { Detail, Diagnostic } from "#/diagnostic";
 import { Entry, type EntryCtor, type Reference } from "#/entry";
 import type { PackFile, PackKind, PackOutput } from "#/output";
-import type { Resource, ResourceCtor } from "#/resource";
+import { pluginPath } from "#/plugin";
+import { Resource, type ResourceCtor } from "#/resource";
+import type { ScheduledSystem } from "#/system";
 
-export const INVALIDATE: unique symbol = Symbol("invalidate");
+export const ENTER: unique symbol = Symbol("enter");
+export const CLASHES: unique symbol = Symbol("clashes");
 export const FREEZE: unique symbol = Symbol("freeze");
 
 /**
@@ -27,62 +31,53 @@ export class Registry {
     #frozen = false;
     #referenced?: Map<string, Reference[]>;
     #byKey?: Map<string, Entry[]>;
-    #byPath: Record<PackKind, Map<string, PackOutput>> = {
-        behavior: new Map(),
-        resource: new Map(),
-    };
+    #addedBy = new Map<PackOutput, ScheduledSystem>();
+    #system?: ScheduledSystem;
+    readonly #diagnostics: Diagnostic[];
 
-    constructor(namespace: string) {
+    constructor(namespace: string, diagnostics: Diagnostic[]) {
         this.namespace = namespace;
+        this.#diagnostics = diagnostics;
     }
 
     /**
      * Adds entries, and the entries that they reference.
      *
      * Adding an entry again does nothing. Two files in one pack can't have the same path, so a
-     * block and a feature can share an identifier, but two blocks can't.
-     *
-     * If it throws, the registry stays as it was before the call.
+     * block and a feature can share an identifier, but two blocks can't. The run fails with
+     * {@link DuplicatePath} if two files have the same path when it ends.
      *
      * @example
      *     const ore = new OreFeature("dirt_ore").add("example:dirt", ["minecraft:stone"]);
      *     reg.add(new ScatterFeature("scatter", { placesFeature: ore }));
      *
-     * @throws - {@link DuplicatePathError} if an entry has the same path as another file in its
-     *   pack.
      * @throws - {@link RegistryFrozenError} after the run ends.
      */
     add(...entries: Entry[]): this {
         this.#assertNotFrozen();
-        const added: Entry[] = [];
-        try {
-            this.#register(entries, added);
-        } catch (error) {
-            this.#unregister(added);
-            throw error;
-        }
+        this.#register(entries);
         this.#invalidate();
         return this;
     }
 
-    #register(entries: Iterable<Entry>, added: Entry[]): void {
+    #register(entries: Iterable<Entry>): void {
         for (const entry of entries) {
             if (this.#members.has(entry)) continue;
-            const paths = this.#byPath[entry.kind];
-            const taken = paths.get(entry.path);
-            if (taken !== undefined) throw new DuplicatePathError(taken, entry);
             // Register the entry before its references, so that a reference cycle ends here.
-            paths.set(entry.path, entry);
             this.#members.add(entry);
-            added.push(entry);
+            this.#track(entry);
             this.#register(
                 entry
                     .references()
                     .map((ref) => ref.target)
                     .filter((target) => target instanceof Entry),
-                added,
             );
         }
+    }
+
+    #track(output: PackOutput): void {
+        // The run enters each system before the system gets the registry.
+        this.#addedBy.set(output, this.#system as ScheduledSystem);
     }
 
     /**
@@ -100,7 +95,7 @@ export class Registry {
     #unregister(entries: Iterable<Entry>): void {
         for (const entry of entries) {
             if (!this.#members.delete(entry)) continue;
-            this.#byPath[entry.kind].delete(entry.path);
+            this.#addedBy.delete(entry);
         }
         this.#invalidate();
     }
@@ -128,8 +123,8 @@ export class Registry {
      * The class converts `key` with its `normalizeKey()` first. Thus, for definitions, the key can
      * include the namespace or not, e.g. `dirt` or `example:dirt`.
      *
-     * A class like `Block` finds at most one entry. A base class like `Definition` can find a block
-     * and a feature with the same identifier.
+     * At the end of a run without errors, a class like `Block` finds at most one entry. A base
+     * class like `Definition` can find a block and a feature with the same identifier.
      *
      * @example
      *     reg.resolve(Block, "dirt"); // [dirt]
@@ -181,8 +176,6 @@ export class Registry {
      * @example
      *     reg.resource(BehaviorManifest).addAuthor("Steve");
      *
-     * @throws - {@link DuplicatePathError} if the new resource has the same path as another file in
-     *   its pack.
      * @throws - {@link RegistryFrozenError} if the run ended and the resource doesn't exist.
      */
     resource<T extends Resource>(ctor: ResourceCtor<T>): T {
@@ -190,11 +183,8 @@ export class Registry {
         if (resource === undefined) {
             this.#assertNotFrozen();
             resource = new ctor();
-            const paths = this.#byPath[resource.kind];
-            const taken = paths.get(resource.path);
-            if (taken !== undefined) throw new DuplicatePathError(taken, resource);
-            paths.set(resource.path, resource);
             this.#resources.set(ctor, resource);
+            this.#track(resource);
         }
         return resource as T;
     }
@@ -212,13 +202,53 @@ export class Registry {
         yield* this.entries();
     }
 
+    /**
+     * Reports problems that a system found.
+     *
+     * A diagnostic with the `error` severity makes the run fail after the last system. A warning
+     * doesn't, and the returned {@link FrozenRegistry} holds it in
+     * {@link FrozenRegistry.warnings}.
+     *
+     * @example
+     *     project.addSystem("finalize", (reg) => {
+     *         if (!reg.entries().next().done) return;
+     *         reg.report({
+     *             severity: "warning",
+     *             code: "NoEntries",
+     *             title: "The run added no entries",
+     *         });
+     *     });
+     *
+     * @throws - {@link RegistryFrozenError} after the run ends.
+     */
+    report(...diagnostics: Diagnostic[]): void {
+        this.#assertNotFrozen();
+        this.#diagnostics.push(...diagnostics);
+    }
+
     #invalidate(): void {
         this.#referenced = undefined;
         this.#byKey = undefined;
     }
 
-    [INVALIDATE](): void {
+    [ENTER](system: ScheduledSystem): void {
+        this.#system = system;
         this.#invalidate();
+    }
+
+    [CLASHES](): DuplicatePath[] {
+        // An empty resource isn't written, so it can't clash.
+        const written = this.#addedBy
+            .entries()
+            .filter(([output]) => !(output instanceof Resource && output.isEmpty()))
+            .map(([output, addedBy]) => ({ output, addedBy }));
+        const clashes: DuplicatePath[] = [];
+        for (const [kind, files] of Map.groupBy(written, ({ output }) => output.kind)) {
+            for (const [path, outputs] of Map.groupBy(files, ({ output }) => output.path)) {
+                if (outputs.length > 1) clashes.push(new DuplicatePath(kind, path, outputs));
+            }
+        }
+        return clashes;
     }
 
     [FREEZE](): void {
@@ -232,10 +262,13 @@ export class Registry {
  * It reads the registry, but can't change it. {@link FrozenRegistry.emit} generates the pack files.
  */
 export class FrozenRegistry {
+    /** The warnings of the run, in the order they came. */
+    readonly warnings: readonly Diagnostic[];
     readonly #reg: Registry;
 
-    constructor(reg: Registry) {
+    constructor(reg: Registry, warnings: readonly Diagnostic[]) {
         this.#reg = reg;
+        this.warnings = warnings;
     }
 
     /** The project's namespace, e.g. `example` in `example:dirt`. */
@@ -311,19 +344,46 @@ export class RegistryFrozenError extends Error {
 }
 
 /**
- * Thrown by {@link Registry.add} and {@link Registry.resource} when two files in one pack have the
- * same path.
+ * Reported by {@link Project.run} when two files in one pack have the same path at the end of the
+ * run.
+ *
+ * A system can check for an entry with {@link Registry.resolve} before it adds one.
  */
-export class DuplicatePathError extends TypeError {
-    constructor(existing: PackOutput, added: PackOutput) {
-        super(
-            `Can't add ${describe(added)}, ${describe(existing)} is already written to ${existing.path} in the ${existing.kind} pack`,
-        );
-        this.name = "DuplicatePathError";
-    }
-}
+export class DuplicatePath implements Diagnostic {
+    readonly severity = "error";
+    readonly code = DuplicatePath.name;
+    readonly title: string;
+    readonly details: readonly Detail[];
+    /** The kind of pack that holds the files. */
+    readonly kind: PackKind;
+    /** The path of the files from the pack's root. */
+    readonly path: string;
+    /** The files with the path, each with the system that added it. */
+    readonly outputs: readonly { readonly output: PackOutput; readonly addedBy: ScheduledSystem }[];
 
-function describe(output: PackOutput): string {
-    const name = output.constructor.name;
-    return output instanceof Entry ? `${name} ${output.key()}` : name;
+    constructor(
+        kind: PackKind,
+        path: string,
+        outputs: readonly { readonly output: PackOutput; readonly addedBy: ScheduledSystem }[],
+    ) {
+        this.title = `${outputs.length} files have the path ${path} in the ${kind} pack`;
+        this.details = outputs.map(({ output, addedBy }) => ({
+            kind: "field",
+            label: DuplicatePath.#describe(output),
+            value: `added by ${DuplicatePath.#describeSystem(addedBy)}`,
+        }));
+        this.kind = kind;
+        this.path = path;
+        this.outputs = outputs;
+    }
+
+    static #describeSystem(system: ScheduledSystem): string {
+        const from = system.plugins.length === 0 ? "" : ` from ${pluginPath(system.plugins)}`;
+        return `${system.label} on ${system.schedule}${from}`;
+    }
+
+    static #describe(output: PackOutput): string {
+        const name = output.constructor.name;
+        return output instanceof Entry ? `${name} ${output.key()}` : name;
+    }
 }

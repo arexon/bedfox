@@ -4,8 +4,8 @@ import {
     type PreparedSystem,
     Project,
     type Registry,
+    RunFailedError,
     type System,
-    SystemFailedError,
 } from "@bedfox/core";
 import corePkg from "@bedfox/core/package.json" with { type: "json" };
 
@@ -40,7 +40,9 @@ export async function runSetup(
     try {
         await project.run();
     } catch (error) {
-        throw error instanceof SystemFailedError ? error.cause : error;
+        const diagnostics = error instanceof RunFailedError ? error.diagnostics : [];
+        const failed = diagnostics.find((diagnostic) => diagnostic.code === "SystemFailed");
+        throw failed === undefined ? error : failed.cause;
     }
     return registry.promise;
 }

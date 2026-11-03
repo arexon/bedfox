@@ -1,24 +1,20 @@
+import type { ChainStep, Detail, Diagnostic } from "#/diagnostic";
+import type { Plugin } from "#/plugin";
 import {
-    describeSystem,
     ORDER,
     type Order,
     OrderedSystem,
     type PreparedSystem,
+    ScheduledSystem,
     type System,
+    UNNAMED_HELP,
 } from "#/system";
 
 /** When a system runs: `setup`, then `transform`, then `finalize`. */
 export type Schedule = "setup" | "transform" | "finalize";
 
-export interface ScheduledSystem {
-    schedule: Schedule;
-    index: number;
-    plugins: readonly string[];
-    system: System | PreparedSystem<unknown>;
-}
-
 interface AddedSystem extends Order {
-    readonly plugins: readonly string[];
+    readonly plugins: readonly Plugin[];
 }
 
 const NO_SYSTEMS: ReadonlySet<System | PreparedSystem<unknown>> = new Set();
@@ -32,7 +28,7 @@ export class Schedules {
     add(
         schedule: Schedule,
         systems: readonly (System | PreparedSystem<unknown> | OrderedSystem)[],
-        plugins: readonly string[],
+        plugins: readonly Plugin[],
     ): void {
         const list = this.#systems.get(schedule) ?? [];
         for (const system of systems) {
@@ -57,63 +53,75 @@ export class Schedules {
         return copy;
     }
 
-    list(): ScheduledSystem[] {
-        return this.#schedules.flatMap((schedule) =>
-            sort(schedule, this.#systems.get(schedule) ?? []).map(({ system, plugins }, index) => ({
-                schedule,
-                index,
-                plugins,
-                system,
-            })),
-        );
+    list(): { systems: ScheduledSystem[]; cycles: SystemOrderCycle[] } {
+        const systems: ScheduledSystem[] = [];
+        const cycles: SystemOrderCycle[] = [];
+        for (const schedule of this.#schedules) {
+            const sorted = sort(schedule, this.#systems.get(schedule) ?? []);
+            if (Array.isArray(sorted)) systems.push(...sorted);
+            else cycles.push(sorted);
+        }
+        return { systems, cycles };
     }
 }
 
-function sort(schedule: Schedule, systems: readonly AddedSystem[]): AddedSystem[] {
-    // `next[i]` holds the indexes of the systems that must run after system `i`.
-    const next = systems.map(() => new Set<number>());
+function sort(
+    schedule: Schedule,
+    added: readonly AddedSystem[],
+): ScheduledSystem[] | SystemOrderCycle {
+    const systems = added.map(
+        ({ system, plugins }, index) => new ScheduledSystem(system, schedule, index, plugins),
+    );
+    // `next[i]` maps each system that must run after system `i` to the first rule that says so.
+    const next = added.map(() => new Map<number, OrderRule>());
+    const link = (from: number, to: number, rule: OrderRule): void => {
+        if (from !== to && !next[from].has(to)) next[from].set(to, rule);
+    };
     const indexesOf = (target: System | PreparedSystem<unknown>): number[] =>
-        systems.flatMap(({ system }, i) => (system === target ? [i] : []));
-    for (const [i, a] of systems.entries()) {
-        for (const [j, b] of systems.entries()) {
-            if (i === j) continue;
-            if (a.position === "first" && b.position !== "first") next[i].add(j);
-            if (a.position !== "last" && b.position === "last") next[i].add(j);
+        added.flatMap(({ system }, i) => (system === target ? [i] : []));
+    // Link the explicit rules first, so that a cycle names them before afterAll() and beforeAll().
+    for (const [i, a] of added.entries()) {
+        for (const target of a.after) for (const j of indexesOf(target)) link(j, i, "after");
+        for (const target of a.before) for (const j of indexesOf(target)) link(i, j, "before");
+    }
+    for (const [i, a] of added.entries()) {
+        for (const [j, b] of added.entries()) {
+            if (a.position === "first" && b.position !== "first") link(i, j, "beforeAll");
+            if (a.position !== "last" && b.position === "last") link(i, j, "afterAll");
         }
-        for (const target of a.after)
-            for (const j of indexesOf(target)) if (j !== i) next[j].add(i);
-        for (const target of a.before)
-            for (const j of indexesOf(target)) if (j !== i) next[i].add(j);
     }
 
-    const incoming = systems.map(() => 0);
-    for (const targets of next) for (const j of targets) incoming[j]++;
+    const incoming = added.map(() => 0);
+    for (const targets of next) for (const j of targets.keys()) incoming[j]++;
     const order: number[] = [];
     const done = new Set<number>();
-    while (order.length < systems.length) {
-        const ready = systems.findIndex((_, i) => !done.has(i) && incoming[i] === 0);
+    while (order.length < added.length) {
+        const ready = added.findIndex((_, i) => !done.has(i) && incoming[i] === 0);
         if (ready === -1) {
-            const remaining = systems
+            const remaining = added
                 .keys()
                 .filter((i) => !done.has(i))
                 .toArray();
-            const cycle = findCycle(next, remaining).map((i) =>
-                describeSystem(systems[i].system, {
-                    schedule,
-                    index: i,
-                    plugins: systems[i].plugins,
-                }),
+            const cycle = findCycle(next, remaining);
+            return new SystemOrderCycle(
+                schedule,
+                cycle.map((i, k) => ({
+                    system: systems[i],
+                    rule: next[i].get(cycle[(k + 1) % cycle.length]) as OrderRule,
+                })),
             );
-            throw new SystemOrderCycleError(cycle);
         }
         order.push(ready);
         done.add(ready);
-        for (const j of next[ready]) incoming[j]--;
+        for (const j of next[ready].keys()) incoming[j]--;
     }
     return order.map((i) => systems[i]);
 }
 
-function findCycle(next: readonly ReadonlySet<number>[], remaining: readonly number[]): number[] {
+function findCycle(
+    next: readonly ReadonlyMap<number, OrderRule>[],
+    remaining: readonly number[],
+): number[] {
     const path: number[] = [];
     let current = remaining[0];
     while (!path.includes(current)) {
@@ -125,17 +133,64 @@ function findCycle(next: readonly ReadonlySet<number>[], remaining: readonly num
 }
 
 /**
- * Thrown by {@link Project.run} when the order rules of the systems in one schedule form a cycle.
+ * The order rule that makes a system run before another system.
  *
- * The message names the systems in the cycle, in the order that the rules ask for.
+ * - `after`: the other system uses `after()` with this system.
+ * - `before`: this system uses `before()` with the other system.
+ * - `afterAll`: the other system uses `afterAll()`.
+ * - `beforeAll`: this system uses `beforeAll()`.
  */
-export class SystemOrderCycleError extends Error {
-    constructor(systems: readonly string[]) {
-        const chain = [...systems, systems[0]];
-        const steps = chain
-            .slice(1)
-            .map((system, i) => `${i === 0 ? " runs" : ", which runs"} before ${system}`);
-        super(`The order rules of these systems form a cycle: ${chain[0]}${steps.join("")}`);
-        this.name = "SystemOrderCycleError";
+export type OrderRule = "after" | "before" | "afterAll" | "beforeAll";
+
+/** A system in a {@link SystemOrderCycle}. */
+export interface OrderStep {
+    /** The system. */
+    readonly system: ScheduledSystem;
+    /** The rule that makes the system run before the next system of the cycle. */
+    readonly rule: OrderRule;
+}
+
+/**
+ * Reported by {@link Project.run} when the order rules of the systems in one schedule form a cycle.
+ *
+ * The run reports one cycle for each schedule that has one.
+ */
+export class SystemOrderCycle implements Diagnostic {
+    readonly severity = "error";
+    readonly code = SystemOrderCycle.name;
+    readonly title: string;
+    readonly details: readonly Detail[];
+    readonly help?: string;
+    /** The schedule of the systems. */
+    readonly schedule: Schedule;
+    /**
+     * The systems of the cycle, in the order that the rules ask for. The last system runs before
+     * the first.
+     */
+    readonly cycle: readonly OrderStep[];
+
+    constructor(schedule: Schedule, cycle: readonly OrderStep[]) {
+        const steps: ChainStep[] = [{ text: cycle[0].system.label }];
+        for (const [i, step] of cycle.entries()) {
+            const later = cycle[(i + 1) % cycle.length].system;
+            steps.push({ text: later.label, note: SystemOrderCycle.#ruleNote(step, later) });
+        }
+        this.title = `Systems on ${schedule} form an order cycle`;
+        this.details = [{ kind: "chain", steps }];
+        if (cycle.some(({ system }) => system.name === undefined)) this.help = UNNAMED_HELP;
+        this.schedule = schedule;
+        this.cycle = cycle;
+    }
+
+    static #ruleNote({ system, rule }: OrderStep, later: ScheduledSystem): string {
+        const earlier = system.label;
+        const next = later.label;
+        const notes: Record<OrderRule, string> = {
+            after: `${next} uses after(${earlier})`,
+            before: `${earlier} uses before(${next})`,
+            afterAll: `${next} uses afterAll()`,
+            beforeAll: `${earlier} uses beforeAll()`,
+        };
+        return notes[rule];
     }
 }

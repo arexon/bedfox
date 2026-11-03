@@ -1,12 +1,13 @@
+import { type Diagnostic, RunFailedError } from "#/diagnostic";
 import { loadPlugins, type Plugin, SystemAddedDuringRunError } from "#/plugin";
-import { FREEZE, FrozenRegistry, Registry } from "#/registry";
+import { CLASHES, FREEZE, FrozenRegistry, Registry } from "#/registry";
 import { type Schedule, Schedules } from "#/schedule";
 import { type OrderedSystem, type PreparedSystem, runSystems, type System } from "#/system";
 
 interface PluginCall {
     readonly schedules: Schedules;
     readonly plugins: Plugin[];
-    readonly path: readonly string[];
+    readonly path: readonly Plugin[];
 }
 
 /**
@@ -132,19 +133,34 @@ export class Project {
      * When the run ends, its registry freezes, also when the run fails. If the run ends without an
      * error, it returns the registry as a {@link FrozenRegistry}.
      *
+     * The run fails if it finds one of these problems. Each problem becomes a {@link Diagnostic}.
+     * Systems can report more with {@link Registry.report}.
+     *
+     * - A plugin fails ({@link PluginFailed}), or two plugins have the same class
+     *   ({@link DuplicatePlugin}).
+     * - The order rules of a schedule form a cycle ({@link SystemOrderCycle}).
+     * - A system or a `prepare` step fails ({@link SystemFailed}).
+     * - Two files in one pack have the same path ({@link DuplicatePath}).
+     * - A system reports a diagnostic with the `error` severity.
+     *
+     * Warnings don't make the run fail. The returned registry holds them in
+     * {@link FrozenRegistry.warnings}, and a {@link RunFailedError} holds them with the errors.
+     *
      * @throws - {@link RunInProgressError} if the project already runs.
-     * @throws - {@link PluginFailedError} if a plugin fails.
-     * @throws - {@link DuplicatePluginError} if two plugins have the same class.
-     * @throws - {@link SystemFailedError} if a system or a `prepare` step fails.
-     * @throws - {@link SystemOrderCycleError} if the order rules of the systems in a schedule form
-     *   a cycle.
+     * @throws - {@link RunFailedError} if the run fails. Its `diagnostics` tell why.
      */
     async run(): Promise<FrozenRegistry> {
         if (this.#state !== "idle") throw new RunInProgressError();
         this.#state = "running";
+        const diagnostics: Diagnostic[] = [];
+        const failIfErrors = (): void => {
+            if (diagnostics.some(({ severity }) => severity === "error")) {
+                throw new RunFailedError(diagnostics);
+            }
+        };
         try {
             const schedules = this.#systems.copy();
-            await loadPlugins(this.#plugins, async (plugin, path) => {
+            const loaded = await loadPlugins(this.#plugins, async (plugin, path) => {
                 const call: PluginCall = { schedules, plugins: [], path };
                 this.#state = call;
                 try {
@@ -155,13 +171,22 @@ export class Project {
                 }
                 return call.plugins;
             });
-            const reg = new Registry(this.namespace);
+            diagnostics.push(...loaded);
+            failIfErrors();
+            const { systems, cycles } = schedules.list();
+            diagnostics.push(...cycles);
+            failIfErrors();
+            // Systems report into the same list, so that it keeps the order of events.
+            const reg = new Registry(this.namespace, diagnostics);
             try {
-                await runSystems(schedules.list(), reg);
+                const failed = await runSystems(systems, reg);
+                // Only a complete run has paths to check.
+                diagnostics.push(...(failed.length === 0 ? reg[CLASHES]() : failed));
+                failIfErrors();
             } finally {
                 reg[FREEZE]();
             }
-            return new FrozenRegistry(reg);
+            return new FrozenRegistry(reg, diagnostics);
         } finally {
             this.#state = "idle";
         }

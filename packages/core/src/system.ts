@@ -1,6 +1,7 @@
-import { describePlugins } from "#/plugin";
-import { INVALIDATE, type Registry } from "#/registry";
-import type { ScheduledSystem } from "#/schedule";
+import type { Detail, Diagnostic } from "#/diagnostic";
+import { type Plugin, pluginPath } from "#/plugin";
+import { ENTER, type Registry } from "#/registry";
+import type { Schedule } from "#/schedule";
 
 /**
  * A function that changes the registry.
@@ -135,59 +136,109 @@ export function ordered(system: System | PreparedSystem<unknown>): OrderedSystem
 export async function runSystems(
     systems: readonly ScheduledSystem[],
     reg: Registry,
-): Promise<void> {
+): Promise<SystemFailed[]> {
     // Wait for every step, also after a rejection, so that a new run can't start while steps of
     // this run still work.
     const settled = await Promise.allSettled(systems.map(prepare));
-    const data: unknown[] = [];
-    for (const result of settled) {
-        if (result.status === "rejected") throw result.reason;
-        data.push(result.value);
-    }
-    for (const [i, { system, ...location }] of systems.entries()) {
-        reg[INVALIDATE]();
+    const failed = settled.flatMap((result, i) =>
+        result.status === "rejected"
+            ? [new SystemFailed(systems[i], "prepare", result.reason)]
+            : [],
+    );
+    if (failed.length > 0) return failed;
+    for (const [i, scheduled] of systems.entries()) {
+        reg[ENTER](scheduled);
+        const { system } = scheduled;
         try {
-            const result = typeof system === "function" ? system(reg) : system.run(reg, data[i]);
+            const data = (settled[i] as PromiseFulfilledResult<unknown>).value;
+            const result = typeof system === "function" ? system(reg) : system.run(reg, data);
             // Only wait for promises, so that sync systems run without a gap in which other async
             // work could change the registry.
             // oxlint-disable-next-line no-await-in-loop -- systems run in turn
             if (result instanceof Promise) await result;
         } catch (error) {
-            throw new SystemFailedError(describeSystem(system, location), "run", error);
+            return [new SystemFailed(scheduled, "run", error)];
         }
     }
+    return [];
 }
 
-async function prepare({ system, ...location }: ScheduledSystem): Promise<unknown> {
-    if (typeof system === "function") return undefined;
-    try {
-        return await system.prepare();
-    } catch (error) {
-        throw new SystemFailedError(describeSystem(system, location), "prepare", error);
+async function prepare({ system }: ScheduledSystem): Promise<unknown> {
+    return typeof system === "function" ? undefined : system.prepare();
+}
+
+/** A system in its schedule. {@link Diagnostic}s use it to tell which system they are about. */
+export class ScheduledSystem {
+    /** The system, without the {@link ordered} wrapper. */
+    readonly system: System | PreparedSystem<unknown>;
+    /** The schedule that the system runs on. */
+    readonly schedule: Schedule;
+    /** The position of the system in the order that its schedule got the systems, from 0. */
+    readonly index: number;
+    /** The plugins that added the system, from the outermost. It is empty for the project's own. */
+    readonly plugins: readonly Plugin[];
+
+    constructor(
+        system: System | PreparedSystem<unknown>,
+        schedule: Schedule,
+        index: number,
+        plugins: readonly Plugin[],
+    ) {
+        this.system = system;
+        this.schedule = schedule;
+        this.index = index;
+        this.plugins = plugins;
+    }
+
+    /**
+     * The name of the system's function, or of the `run` function of a prepared system.
+     *
+     * It is `undefined` for an inline arrow function, and for a `run` function with the name `run`.
+     */
+    get name(): string | undefined {
+        const { system } = this;
+        const name = typeof system === "function" ? system.name : system.run.name;
+        // An arrow function written inline as `run: (reg, data) => ...` gets the name `run`, which
+        // says nothing about the system.
+        return name === "" || name === "run" ? undefined : name;
+    }
+
+    /** The name and the index, e.g. `addDirt (#0)`. Without a name, it is `system #0`. */
+    get label(): string {
+        const { name, index } = this;
+        return name === undefined ? `system #${index}` : `${name} (#${index})`;
     }
 }
 
-export function describeSystem(
-    system: System | PreparedSystem<unknown>,
-    { schedule, index, plugins }: Omit<ScheduledSystem, "system">,
-): string {
-    // An arrow function written inline as `run: (reg, data) => ...` gets the name `run`, which
-    // says nothing about the system.
-    const name = typeof system === "function" ? system.name : system.run.name;
-    const label = name === "" || name === "run" ? "" : ` (${name})`;
-    const from = plugins.length === 0 ? "" : ` from plugin ${describePlugins(plugins)}`;
-    return `System ${index}${label} on ${schedule}${from}`;
-}
+export const UNNAMED_HELP = "Use a named function to show the name of the system here";
 
-/**
- * Thrown by {@link Project.run} when a system or a `prepare` step fails.
- *
- * The message names the system, its schedule, and the plugins that added it. The `cause` holds the
- * original error.
- */
-export class SystemFailedError extends Error {
-    constructor(system: string, part: "prepare" | "run", cause: unknown) {
-        super(`${system} failed in ${part}`, { cause });
-        this.name = "SystemFailedError";
+/** Reported by {@link Project.run} when a system or a `prepare` step fails. */
+export class SystemFailed implements Diagnostic {
+    readonly severity = "error";
+    readonly code = SystemFailed.name;
+    readonly title: string;
+    readonly details: readonly Detail[];
+    readonly help?: string;
+    /** The value that the system threw or rejected with. */
+    readonly cause: unknown;
+    /** The system that failed. */
+    readonly system: ScheduledSystem;
+    /** The step of the system that failed. */
+    readonly part: "prepare" | "run";
+
+    constructor(system: ScheduledSystem, part: "prepare" | "run", cause: unknown) {
+        const { name, index, schedule, plugins } = system;
+        this.title = `System ${name ?? `#${index}`} failed in ${part}`;
+        const details: Detail[] = [
+            { kind: "field", label: "schedule", value: `${schedule} (#${index})` },
+        ];
+        if (plugins.length > 0) {
+            details.push({ kind: "field", label: "added by", value: pluginPath(plugins) });
+        }
+        this.details = details;
+        if (name === undefined) this.help = UNNAMED_HELP;
+        this.cause = cause;
+        this.system = system;
+        this.part = part;
     }
 }

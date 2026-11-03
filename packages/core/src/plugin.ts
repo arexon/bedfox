@@ -1,9 +1,10 @@
+import type { Detail, Diagnostic } from "#/diagnostic";
 import type { Project } from "#/project";
 
 /**
  * A reusable group of systems and other plugins.
  *
- * Each run of a {@link Project} calls `build()` again. Error messages name a system by its function
+ * Each run of a {@link Project} calls `build()` again. Diagnostics name a system by its function
  * name. An inline arrow function has no name.
  *
  * A project holds one plugin of each class. A plugin gets its options from the arguments of its
@@ -33,53 +34,86 @@ export interface Plugin {
 
 export async function loadPlugins(
     plugins: readonly Plugin[],
-    call: (plugin: Plugin, path: readonly string[]) => Promise<readonly Plugin[]>,
-): Promise<void> {
-    const called = new Map<unknown, readonly string[]>();
-    const pending = plugins.map((plugin) => ({ plugin, addedBy: [] as readonly string[] }));
+    call: (plugin: Plugin, path: readonly Plugin[]) => Promise<readonly Plugin[]>,
+): Promise<Diagnostic[]> {
+    const diagnostics: Diagnostic[] = [];
+    const called = new Map<unknown, readonly Plugin[]>();
+    const pending = plugins.map((plugin) => ({ plugin, addedBy: [] as readonly Plugin[] }));
     for (let next = pending.shift(); next !== undefined; next = pending.shift()) {
         const { plugin, addedBy } = next;
-        const ctor: unknown = plugin.constructor;
-        const name = (ctor as { name: string }).name || "(anonymous)";
-        const first = called.get(ctor);
-        if (first !== undefined) throw new DuplicatePluginError(name, first);
-        // Mark the plugin before the call, so that a plugin that adds itself throws instead of
-        // calling itself without end.
-        called.set(ctor, addedBy);
-        const path = [...addedBy, name];
+        const path = [...addedBy, plugin];
+        const first = called.get(plugin.constructor);
+        if (first !== undefined) {
+            diagnostics.push(new DuplicatePlugin(first, path));
+            continue;
+        }
+        // Mark the plugin before the call, so that a plugin that adds its own class is a
+        // duplicate instead of a call without end.
+        called.set(plugin.constructor, path);
         let added: readonly Plugin[];
         try {
             // oxlint-disable-next-line no-await-in-loop -- plugins run in turn
             added = await call(plugin, path);
         } catch (error) {
-            throw new PluginFailedError(describePlugins(path), error);
+            diagnostics.push(new PluginFailed(path, error));
+            return diagnostics;
         }
         pending.unshift(...added.map((plugin) => ({ plugin, addedBy: path })));
     }
+    return diagnostics;
 }
 
-export function describePlugins(plugins: readonly string[]): string {
-    return plugins.toReversed().join(" in ");
+export function pluginPath(plugins: readonly Plugin[]): string {
+    return plugins.map((plugin) => plugin.constructor.name || "(anonymous)").join(" > ");
 }
 
-/**
- * Thrown by {@link Project.run} when a plugin's `build()` fails.
- *
- * The message names the plugin and the plugins that added it. The `cause` holds the original error.
- */
-export class PluginFailedError extends Error {
-    constructor(plugin: string, cause: unknown) {
-        super(`Plugin ${plugin} failed`, { cause });
-        this.name = "PluginFailedError";
+function addedBy(path: readonly Plugin[]): string {
+    return path.length === 1 ? "the project" : pluginPath(path.slice(0, -1));
+}
+
+/** Reported by {@link Project.run} when a plugin's `build()` fails. */
+export class PluginFailed implements Diagnostic {
+    readonly severity = "error";
+    readonly code = PluginFailed.name;
+    readonly title: string;
+    readonly details: readonly Detail[];
+    /** The value that `build()` threw or rejected with. */
+    readonly cause: unknown;
+    /** The plugin that failed, after the plugins that added it, from the outermost. */
+    readonly plugins: readonly Plugin[];
+
+    constructor(plugins: readonly Plugin[], cause: unknown) {
+        this.title = `Plugin ${pluginPath(plugins.slice(-1))} failed in build()`;
+        this.details = [{ kind: "field", label: "added by", value: addedBy(plugins) }];
+        this.cause = cause;
+        this.plugins = plugins;
     }
 }
 
-/** Thrown by {@link Project.run} when a project has two plugins of the same class. */
-export class DuplicatePluginError extends TypeError {
-    constructor(name: string, addedBy: readonly string[]) {
-        const by = addedBy.length === 0 ? "" : ` by ${describePlugins(addedBy)}`;
-        super(`Plugin ${name} is already added${by}`);
-        this.name = "DuplicatePluginError";
+/**
+ * Reported by {@link Project.run} when a project has two plugins of the same class.
+ *
+ * The run skips the second plugin, and calls the plugins after it.
+ */
+export class DuplicatePlugin implements Diagnostic {
+    readonly severity = "error";
+    readonly code = DuplicatePlugin.name;
+    readonly title: string;
+    readonly details: readonly Detail[];
+    readonly help = "A project holds one plugin of each class";
+    /** The first plugin of the class, after the plugins that added it, from the outermost. */
+    readonly first: readonly Plugin[];
+    /** The second plugin of the class, after the plugins that added it, from the outermost. */
+    readonly again: readonly Plugin[];
+
+    constructor(first: readonly Plugin[], again: readonly Plugin[]) {
+        this.title = `Plugin ${pluginPath(again.slice(-1))} is added twice`;
+        this.details = [
+            { kind: "field", label: "first added by", value: addedBy(first) },
+            { kind: "field", label: "again added by", value: addedBy(again) },
+        ];
+        this.first = first;
+        this.again = again;
     }
 }
 

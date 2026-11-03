@@ -1,8 +1,11 @@
+import { expect } from "vite-plus/test";
+
+import { type Diagnostic, RunFailedError } from "#/diagnostic";
 import type { Entry } from "#/entry";
 import type { PackOutput } from "#/output";
 import { Project } from "#/project";
 import type { Registry } from "#/registry";
-import { type PreparedSystem, type System, SystemFailedError } from "#/system";
+import type { PreparedSystem, System } from "#/system";
 
 export const NS = "test";
 
@@ -28,7 +31,9 @@ export async function runSetup(
     try {
         await project.run();
     } catch (error) {
-        throw error instanceof SystemFailedError ? error.cause : error;
+        const diagnostics = error instanceof RunFailedError ? error.diagnostics : [];
+        const failed = diagnostics.find((diagnostic) => diagnostic.code === "SystemFailed");
+        throw failed === undefined ? error : failed.cause;
     }
     return registry.promise;
 }
@@ -37,4 +42,13 @@ export function registryWith(...entries: Entry[]): Promise<Registry> {
     return runSetup(NS, (reg) => {
         reg.add(...entries);
     });
+}
+
+export async function diagnosticsOf(run: Promise<unknown>): Promise<readonly Diagnostic[]> {
+    const error = await run.then(
+        () => null,
+        (error: unknown) => error,
+    );
+    expect(error).toBeInstanceOf(RunFailedError);
+    return (error as RunFailedError).diagnostics;
 }

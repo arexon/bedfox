@@ -1,3 +1,4 @@
+import type { Diagnostic, Severity } from "#/diagnostic";
 import { Entry, type Reference } from "#/entry";
 import type { EmitContext, Emitted, PackKind } from "#/output";
 import { Resource } from "#/resource";
@@ -131,4 +132,8 @@ export class Clash extends Resource {
     emit(): Emitted {
         return { format: "json", value: {} };
     }
+}
+
+export function remark(severity: Severity, title: string): Diagnostic {
+    return { severity, code: "Remark", title };
 }
